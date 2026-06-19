@@ -110,6 +110,27 @@ def test_created_risk_has_initial_statuses_and_is_active(db_session: Session) ->
     assert risk_record.is_active is True
 
 
+def test_create_risk_record_assigns_risk_id_automatically(
+    db_session: Session,
+) -> None:
+    risk_record = create_risk_record(db_session, data=_risk_data())
+
+    assert risk_record.risk_id is not None
+    assert risk_record.risk_id.startswith("RISK-")
+
+
+def test_creating_two_risks_assigns_sequential_risk_ids(db_session: Session) -> None:
+    first_risk = create_risk_record(db_session, data=_risk_data())
+    second_risk = create_risk_record(
+        db_session,
+        data=_risk_data(problem_description="Second risk."),
+    )
+
+    assert first_risk.risk_id is not None
+    assert second_risk.risk_id is not None
+    assert int(second_risk.risk_id[-4:]) == int(first_risk.risk_id[-4:]) + 1
+
+
 def test_create_risk_with_active_board_of_origin_succeeds(
     db_session: Session,
 ) -> None:
@@ -157,6 +178,23 @@ def test_create_risk_writes_create_audit_log(db_session: Session) -> None:
     )
 
     assert audit_log is not None
+
+
+def test_create_risk_audit_snapshot_includes_generated_risk_id(
+    db_session: Session,
+) -> None:
+    risk_record = create_risk_record(db_session, data=_risk_data())
+
+    audit_log = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entity_id == risk_record.id,
+            AuditLog.entity_type == "RiskRecord",
+            AuditLog.action == AuditAction.CREATE,
+        )
+    )
+
+    assert audit_log is not None
+    assert audit_log.new_value["risk_id"] == risk_record.risk_id
 
 
 def test_update_risk_field_succeeds_and_writes_update_audit_log(

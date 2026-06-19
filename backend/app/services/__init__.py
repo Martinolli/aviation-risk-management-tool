@@ -50,6 +50,11 @@ from app.services.risk_decision_service import (
     get_risk_decision,
     list_risk_decisions,
 )
+from app.services.risk_numbering_service import (
+    RiskNumberingError,
+    generate_next_risk_id,
+    parse_risk_id,
+)
 
 __all__ = [
     "AuditQueryBusinessRuleError",
@@ -62,6 +67,7 @@ __all__ = [
     "RiskAssessmentNotFoundError",
     "RiskDecisionBusinessRuleError",
     "RiskDecisionNotFoundError",
+    "RiskNumberingError",
     "RiskRecordBusinessRuleError",
     "RiskRecordNotFoundError",
     "archive_committee",
@@ -74,6 +80,7 @@ __all__ = [
     "get_committee",
     "get_audit_log",
     "get_default_committee_names",
+    "generate_next_risk_id",
     "get_risk_action",
     "get_risk_assessment",
     "get_risk_decision",
@@ -84,6 +91,7 @@ __all__ = [
     "list_risk_assessments",
     "list_risk_decisions",
     "list_risk_records",
+    "parse_risk_id",
     "seed_default_committees",
     "submit_risk_record",
     "update_committee",

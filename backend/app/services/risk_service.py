@@ -8,6 +8,7 @@ from app.models.committee import Committee
 from app.models.enums import AuditAction, RiskLifecycleStatus, RiskWorkflowStatus
 from app.models.risk import RiskRecord
 from app.schemas.risk import RiskRecordCreate, RiskRecordUpdate
+from app.services.risk_numbering_service import generate_next_risk_id
 
 RISK_RECORD_ENTITY_TYPE = "RiskRecord"
 
@@ -70,6 +71,7 @@ def create_risk_record(
     _validate_board_of_origin(db, data.board_of_origin_id)
 
     risk_record = RiskRecord(
+        risk_id=generate_next_risk_id(db),
         problem_description=data.problem_description,
         source_trigger=data.source_trigger,
         domain=data.domain,
