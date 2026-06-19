@@ -4,6 +4,7 @@ from app.api.committees import router as committee_router
 from app.api.health import router as health_router
 from app.api.risk_actions import router as risk_action_router
 from app.api.risk_assessments import router as risk_assessment_router
+from app.api.risk_decisions import router as risk_decision_router
 from app.api.risks import router as risk_router
 from app.core.config import settings
 
@@ -15,6 +16,7 @@ def create_app() -> FastAPI:
     app.include_router(risk_router)
     app.include_router(risk_assessment_router)
     app.include_router(risk_action_router)
+    app.include_router(risk_decision_router)
     return app
 
 

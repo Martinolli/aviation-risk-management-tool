@@ -21,6 +21,7 @@ from app.schemas.risk_assessment import (
     RiskAssessmentRead,
     RiskAssessmentUpdate,
 )
+from app.schemas.risk_decision import RiskDecisionCreate, RiskDecisionRead
 
 __all__ = [
     "CommitteeArchive",
@@ -34,6 +35,8 @@ __all__ = [
     "RiskAssessmentCreate",
     "RiskAssessmentRead",
     "RiskAssessmentUpdate",
+    "RiskDecisionCreate",
+    "RiskDecisionRead",
     "RiskRecordCreate",
     "RiskRecordRead",
     "RiskRecordSubmit",

@@ -38,6 +38,13 @@ from app.services.risk_action_service import (
     list_risk_actions,
     update_risk_action,
 )
+from app.services.risk_decision_service import (
+    RiskDecisionBusinessRuleError,
+    RiskDecisionNotFoundError,
+    create_risk_decision,
+    get_risk_decision,
+    list_risk_decisions,
+)
 
 __all__ = [
     "CommitteeBusinessRuleError",
@@ -47,6 +54,8 @@ __all__ = [
     "RiskActionNotFoundError",
     "RiskAssessmentBusinessRuleError",
     "RiskAssessmentNotFoundError",
+    "RiskDecisionBusinessRuleError",
+    "RiskDecisionNotFoundError",
     "RiskRecordBusinessRuleError",
     "RiskRecordNotFoundError",
     "archive_committee",
@@ -54,15 +63,18 @@ __all__ = [
     "create_committee",
     "create_risk_action",
     "create_risk_assessment",
+    "create_risk_decision",
     "create_risk_record",
     "get_committee",
     "get_default_committee_names",
     "get_risk_action",
     "get_risk_assessment",
+    "get_risk_decision",
     "get_risk_record",
     "list_committees",
     "list_risk_actions",
     "list_risk_assessments",
+    "list_risk_decisions",
     "list_risk_records",
     "seed_default_committees",
     "submit_risk_record",
