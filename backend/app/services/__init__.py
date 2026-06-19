@@ -50,6 +50,10 @@ from app.services.risk_decision_service import (
     get_risk_decision,
     list_risk_decisions,
 )
+from app.services.risk_detail_service import (
+    RiskDetailNotFoundError,
+    get_risk_record_detail,
+)
 from app.services.risk_numbering_service import (
     RiskNumberingError,
     generate_next_risk_id,
@@ -67,6 +71,7 @@ __all__ = [
     "RiskAssessmentNotFoundError",
     "RiskDecisionBusinessRuleError",
     "RiskDecisionNotFoundError",
+    "RiskDetailNotFoundError",
     "RiskNumberingError",
     "RiskRecordBusinessRuleError",
     "RiskRecordNotFoundError",
@@ -84,6 +89,7 @@ __all__ = [
     "get_risk_action",
     "get_risk_assessment",
     "get_risk_decision",
+    "get_risk_record_detail",
     "get_risk_record",
     "list_committees",
     "list_audit_logs",

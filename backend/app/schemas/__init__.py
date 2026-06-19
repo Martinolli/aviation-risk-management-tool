@@ -23,6 +23,7 @@ from app.schemas.risk_assessment import (
     RiskAssessmentUpdate,
 )
 from app.schemas.risk_decision import RiskDecisionCreate, RiskDecisionRead
+from app.schemas.risk_detail import RiskAuditSummary, RiskRecordDetailRead
 
 __all__ = [
     "AuditLogRead",
@@ -39,6 +40,8 @@ __all__ = [
     "RiskAssessmentUpdate",
     "RiskDecisionCreate",
     "RiskDecisionRead",
+    "RiskAuditSummary",
+    "RiskRecordDetailRead",
     "RiskRecordCreate",
     "RiskRecordRead",
     "RiskRecordSubmit",

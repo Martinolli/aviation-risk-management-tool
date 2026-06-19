@@ -11,6 +11,11 @@ from app.schemas.risk import (
     RiskRecordSubmit,
     RiskRecordUpdate,
 )
+from app.schemas.risk_detail import RiskRecordDetailRead
+from app.services.risk_detail_service import (
+    RiskDetailNotFoundError,
+    get_risk_record_detail,
+)
 from app.services.risk_service import (
     RiskRecordBusinessRuleError,
     RiskRecordNotFoundError,
@@ -36,6 +41,20 @@ def list_risk_records_endpoint(
     db: Session = Depends(get_db),
 ):
     return list_risk_records(db, include_archived=include_archived)
+
+
+@router.get("/{risk_record_id}/detail", response_model=RiskRecordDetailRead)
+def get_risk_record_detail_endpoint(
+    risk_record_id: uuid.UUID,
+    db: Session = Depends(get_db),
+):
+    try:
+        return get_risk_record_detail(db, risk_record_id=risk_record_id)
+    except RiskDetailNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Risk record not found",
+        ) from exc
 
 
 @router.get("/{risk_record_id}", response_model=RiskRecordRead)
