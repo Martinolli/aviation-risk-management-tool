@@ -59,6 +59,11 @@ from app.services.risk_numbering_service import (
     generate_next_risk_id,
     parse_risk_id,
 )
+from app.services.report_service import (
+    ReportGenerationError,
+    ReportRiskNotFoundError,
+    generate_risk_dossier_docx,
+)
 
 __all__ = [
     "AuditQueryBusinessRuleError",
@@ -75,6 +80,8 @@ __all__ = [
     "RiskNumberingError",
     "RiskRecordBusinessRuleError",
     "RiskRecordNotFoundError",
+    "ReportGenerationError",
+    "ReportRiskNotFoundError",
     "archive_committee",
     "complete_risk_action",
     "create_committee",
@@ -86,6 +93,7 @@ __all__ = [
     "get_audit_log",
     "get_default_committee_names",
     "generate_next_risk_id",
+    "generate_risk_dossier_docx",
     "get_risk_action",
     "get_risk_assessment",
     "get_risk_decision",
