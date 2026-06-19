@@ -10,6 +10,12 @@ from app.schemas.risk import (
     RiskRecordSubmit,
     RiskRecordUpdate,
 )
+from app.schemas.risk_action import (
+    RiskActionComplete,
+    RiskActionCreate,
+    RiskActionRead,
+    RiskActionUpdate,
+)
 from app.schemas.risk_assessment import (
     RiskAssessmentCreate,
     RiskAssessmentRead,
@@ -21,6 +27,10 @@ __all__ = [
     "CommitteeCreate",
     "CommitteeRead",
     "CommitteeUpdate",
+    "RiskActionComplete",
+    "RiskActionCreate",
+    "RiskActionRead",
+    "RiskActionUpdate",
     "RiskAssessmentCreate",
     "RiskAssessmentRead",
     "RiskAssessmentUpdate",
