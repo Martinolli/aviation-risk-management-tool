@@ -1,3 +1,8 @@
+from app.services.audit_query_service import (
+    AuditQueryBusinessRuleError,
+    get_audit_log,
+    list_audit_logs,
+)
 from app.services.committee_service import (
     CommitteeBusinessRuleError,
     CommitteeNotFoundError,
@@ -47,6 +52,7 @@ from app.services.risk_decision_service import (
 )
 
 __all__ = [
+    "AuditQueryBusinessRuleError",
     "CommitteeBusinessRuleError",
     "CommitteeNotFoundError",
     "DEFAULT_GOVERNANCE_COMMITTEES",
@@ -66,12 +72,14 @@ __all__ = [
     "create_risk_decision",
     "create_risk_record",
     "get_committee",
+    "get_audit_log",
     "get_default_committee_names",
     "get_risk_action",
     "get_risk_assessment",
     "get_risk_decision",
     "get_risk_record",
     "list_committees",
+    "list_audit_logs",
     "list_risk_actions",
     "list_risk_assessments",
     "list_risk_decisions",

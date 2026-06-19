@@ -1,3 +1,4 @@
+from app.api.audit_logs import router as audit_logs_router
 from app.api.committees import router as committees_router
 from app.api.health import router as health_router
 from app.api.risk_actions import router as risk_actions_router
@@ -6,6 +7,7 @@ from app.api.risk_decisions import router as risk_decisions_router
 from app.api.risks import router as risks_router
 
 __all__ = [
+    "audit_logs_router",
     "committees_router",
     "health_router",
     "risk_actions_router",

@@ -1,3 +1,4 @@
+from app.schemas.audit import AuditLogRead
 from app.schemas.committee import (
     CommitteeArchive,
     CommitteeCreate,
@@ -24,6 +25,7 @@ from app.schemas.risk_assessment import (
 from app.schemas.risk_decision import RiskDecisionCreate, RiskDecisionRead
 
 __all__ = [
+    "AuditLogRead",
     "CommitteeArchive",
     "CommitteeCreate",
     "CommitteeRead",
