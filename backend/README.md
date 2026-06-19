@@ -62,3 +62,13 @@ Expected response:
 ```json
 {"status":"ok","service":"aviation-risk-management-tool"}
 ```
+
+## Seed Default Committees
+
+The default aviation SMS governance committees can be created by calling
+`seed_default_committees(db)` from `app.services.seed_service`. The seed is
+idempotent: existing committees with matching names are returned as-is, and only
+newly created committees receive audit log records.
+
+This is currently a service function. A later task may expose it through a CLI
+command or an admin-only API operation.
