@@ -24,6 +24,10 @@ from app.schemas.risk_assessment import (
 )
 from app.schemas.risk_decision import RiskDecisionCreate, RiskDecisionRead
 from app.schemas.risk_detail import RiskAuditSummary, RiskRecordDetailRead
+from app.schemas.report import (
+    GenerateRiskDossierReportRequest,
+    GeneratedReportRead,
+)
 
 __all__ = [
     "AuditLogRead",
@@ -31,6 +35,8 @@ __all__ = [
     "CommitteeCreate",
     "CommitteeRead",
     "CommitteeUpdate",
+    "GenerateRiskDossierReportRequest",
+    "GeneratedReportRead",
     "RiskActionComplete",
     "RiskActionCreate",
     "RiskActionRead",

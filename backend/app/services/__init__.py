@@ -64,12 +64,20 @@ from app.services.report_service import (
     ReportRiskNotFoundError,
     generate_risk_dossier_docx,
 )
+from app.services.report_tracking_service import (
+    GeneratedReportNotFoundError,
+    ReportTrackingBusinessRuleError,
+    generate_and_track_risk_dossier_report,
+    get_generated_report,
+    list_generated_reports,
+)
 
 __all__ = [
     "AuditQueryBusinessRuleError",
     "CommitteeBusinessRuleError",
     "CommitteeNotFoundError",
     "DEFAULT_GOVERNANCE_COMMITTEES",
+    "GeneratedReportNotFoundError",
     "RiskActionBusinessRuleError",
     "RiskActionNotFoundError",
     "RiskAssessmentBusinessRuleError",
@@ -82,6 +90,7 @@ __all__ = [
     "RiskRecordNotFoundError",
     "ReportGenerationError",
     "ReportRiskNotFoundError",
+    "ReportTrackingBusinessRuleError",
     "archive_committee",
     "complete_risk_action",
     "create_committee",
@@ -93,7 +102,9 @@ __all__ = [
     "get_audit_log",
     "get_default_committee_names",
     "generate_next_risk_id",
+    "generate_and_track_risk_dossier_report",
     "generate_risk_dossier_docx",
+    "get_generated_report",
     "get_risk_action",
     "get_risk_assessment",
     "get_risk_decision",
@@ -101,6 +112,7 @@ __all__ = [
     "get_risk_record",
     "list_committees",
     "list_audit_logs",
+    "list_generated_reports",
     "list_risk_actions",
     "list_risk_assessments",
     "list_risk_decisions",
