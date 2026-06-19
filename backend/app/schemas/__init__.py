@@ -4,7 +4,12 @@ from app.schemas.committee import (
     CommitteeRead,
     CommitteeUpdate,
 )
-from app.schemas.risk import RiskRecordCreate, RiskRecordRead
+from app.schemas.risk import (
+    RiskRecordCreate,
+    RiskRecordRead,
+    RiskRecordSubmit,
+    RiskRecordUpdate,
+)
 
 __all__ = [
     "CommitteeArchive",
@@ -13,4 +18,6 @@ __all__ = [
     "CommitteeUpdate",
     "RiskRecordCreate",
     "RiskRecordRead",
+    "RiskRecordSubmit",
+    "RiskRecordUpdate",
 ]
