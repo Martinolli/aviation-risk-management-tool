@@ -21,23 +21,37 @@ from app.services.risk_service import (
     submit_risk_record,
     update_risk_record,
 )
+from app.services.risk_assessment_service import (
+    RiskAssessmentBusinessRuleError,
+    RiskAssessmentNotFoundError,
+    create_risk_assessment,
+    get_risk_assessment,
+    list_risk_assessments,
+    update_risk_assessment,
+)
 
 __all__ = [
     "CommitteeBusinessRuleError",
     "CommitteeNotFoundError",
     "DEFAULT_GOVERNANCE_COMMITTEES",
+    "RiskAssessmentBusinessRuleError",
+    "RiskAssessmentNotFoundError",
     "RiskRecordBusinessRuleError",
     "RiskRecordNotFoundError",
     "archive_committee",
     "create_committee",
+    "create_risk_assessment",
     "create_risk_record",
     "get_committee",
     "get_default_committee_names",
+    "get_risk_assessment",
     "get_risk_record",
     "list_committees",
+    "list_risk_assessments",
     "list_risk_records",
     "seed_default_committees",
     "submit_risk_record",
     "update_committee",
+    "update_risk_assessment",
     "update_risk_record",
 ]
