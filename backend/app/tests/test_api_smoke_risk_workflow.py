@@ -110,6 +110,21 @@ def _create_action(client: TestClient, risk_record_id: str) -> dict[str, object]
     return response.json()
 
 
+def _create_action_actor_headers(
+    client: TestClient,
+    risk_record_id: str,
+) -> dict[str, str]:
+    response = client.post(
+        "/users",
+        json={
+            "email": f"action-{risk_record_id}@example.com",
+            "display_name": "Smoke Action Actor",
+        },
+    )
+    assert response.status_code == 201
+    return {"X-User-Id": response.json()["id"]}
+
+
 def _create_decision_headers(
     client: TestClient,
     committee_id: str,
@@ -175,10 +190,12 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
 
     initial_assessment = _create_assessment(client, risk_record_id, "INITIAL")
     action = _create_action(client, risk_record_id)
+    action_headers = _create_action_actor_headers(client, risk_record_id)
 
     complete_response = client.post(
         f"/risk-actions/{action['id']}/complete",
         json={"completion_notes": "Mount inspected and secured."},
+        headers=action_headers,
     )
     assert complete_response.status_code == 200
     assert complete_response.json()["status"] == "COMPLETED"
@@ -269,15 +286,18 @@ def test_invalid_governance_decisions_through_api(client: TestClient) -> None:
 def test_completed_action_protection_through_api(client: TestClient) -> None:
     risk = _create_risk(client)
     action = _create_action(client, risk["id"])
+    action_headers = _create_action_actor_headers(client, risk["id"])
 
     complete_response = client.post(
         f"/risk-actions/{action['id']}/complete",
         json={"completion_notes": "Completed mitigation action."},
+        headers=action_headers,
     )
     assert complete_response.status_code == 200
 
     patch_response = client.patch(
         f"/risk-actions/{action['id']}",
         json={"title": "Changed after completion"},
+        headers=action_headers,
     )
     assert patch_response.status_code == 400

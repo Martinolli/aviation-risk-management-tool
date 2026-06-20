@@ -4,21 +4,24 @@ from datetime import date, datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401
 from app.core.database import get_db
 from app.main import app
+from app.models.audit import AuditLog
 from app.models.base import Base
 from app.models.enums import (
+    AuditAction,
     RiskActionStatus,
     RiskDomain,
     RiskLifecycleStatus,
     RiskWorkflowStatus,
 )
 from app.models.risk import RiskAction, RiskRecord
+from app.models.user import User
 
 
 @pytest.fixture()
@@ -66,20 +69,30 @@ def _action_payload(
     risk_record_id: uuid.UUID,
     *,
     title: str = "Inspect flight test instrumentation",
+    action_owner_user_id: uuid.UUID | None = None,
 ) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "risk_record_id": str(risk_record_id),
         "title": title,
         "description": "Mitigation action",
         "due_date": "2026-06-30",
     }
+    if action_owner_user_id is not None:
+        payload["action_owner_user_id"] = str(action_owner_user_id)
+    return payload
 
 
-def _create_action(db_session: Session, risk_record_id: uuid.UUID) -> RiskAction:
+def _create_action(
+    db_session: Session,
+    risk_record_id: uuid.UUID,
+    *,
+    action_owner_user_id: uuid.UUID | None = None,
+) -> RiskAction:
     action = RiskAction(
         risk_record_id=risk_record_id,
         title="Inspect flight test instrumentation",
         description="Mitigation action",
+        action_owner_user_id=action_owner_user_id,
         due_date=date(2026, 6, 30),
         status=RiskActionStatus.OPEN,
     )
@@ -87,6 +100,18 @@ def _create_action(db_session: Session, risk_record_id: uuid.UUID) -> RiskAction
     db_session.commit()
     db_session.refresh(action)
     return action
+
+
+def _create_user(db_session: Session, *, is_active: bool = True) -> User:
+    user = User(
+        email=f"{uuid.uuid4()}@example.com",
+        display_name="Action User",
+        is_active=is_active,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
 
 
 def test_get_risk_actions_returns_list(
@@ -140,6 +165,30 @@ def test_post_risk_actions_for_unknown_risk_returns_http_400(
     assert response.status_code == 400
 
 
+def test_post_risk_action_validates_optional_owner(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    active_owner = _create_user(db_session)
+    inactive_owner = _create_user(db_session, is_active=False)
+
+    response = client.post(
+        "/risk-actions",
+        json=_action_payload(risk_record.id, action_owner_user_id=active_owner.id),
+    )
+    assert response.status_code == 201
+    assert response.json()["action_owner_user_id"] == str(active_owner.id)
+    assert client.post(
+        "/risk-actions",
+        json=_action_payload(risk_record.id, action_owner_user_id=uuid.uuid4()),
+    ).status_code == 400
+    assert client.post(
+        "/risk-actions",
+        json=_action_payload(risk_record.id, action_owner_user_id=inactive_owner.id),
+    ).status_code == 400
+
+
 def test_get_risk_action_returns_action(
     client: TestClient,
     db_session: Session,
@@ -165,6 +214,7 @@ def test_patch_risk_action_updates_valid_fields(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     action = _create_action(db_session, risk_record.id)
+    actor = _create_user(db_session)
 
     response = client.patch(
         f"/risk-actions/{action.id}",
@@ -174,6 +224,7 @@ def test_patch_risk_action_updates_valid_fields(
             "due_date": "2026-07-15",
             "status": "IN_PROGRESS",
         },
+        headers={"X-User-Id": str(actor.id)},
     )
 
     assert response.status_code == 200
@@ -190,10 +241,12 @@ def test_patch_risk_action_with_status_completed_returns_http_400(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     action = _create_action(db_session, risk_record.id)
+    actor = _create_user(db_session)
 
     response = client.patch(
         f"/risk-actions/{action.id}",
         json={"status": "COMPLETED"},
+        headers={"X-User-Id": str(actor.id)},
     )
 
     assert response.status_code == 400
@@ -205,10 +258,12 @@ def test_complete_risk_action_completes_action(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     action = _create_action(db_session, risk_record.id)
+    actor = _create_user(db_session)
 
     response = client.post(
         f"/risk-actions/{action.id}/complete",
         json={"completion_notes": "Inspection completed"},
+        headers={"X-User-Id": str(actor.id)},
     )
 
     assert response.status_code == 200
@@ -224,6 +279,7 @@ def test_complete_risk_action_again_returns_http_400(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     action = _create_action(db_session, risk_record.id)
+    actor = _create_user(db_session)
     action.status = RiskActionStatus.COMPLETED
     action.completed_at = datetime.now(timezone.utc)
     db_session.commit()
@@ -231,9 +287,83 @@ def test_complete_risk_action_again_returns_http_400(
     response = client.post(
         f"/risk-actions/{action.id}/complete",
         json={"completion_notes": "Already done"},
+        headers={"X-User-Id": str(actor.id)},
     )
 
     assert response.status_code == 400
+
+
+def test_action_mutations_require_active_owner_or_actor(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    owner = _create_user(db_session)
+    non_owner = _create_user(db_session)
+    inactive_user = _create_user(db_session, is_active=False)
+    action = _create_action(
+        db_session,
+        risk_record.id,
+        action_owner_user_id=owner.id,
+    )
+
+    assert client.patch(f"/risk-actions/{action.id}", json={"title": "Updated"}).status_code == 400
+    assert client.patch(
+        f"/risk-actions/{action.id}",
+        json={"title": "Updated"},
+        headers={"X-User-Id": str(non_owner.id)},
+    ).status_code == 400
+    assert client.patch(
+        f"/risk-actions/{action.id}",
+        json={"title": "Updated"},
+        headers={"X-User-Id": str(uuid.uuid4())},
+    ).status_code == 401
+    assert client.patch(
+        f"/risk-actions/{action.id}",
+        json={"title": "Updated"},
+        headers={"X-User-Id": str(inactive_user.id)},
+    ).status_code == 403
+    assert client.patch(
+        f"/risk-actions/{action.id}",
+        json={"title": "Updated"},
+        headers={"X-User-Id": str(owner.id)},
+    ).status_code == 200
+
+    assert client.post(
+        f"/risk-actions/{action.id}/complete", json={}
+    ).status_code == 400
+    assert client.post(
+        f"/risk-actions/{action.id}/complete",
+        json={},
+        headers={"X-User-Id": str(non_owner.id)},
+    ).status_code == 400
+    assert client.post(
+        f"/risk-actions/{action.id}/complete",
+        json={},
+        headers={"X-User-Id": str(uuid.uuid4())},
+    ).status_code == 401
+    assert client.post(
+        f"/risk-actions/{action.id}/complete",
+        json={},
+        headers={"X-User-Id": str(inactive_user.id)},
+    ).status_code == 403
+    complete_response = client.post(
+        f"/risk-actions/{action.id}/complete",
+        json={"completion_notes": "Completed by owner"},
+        headers={"X-User-Id": str(owner.id)},
+    )
+    audit_log = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entity_id == action.id,
+            AuditLog.action == AuditAction.UPDATE,
+            AuditLog.field_name == "status",
+        )
+    )
+
+    assert complete_response.status_code == 200
+    assert complete_response.json()["status"] == "COMPLETED"
+    assert audit_log is not None
+    assert audit_log.changed_by_user_id == owner.id
 
 
 def test_get_risk_actions_filtered_by_risk_record_id(

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 import app.services.audit_service as audit_service
 from app.models.enums import RiskActionStatus, RiskWorkflowStatus
 from app.models.risk import RiskAction, RiskRecord
+from app.models.user import User
 from app.schemas.risk_action import (
     RiskActionCreate,
     RiskActionUpdate,
@@ -53,6 +54,51 @@ def _get_actionable_risk_record(db: Session, risk_record_id: uuid.UUID) -> RiskR
     return risk_record
 
 
+def _validate_action_owner_user(
+    db: Session,
+    *,
+    owner_user_id: uuid.UUID | None,
+) -> None:
+    if owner_user_id is None:
+        return
+
+    owner = db.get(User, owner_user_id)
+    if owner is None:
+        raise RiskActionBusinessRuleError("Risk action owner does not exist")
+    if not owner.is_active:
+        raise RiskActionBusinessRuleError("Risk action owner is inactive")
+
+
+def _validate_action_actor(
+    db: Session,
+    *,
+    action: RiskAction,
+    actor_user_id: uuid.UUID | None,
+    operation: str,
+) -> None:
+    if actor_user_id is None:
+        raise RiskActionBusinessRuleError(
+            "Risk action update requires an authenticated active user"
+        )
+
+    actor = db.get(User, actor_user_id)
+    if actor is None:
+        raise RiskActionBusinessRuleError("Risk action user does not exist")
+    if not actor.is_active:
+        raise RiskActionBusinessRuleError("Risk action user is inactive")
+    if (
+        action.action_owner_user_id is not None
+        and action.action_owner_user_id != actor_user_id
+    ):
+        if operation == "complete":
+            raise RiskActionBusinessRuleError(
+                "Only the assigned action owner can complete this action"
+            )
+        raise RiskActionBusinessRuleError(
+            "Only the assigned action owner can update this action"
+        )
+
+
 def create_risk_action(
     db: Session,
     *,
@@ -61,6 +107,7 @@ def create_risk_action(
 ) -> RiskAction:
     _get_actionable_risk_record(db, data.risk_record_id)
     _validate_title(data.title)
+    _validate_action_owner_user(db, owner_user_id=data.action_owner_user_id)
 
     action = RiskAction(
         risk_record_id=data.risk_record_id,
@@ -116,6 +163,12 @@ def update_risk_action(
     if action is None:
         raise RiskActionNotFoundError("Risk action not found")
 
+    _validate_action_actor(
+        db,
+        action=action,
+        actor_user_id=changed_by_user_id,
+        operation="update",
+    )
     _get_actionable_risk_record(db, action.risk_record_id)
     if action.status == RiskActionStatus.COMPLETED:
         raise RiskActionBusinessRuleError("Completed actions cannot be updated")
@@ -161,6 +214,12 @@ def complete_risk_action(
     if action is None:
         raise RiskActionNotFoundError("Risk action not found")
 
+    _validate_action_actor(
+        db,
+        action=action,
+        actor_user_id=changed_by_user_id,
+        operation="complete",
+    )
     _get_actionable_risk_record(db, action.risk_record_id)
     if action.status == RiskActionStatus.COMPLETED:
         raise RiskActionBusinessRuleError("Risk action is already completed")
