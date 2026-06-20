@@ -410,7 +410,10 @@ def test_download_report_returns_docx_file(
         headers={"X-User-Id": str(risk_record.created_by_user_id)},
     )
 
-    response = client.get(f"/reports/{report_response.json()['id']}/download")
+    response = client.get(
+        f"/reports/{report_response.json()['id']}/download",
+        headers={"X-User-Id": str(risk_record.created_by_user_id)},
+    )
 
     assert response.status_code == 200
     assert response.headers["content-type"] == (
@@ -423,8 +426,97 @@ def test_download_report_returns_docx_file(
     assert response.content
 
 
-def test_download_unknown_report_returns_http_404(client: TestClient) -> None:
-    response = client.get(f"/reports/{uuid.uuid4()}/download")
+def test_download_report_requires_active_user(
+    client: TestClient,
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    creator = _create_user(db_session)
+    inactive_user = _create_user(db_session, is_active=False)
+    risk_record = _create_risk_record(db_session, creator=creator)
+    report_response = _post_report(
+        client,
+        risk_record.id,
+        tmp_path,
+        headers={"X-User-Id": str(creator.id)},
+    )
+    report_id = report_response.json()["id"]
+
+    assert client.get(f"/reports/{report_id}/download").status_code == 400
+    assert client.get(
+        f"/reports/{report_id}/download",
+        headers={"X-User-Id": str(uuid.uuid4())},
+    ).status_code == 401
+    assert client.get(
+        f"/reports/{report_id}/download",
+        headers={"X-User-Id": str(inactive_user.id)},
+    ).status_code == 403
+
+
+def test_download_report_authorizes_related_users_and_rejects_unrelated(
+    client: TestClient,
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    creator = _create_user(db_session)
+    owner = _create_user(db_session)
+    board_member = _create_user(db_session)
+    middle_member = _create_user(db_session)
+    high_member = _create_user(db_session)
+    unrelated_user = _create_user(db_session)
+    board = _create_committee(db_session)
+    middle_committee = _create_committee(
+        db_session,
+        authority_level=AuthorityLevel.MIDDLE,
+        is_fixed=True,
+    )
+    high_committee = _create_committee(
+        db_session,
+        authority_level=AuthorityLevel.HIGH,
+        is_fixed=True,
+    )
+    _create_membership(db_session, committee=board, user=board_member)
+    _create_membership(db_session, committee=middle_committee, user=middle_member)
+    _create_membership(db_session, committee=high_committee, user=high_member)
+    risk_record = _create_risk_record(
+        db_session,
+        creator=creator,
+        owner=owner,
+        board_of_origin_id=board.id,
+    )
+    report_response = _post_report(
+        client,
+        risk_record.id,
+        tmp_path,
+        headers={"X-User-Id": str(creator.id)},
+    )
+    report_id = report_response.json()["id"]
+
+    responses = [
+        client.get(
+            f"/reports/{report_id}/download",
+            headers={"X-User-Id": str(user.id)},
+        )
+        for user in (creator, owner, board_member, middle_member, high_member)
+    ]
+
+    assert [response.status_code for response in responses] == [200] * 5
+    assert all(response.content for response in responses)
+    assert client.get(
+        f"/reports/{report_id}/download",
+        headers={"X-User-Id": str(unrelated_user.id)},
+    ).status_code == 400
+
+
+def test_download_unknown_report_returns_http_404(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    user = _create_user(db_session)
+    response = client.get(
+        f"/reports/{uuid.uuid4()}/download",
+        headers={"X-User-Id": str(user.id)},
+    )
 
     assert response.status_code == 404
 
@@ -433,8 +525,11 @@ def test_download_report_with_missing_file_returns_http_400(
     client: TestClient,
     db_session: Session,
 ) -> None:
+    creator = _create_user(db_session)
+    risk_record = _create_risk_record(db_session, creator=creator)
     generated_report = GeneratedReport(
         report_type="RISK_DOSSIER_DOCX",
+        risk_record_id=risk_record.id,
         file_path="missing.docx",
         generated_at=datetime.now(timezone.utc),
         template_version="1.0",
@@ -443,7 +538,10 @@ def test_download_report_with_missing_file_returns_http_400(
     db_session.commit()
     db_session.refresh(generated_report)
 
-    response = client.get(f"/reports/{generated_report.id}/download")
+    response = client.get(
+        f"/reports/{generated_report.id}/download",
+        headers={"X-User-Id": str(creator.id)},
+    )
 
     assert response.status_code == 400
 

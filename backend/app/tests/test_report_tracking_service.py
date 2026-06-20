@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,7 @@ from app.services.report_tracking_service import (
     RISK_DOSSIER_REPORT_TYPE,
     ReportTrackingBusinessRuleError,
     generate_and_track_risk_dossier_report,
+    get_authorized_generated_report_file_path,
     get_generated_report,
     get_generated_report_file_path,
     list_generated_reports,
@@ -371,6 +373,168 @@ def test_get_generated_report_file_path_returns_existing_file(
         db_session,
         generated_report_id=generated_report.id,
     ) == Path(generated_report.file_path)
+
+
+def test_authorized_report_download_allows_related_users(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    creator = _create_user(db_session)
+    owner = _create_user(db_session)
+    board_member = _create_user(db_session)
+    middle_member = _create_user(db_session)
+    high_member = _create_user(db_session)
+    board = _create_committee(db_session)
+    middle_committee = _create_committee(
+        db_session,
+        authority_level=AuthorityLevel.MIDDLE,
+        is_fixed=True,
+    )
+    high_committee = _create_committee(
+        db_session,
+        authority_level=AuthorityLevel.HIGH,
+        is_fixed=True,
+    )
+    _create_membership(db_session, committee=board, user=board_member)
+    _create_membership(db_session, committee=middle_committee, user=middle_member)
+    _create_membership(db_session, committee=high_committee, user=high_member)
+    risk_record = _create_risk_record(
+        db_session,
+        creator=creator,
+        owner=owner,
+        board_of_origin_id=board.id,
+    )
+    generated_report = _generate_report(
+        db_session,
+        tmp_path,
+        risk_record=risk_record,
+        generated_by_user_id=creator.id,
+    )
+
+    for user in (creator, owner, board_member, middle_member, high_member):
+        assert get_authorized_generated_report_file_path(
+            db_session,
+            generated_report_id=generated_report.id,
+            requested_by_user_id=user.id,
+        ) == Path(generated_report.file_path)
+
+
+def test_authorized_report_download_rejects_invalid_or_unrelated_users(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    creator = _create_user(db_session)
+    unrelated_user = _create_user(db_session)
+    inactive_user = _create_user(db_session, is_active=False)
+    inactive_board_member = _create_user(db_session)
+    inactive_committee_member = _create_user(db_session)
+    low_committee_member = _create_user(db_session)
+    board = _create_committee(db_session)
+    inactive_committee = _create_committee(db_session, is_active=False)
+    low_committee = _create_committee(db_session)
+    _create_membership(
+        db_session,
+        committee=board,
+        user=inactive_board_member,
+        is_active=False,
+    )
+    _create_membership(
+        db_session,
+        committee=inactive_committee,
+        user=inactive_committee_member,
+    )
+    _create_membership(db_session, committee=low_committee, user=low_committee_member)
+    risk_record = _create_risk_record(
+        db_session,
+        creator=creator,
+        board_of_origin_id=board.id,
+    )
+    generated_report = _generate_report(
+        db_session,
+        tmp_path,
+        risk_record=risk_record,
+        generated_by_user_id=creator.id,
+    )
+
+    for user_id, message in [
+        (None, "download requires"),
+        (uuid.uuid4(), "user does not exist"),
+        (inactive_user.id, "user is inactive"),
+        (unrelated_user.id, "not authorized to download"),
+        (inactive_board_member.id, "not authorized to download"),
+        (inactive_committee_member.id, "not authorized to download"),
+        (low_committee_member.id, "not authorized to download"),
+    ]:
+        with pytest.raises(ReportTrackingBusinessRuleError, match=message):
+            get_authorized_generated_report_file_path(
+                db_session,
+                generated_report_id=generated_report.id,
+                requested_by_user_id=user_id,
+            )
+
+
+def test_authorized_report_download_validates_report_link_and_file(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    creator = _create_user(db_session)
+    risk_record = _create_risk_record(db_session, creator=creator)
+    generated_report = _generate_report(
+        db_session,
+        tmp_path,
+        risk_record=risk_record,
+        generated_by_user_id=creator.id,
+    )
+    generated_report.file_path = str(tmp_path / "missing.docx")
+
+    with pytest.raises(ReportTrackingBusinessRuleError, match="does not exist"):
+        get_authorized_generated_report_file_path(
+            db_session,
+            generated_report_id=generated_report.id,
+            requested_by_user_id=creator.id,
+        )
+    generated_report.file_path = str(tmp_path)
+    with pytest.raises(ReportTrackingBusinessRuleError, match="not a file"):
+        get_authorized_generated_report_file_path(
+            db_session,
+            generated_report_id=generated_report.id,
+            requested_by_user_id=creator.id,
+        )
+
+    unlinked_report = GeneratedReport(
+        report_type=RISK_DOSSIER_REPORT_TYPE,
+        file_path=str(tmp_path / "unlinked.docx"),
+        generated_at=datetime.now(timezone.utc),
+        template_version="1.0",
+    )
+    missing_risk_report = GeneratedReport(
+        report_type=RISK_DOSSIER_REPORT_TYPE,
+        risk_record_id=uuid.uuid4(),
+        file_path=str(tmp_path / "missing-risk.docx"),
+        generated_at=datetime.now(timezone.utc),
+        template_version="1.0",
+    )
+    db_session.add_all([unlinked_report, missing_risk_report])
+    db_session.flush()
+
+    with pytest.raises(ReportTrackingBusinessRuleError, match="not linked"):
+        get_authorized_generated_report_file_path(
+            db_session,
+            generated_report_id=unlinked_report.id,
+            requested_by_user_id=creator.id,
+        )
+    with pytest.raises(ReportTrackingBusinessRuleError, match="Linked risk record"):
+        get_authorized_generated_report_file_path(
+            db_session,
+            generated_report_id=missing_risk_report.id,
+            requested_by_user_id=creator.id,
+        )
+    with pytest.raises(GeneratedReportNotFoundError):
+        get_authorized_generated_report_file_path(
+            db_session,
+            generated_report_id=uuid.uuid4(),
+            requested_by_user_id=creator.id,
+        )
 
 
 def test_get_generated_report_file_path_raises_for_unknown_report(

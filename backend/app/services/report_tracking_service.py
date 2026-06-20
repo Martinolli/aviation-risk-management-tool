@@ -32,26 +32,36 @@ class ReportTrackingBusinessRuleError(ValueError):
 def _validate_report_actor(
     db: Session,
     *,
-    generated_by_user_id: uuid.UUID | None,
+    user_id: uuid.UUID | None,
+    operation: str,
 ) -> User:
-    if generated_by_user_id is None:
+    if user_id is None:
+        if operation == "download":
+            raise ReportTrackingBusinessRuleError(
+                "Report download requires an authenticated active user"
+            )
         raise ReportTrackingBusinessRuleError(
             "Report generation requires an authenticated active user"
         )
 
-    user = db.get(User, generated_by_user_id)
+    user = db.get(User, user_id)
     if user is None:
+        if operation == "download":
+            raise ReportTrackingBusinessRuleError("Report download user does not exist")
         raise ReportTrackingBusinessRuleError("Report generation user does not exist")
     if not user.is_active:
+        if operation == "download":
+            raise ReportTrackingBusinessRuleError("Report download user is inactive")
         raise ReportTrackingBusinessRuleError("Report generation user is inactive")
     return user
 
 
-def _validate_report_generation_authority(
+def _validate_report_risk_access_authority(
     db: Session,
     *,
     risk_record: RiskRecord,
     actor_user_id: uuid.UUID,
+    operation: str,
 ) -> None:
     if actor_user_id in {risk_record.owner_user_id, risk_record.created_by_user_id}:
         return
@@ -84,9 +94,11 @@ def _validate_report_generation_authority(
     if governance_membership is not None:
         return
 
-    raise ReportTrackingBusinessRuleError(
-        "User is not authorized to generate this risk report"
-    )
+    if operation == "download":
+        raise ReportTrackingBusinessRuleError(
+            "User is not authorized to download this risk report"
+        )
+    raise ReportTrackingBusinessRuleError("User is not authorized to generate this risk report")
 
 
 def generate_and_track_risk_dossier_report(
@@ -99,11 +111,16 @@ def generate_and_track_risk_dossier_report(
     risk_record = db.get(RiskRecord, risk_record_id)
     if risk_record is None:
         raise ReportTrackingBusinessRuleError("Risk record does not exist")
-    _validate_report_actor(db, generated_by_user_id=generated_by_user_id)
-    _validate_report_generation_authority(
+    _validate_report_actor(
+        db,
+        user_id=generated_by_user_id,
+        operation="generation",
+    )
+    _validate_report_risk_access_authority(
         db,
         risk_record=risk_record,
         actor_user_id=generated_by_user_id,
+        operation="generation",
     )
 
     try:
@@ -163,14 +180,52 @@ def get_generated_report_file_path(
 
     try:
         file_path = Path(generated_report.file_path)
-        if not file_path.exists():
-            raise ReportTrackingBusinessRuleError("Generated report file does not exist")
-        if not file_path.is_file():
-            raise ReportTrackingBusinessRuleError("Generated report path is not a file")
+        file_exists = file_path.exists()
+        is_file = file_path.is_file()
     except (OSError, ValueError, TypeError) as exc:
         raise ReportTrackingBusinessRuleError("Generated report file path is invalid") from exc
 
+    if not file_exists:
+        raise ReportTrackingBusinessRuleError("Generated report file does not exist")
+    if not is_file:
+        raise ReportTrackingBusinessRuleError("Generated report path is not a file")
+
     return file_path
+
+
+def get_authorized_generated_report_file_path(
+    db: Session,
+    *,
+    generated_report_id: uuid.UUID,
+    requested_by_user_id: uuid.UUID | None,
+) -> Path:
+    _validate_report_actor(
+        db,
+        user_id=requested_by_user_id,
+        operation="download",
+    )
+
+    generated_report = db.get(GeneratedReport, generated_report_id)
+    if generated_report is None:
+        raise GeneratedReportNotFoundError("Generated report not found")
+    if generated_report.risk_record_id is None:
+        raise ReportTrackingBusinessRuleError(
+            "Generated report is not linked to a risk record"
+        )
+
+    risk_record = db.get(RiskRecord, generated_report.risk_record_id)
+    if risk_record is None:
+        raise ReportTrackingBusinessRuleError("Linked risk record does not exist")
+    _validate_report_risk_access_authority(
+        db,
+        risk_record=risk_record,
+        actor_user_id=requested_by_user_id,
+        operation="download",
+    )
+    return get_generated_report_file_path(
+        db,
+        generated_report_id=generated_report_id,
+    )
 
 
 def list_generated_reports(

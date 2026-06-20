@@ -16,8 +16,8 @@ from app.services.report_tracking_service import (
     GeneratedReportNotFoundError,
     ReportTrackingBusinessRuleError,
     generate_and_track_risk_dossier_report,
+    get_authorized_generated_report_file_path,
     get_generated_report,
-    get_generated_report_file_path,
     list_generated_reports,
 )
 
@@ -77,11 +77,13 @@ def list_generated_reports_endpoint(
 def download_generated_report_endpoint(
     generated_report_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
-        file_path = get_generated_report_file_path(
+        file_path = get_authorized_generated_report_file_path(
             db,
             generated_report_id=generated_report_id,
+            requested_by_user_id=get_optional_current_user_id(current_user),
         )
     except GeneratedReportNotFoundError as exc:
         raise HTTPException(
