@@ -5,6 +5,11 @@ from app.schemas.committee import (
     CommitteeRead,
     CommitteeUpdate,
 )
+from app.schemas.committee_member import (
+    CommitteeMemberCreate,
+    CommitteeMemberRead,
+    CommitteeMemberUpdate,
+)
 from app.schemas.risk import (
     RiskRecordCreate,
     RiskRecordRead,
@@ -28,6 +33,8 @@ from app.schemas.report import (
     GenerateRiskDossierReportRequest,
     GeneratedReportRead,
 )
+from app.schemas.role import RoleCreate, RoleRead, RoleUpdate
+from app.schemas.user import UserCreate, UserRead, UserUpdate
 
 __all__ = [
     "AuditLogRead",
@@ -35,6 +42,9 @@ __all__ = [
     "CommitteeCreate",
     "CommitteeRead",
     "CommitteeUpdate",
+    "CommitteeMemberCreate",
+    "CommitteeMemberRead",
+    "CommitteeMemberUpdate",
     "GenerateRiskDossierReportRequest",
     "GeneratedReportRead",
     "RiskActionComplete",
@@ -52,4 +62,10 @@ __all__ = [
     "RiskRecordRead",
     "RiskRecordSubmit",
     "RiskRecordUpdate",
+    "RoleCreate",
+    "RoleRead",
+    "RoleUpdate",
+    "UserCreate",
+    "UserRead",
+    "UserUpdate",
 ]
