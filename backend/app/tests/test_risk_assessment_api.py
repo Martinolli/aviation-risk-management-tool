@@ -4,21 +4,24 @@ from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401
 from app.core.database import get_db
 from app.main import app
+from app.models.audit import AuditLog
 from app.models.base import Base
 from app.models.enums import (
+    AuditAction,
     RiskAssessmentType,
     RiskDomain,
     RiskLifecycleStatus,
     RiskWorkflowStatus,
 )
 from app.models.risk import RiskAssessment, RiskRecord
+from app.models.user import User
 
 
 @pytest.fixture()
@@ -98,6 +101,18 @@ def _create_assessment(
     return assessment
 
 
+def _create_user(db_session: Session, *, is_active: bool = True) -> User:
+    user = User(
+        email=f"{uuid.uuid4()}@example.com",
+        display_name="Assessment User",
+        is_active=is_active,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
 def test_get_risk_assessments_returns_list(
     client: TestClient,
     db_session: Session,
@@ -117,10 +132,12 @@ def test_post_risk_assessments_creates_assessment(
     db_session: Session,
 ) -> None:
     risk_record = _create_risk_record(db_session)
+    user = _create_user(db_session)
 
     response = client.post(
         "/risk-assessments",
         json=_assessment_payload(risk_record.id),
+        headers={"X-User-Id": str(user.id)},
     )
 
     assert response.status_code == 201
@@ -128,6 +145,7 @@ def test_post_risk_assessments_creates_assessment(
     assert body["risk_record_id"] == str(risk_record.id)
     assert body["assessment_type"] == "INITIAL"
     assert body["severity"] == "Major"
+    assert body["assessed_by_user_id"] == str(user.id)
 
 
 def test_post_duplicate_initial_assessment_returns_http_400(
@@ -136,13 +154,36 @@ def test_post_duplicate_initial_assessment_returns_http_400(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     _create_assessment(db_session, risk_record.id)
+    user = _create_user(db_session)
 
     response = client.post(
         "/risk-assessments",
         json=_assessment_payload(risk_record.id),
+        headers={"X-User-Id": str(user.id)},
     )
 
     assert response.status_code == 400
+
+
+def test_post_risk_assessment_requires_active_user(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    inactive_user = _create_user(db_session, is_active=False)
+    payload = _assessment_payload(risk_record.id)
+
+    assert client.post("/risk-assessments", json=payload).status_code == 400
+    assert client.post(
+        "/risk-assessments",
+        json=payload,
+        headers={"X-User-Id": str(uuid.uuid4())},
+    ).status_code == 401
+    assert client.post(
+        "/risk-assessments",
+        json=payload,
+        headers={"X-User-Id": str(inactive_user.id)},
+    ).status_code == 403
 
 
 def test_get_risk_assessment_returns_assessment(
@@ -170,6 +211,7 @@ def test_patch_risk_assessment_updates_fields(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     assessment = _create_assessment(db_session, risk_record.id)
+    user = _create_user(db_session)
 
     response = client.patch(
         f"/risk-assessments/{assessment.id}",
@@ -179,6 +221,7 @@ def test_patch_risk_assessment_updates_fields(
             "risk_level": "High",
             "rationale": "Updated rationale",
         },
+        headers={"X-User-Id": str(user.id)},
     )
 
     assert response.status_code == 200
@@ -187,6 +230,40 @@ def test_patch_risk_assessment_updates_fields(
     assert body["likelihood"] == "Occasional"
     assert body["risk_level"] == "High"
     assert body["rationale"] == "Updated rationale"
+
+    audit_log = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entity_id == assessment.id,
+            AuditLog.action == AuditAction.UPDATE,
+            AuditLog.field_name == "severity",
+        )
+    )
+    assert audit_log is not None
+    assert audit_log.changed_by_user_id == user.id
+
+
+def test_patch_risk_assessment_requires_active_user(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    assessment = _create_assessment(db_session, risk_record.id)
+    inactive_user = _create_user(db_session, is_active=False)
+    payload = {"severity": "Hazardous"}
+
+    assert client.patch(
+        f"/risk-assessments/{assessment.id}", json=payload
+    ).status_code == 400
+    assert client.patch(
+        f"/risk-assessments/{assessment.id}",
+        json=payload,
+        headers={"X-User-Id": str(uuid.uuid4())},
+    ).status_code == 401
+    assert client.patch(
+        f"/risk-assessments/{assessment.id}",
+        json=payload,
+        headers={"X-User-Id": str(inactive_user.id)},
+    ).status_code == 403
 
 
 def test_patch_unknown_assessment_returns_http_404(client: TestClient) -> None:

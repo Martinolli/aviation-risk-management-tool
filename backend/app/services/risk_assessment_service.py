@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 import app.services.audit_service as audit_service
 from app.models.enums import RiskWorkflowStatus
 from app.models.risk import RiskAssessment, RiskRecord
+from app.models.user import User
 from app.schemas.risk_assessment import RiskAssessmentCreate, RiskAssessmentUpdate
 
 RISK_ASSESSMENT_ENTITY_TYPE = "RiskAssessment"
@@ -57,6 +58,28 @@ def _get_assessable_risk_record(db: Session, risk_record_id: uuid.UUID) -> RiskR
     return risk_record
 
 
+def _validate_assessment_actor(
+    db: Session,
+    *,
+    user_id: uuid.UUID | None,
+    operation: str,
+) -> None:
+    if user_id is None:
+        if operation == "update":
+            raise RiskAssessmentBusinessRuleError(
+                "Risk assessment update requires an authenticated active user"
+            )
+        raise RiskAssessmentBusinessRuleError(
+            "Risk assessment requires an authenticated active user"
+        )
+
+    user = db.get(User, user_id)
+    if user is None:
+        raise RiskAssessmentBusinessRuleError("Risk assessment user does not exist")
+    if not user.is_active:
+        raise RiskAssessmentBusinessRuleError("Risk assessment user is inactive")
+
+
 def create_risk_assessment(
     db: Session,
     *,
@@ -64,6 +87,11 @@ def create_risk_assessment(
     assessed_by_user_id: uuid.UUID | None = None,
 ) -> RiskAssessment:
     _get_assessable_risk_record(db, data.risk_record_id)
+    _validate_assessment_actor(
+        db,
+        user_id=assessed_by_user_id,
+        operation="create",
+    )
     _validate_assessment_text_fields(data.model_dump())
 
     existing_assessment = db.scalar(
@@ -132,6 +160,11 @@ def update_risk_assessment(
     if assessment is None:
         raise RiskAssessmentNotFoundError("Risk assessment not found")
 
+    _validate_assessment_actor(
+        db,
+        user_id=changed_by_user_id,
+        operation="update",
+    )
     _get_assessable_risk_record(db, assessment.risk_record_id)
     update_data = data.model_dump(exclude_unset=True)
     _validate_assessment_text_fields(update_data)

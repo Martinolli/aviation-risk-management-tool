@@ -80,6 +80,7 @@ def _create_assessment(
     client: TestClient,
     risk_record_id: str,
     assessment_type: str,
+    headers: dict[str, str],
 ) -> dict[str, object]:
     response = client.post(
         "/risk-assessments",
@@ -91,6 +92,7 @@ def _create_assessment(
             "risk_level": "Medium",
             "rationale": f"{assessment_type} assessment for smoke workflow.",
         },
+        headers=headers,
     )
     assert response.status_code == 201
     return response.json()
@@ -119,6 +121,21 @@ def _create_action_actor_headers(
         json={
             "email": f"action-{risk_record_id}@example.com",
             "display_name": "Smoke Action Actor",
+        },
+    )
+    assert response.status_code == 201
+    return {"X-User-Id": response.json()["id"]}
+
+
+def _create_assessment_actor_headers(
+    client: TestClient,
+    risk_record_id: str,
+) -> dict[str, str]:
+    response = client.post(
+        "/users",
+        json={
+            "email": f"assessment-{risk_record_id}@example.com",
+            "display_name": "Smoke Assessment Actor",
         },
     )
     assert response.status_code == 201
@@ -188,7 +205,13 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
         "SUBMITTED_TO_OPERATIONAL_BOARD"
     )
 
-    initial_assessment = _create_assessment(client, risk_record_id, "INITIAL")
+    assessment_headers = _create_assessment_actor_headers(client, risk_record_id)
+    initial_assessment = _create_assessment(
+        client,
+        risk_record_id,
+        "INITIAL",
+        assessment_headers,
+    )
     action = _create_action(client, risk_record_id)
     action_headers = _create_action_actor_headers(client, risk_record_id)
 
@@ -200,7 +223,12 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
     assert complete_response.status_code == 200
     assert complete_response.json()["status"] == "COMPLETED"
 
-    residual_assessment = _create_assessment(client, risk_record_id, "RESIDUAL")
+    residual_assessment = _create_assessment(
+        client,
+        risk_record_id,
+        "RESIDUAL",
+        assessment_headers,
+    )
     decision = _create_decision(
         client,
         risk_record_id,

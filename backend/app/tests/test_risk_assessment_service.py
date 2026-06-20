@@ -17,6 +17,7 @@ from app.models.enums import (
     RiskWorkflowStatus,
 )
 from app.models.risk import RiskRecord
+from app.models.user import User
 from app.schemas.risk_assessment import RiskAssessmentCreate, RiskAssessmentUpdate
 from app.services.risk_assessment_service import (
     RiskAssessmentBusinessRuleError,
@@ -84,21 +85,36 @@ def _assessment_data(
     )
 
 
+def _create_user(db_session: Session, *, is_active: bool = True) -> User:
+    user = User(
+        email=f"{uuid.uuid4()}@example.com",
+        display_name="Assessment User",
+        is_active=is_active,
+    )
+    db_session.add(user)
+    db_session.flush()
+    return user
+
+
 def test_create_initial_assessment_succeeds(db_session: Session) -> None:
     risk_record = _create_risk_record(db_session)
+    user = _create_user(db_session)
 
     assessment = create_risk_assessment(
         db_session,
         data=_assessment_data(risk_record.id),
+        assessed_by_user_id=user.id,
     )
 
     assert assessment.id is not None
     assert assessment.assessment_type == RiskAssessmentType.INITIAL
     assert assessment.assessed_at.tzinfo is not None
+    assert assessment.assessed_by_user_id == user.id
 
 
 def test_create_residual_assessment_succeeds(db_session: Session) -> None:
     risk_record = _create_risk_record(db_session)
+    user = _create_user(db_session)
 
     assessment = create_risk_assessment(
         db_session,
@@ -106,9 +122,62 @@ def test_create_residual_assessment_succeeds(db_session: Session) -> None:
             risk_record.id,
             assessment_type=RiskAssessmentType.RESIDUAL,
         ),
+        assessed_by_user_id=user.id,
     )
 
     assert assessment.assessment_type == RiskAssessmentType.RESIDUAL
+
+
+def test_create_assessment_requires_active_actor(db_session: Session) -> None:
+    risk_record = _create_risk_record(db_session)
+    inactive_user = _create_user(db_session, is_active=False)
+
+    with pytest.raises(RiskAssessmentBusinessRuleError, match="authenticated active user"):
+        create_risk_assessment(db_session, data=_assessment_data(risk_record.id))
+    with pytest.raises(RiskAssessmentBusinessRuleError, match="user does not exist"):
+        create_risk_assessment(
+            db_session,
+            data=_assessment_data(risk_record.id),
+            assessed_by_user_id=uuid.uuid4(),
+        )
+    with pytest.raises(RiskAssessmentBusinessRuleError, match="user is inactive"):
+        create_risk_assessment(
+            db_session,
+            data=_assessment_data(risk_record.id),
+            assessed_by_user_id=inactive_user.id,
+        )
+
+
+def test_update_assessment_requires_active_actor(db_session: Session) -> None:
+    risk_record = _create_risk_record(db_session)
+    creator = _create_user(db_session)
+    inactive_user = _create_user(db_session, is_active=False)
+    assessment = create_risk_assessment(
+        db_session,
+        data=_assessment_data(risk_record.id),
+        assessed_by_user_id=creator.id,
+    )
+
+    with pytest.raises(RiskAssessmentBusinessRuleError, match="update requires"):
+        update_risk_assessment(
+            db_session,
+            risk_assessment_id=assessment.id,
+            data=RiskAssessmentUpdate(severity="Hazardous"),
+        )
+    with pytest.raises(RiskAssessmentBusinessRuleError, match="user does not exist"):
+        update_risk_assessment(
+            db_session,
+            risk_assessment_id=assessment.id,
+            data=RiskAssessmentUpdate(severity="Hazardous"),
+            changed_by_user_id=uuid.uuid4(),
+        )
+    with pytest.raises(RiskAssessmentBusinessRuleError, match="user is inactive"):
+        update_risk_assessment(
+            db_session,
+            risk_assessment_id=assessment.id,
+            data=RiskAssessmentUpdate(severity="Hazardous"),
+            changed_by_user_id=inactive_user.id,
+        )
 
 
 def test_create_assessment_for_unknown_risk_record_raises_business_rule_error(
@@ -163,11 +232,13 @@ def test_create_assessment_with_blank_severity_fails_at_service_level(
     db_session: Session,
 ) -> None:
     risk_record = _create_risk_record(db_session)
+    user = _create_user(db_session)
 
     with pytest.raises(RiskAssessmentBusinessRuleError):
         create_risk_assessment(
             db_session,
             data=_assessment_data(risk_record.id, severity="   "),
+            assessed_by_user_id=user.id,
         )
 
 
@@ -180,24 +251,29 @@ def test_create_duplicate_assessment_type_for_same_risk_raises_business_rule_err
     assessment_type: RiskAssessmentType,
 ) -> None:
     risk_record = _create_risk_record(db_session)
+    user = _create_user(db_session)
     create_risk_assessment(
         db_session,
         data=_assessment_data(risk_record.id, assessment_type=assessment_type),
+        assessed_by_user_id=user.id,
     )
 
     with pytest.raises(RiskAssessmentBusinessRuleError):
         create_risk_assessment(
             db_session,
             data=_assessment_data(risk_record.id, assessment_type=assessment_type),
+            assessed_by_user_id=user.id,
         )
 
 
 def test_create_assessment_writes_create_audit_log(db_session: Session) -> None:
     risk_record = _create_risk_record(db_session)
+    user = _create_user(db_session)
 
     assessment = create_risk_assessment(
         db_session,
         data=_assessment_data(risk_record.id),
+        assessed_by_user_id=user.id,
     )
 
     audit_log = db_session.scalar(
@@ -209,21 +285,25 @@ def test_create_assessment_writes_create_audit_log(db_session: Session) -> None:
     )
 
     assert audit_log is not None
+    assert audit_log.changed_by_user_id == user.id
 
 
 def test_update_assessment_severity_succeeds_and_writes_update_audit_log(
     db_session: Session,
 ) -> None:
     risk_record = _create_risk_record(db_session)
+    user = _create_user(db_session)
     assessment = create_risk_assessment(
         db_session,
         data=_assessment_data(risk_record.id),
+        assessed_by_user_id=user.id,
     )
 
     updated_assessment = update_risk_assessment(
         db_session,
         risk_assessment_id=assessment.id,
         data=RiskAssessmentUpdate(severity="Hazardous"),
+        changed_by_user_id=user.id,
         reason="Reassessed consequence severity",
     )
 
@@ -240,15 +320,18 @@ def test_update_assessment_severity_succeeds_and_writes_update_audit_log(
     assert audit_log is not None
     assert audit_log.old_value == "Major"
     assert audit_log.new_value == "Hazardous"
+    assert audit_log.changed_by_user_id == user.id
 
 
 def test_update_assessment_with_empty_risk_level_raises_business_rule_error(
     db_session: Session,
 ) -> None:
     risk_record = _create_risk_record(db_session)
+    user = _create_user(db_session)
     assessment = create_risk_assessment(
         db_session,
         data=_assessment_data(risk_record.id),
+        assessed_by_user_id=user.id,
     )
 
     with pytest.raises(RiskAssessmentBusinessRuleError):
@@ -256,6 +339,7 @@ def test_update_assessment_with_empty_risk_level_raises_business_rule_error(
             db_session,
             risk_assessment_id=assessment.id,
             data=RiskAssessmentUpdate(risk_level="   "),
+            changed_by_user_id=user.id,
         )
 
 
@@ -264,13 +348,16 @@ def test_list_risk_assessments_filtered_by_risk_record_id(
 ) -> None:
     first_risk = _create_risk_record(db_session)
     second_risk = _create_risk_record(db_session)
+    user = _create_user(db_session)
     first_assessment = create_risk_assessment(
         db_session,
         data=_assessment_data(first_risk.id),
+        assessed_by_user_id=user.id,
     )
     second_assessment = create_risk_assessment(
         db_session,
         data=_assessment_data(second_risk.id),
+        assessed_by_user_id=user.id,
     )
 
     assessments = list_risk_assessments(db_session, risk_record_id=first_risk.id)
