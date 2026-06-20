@@ -280,7 +280,8 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
     assert detail["audit_summary"]["workflow_count"] >= 2
 
     audit_response = client.get(
-        f"/audit-logs?entity_type=RiskRecord&entity_id={risk_record_id}"
+        f"/audit-logs?entity_type=RiskRecord&entity_id={risk_record_id}",
+        headers=risk_headers,
     )
     assert audit_response.status_code == 200
     audit_actions = {item["action"] for item in audit_response.json()}
