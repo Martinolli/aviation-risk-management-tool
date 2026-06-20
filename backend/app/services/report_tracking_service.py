@@ -6,8 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import app.services.audit_service as audit_service
+from app.models.committee import Committee, CommitteeMember
+from app.models.enums import AuthorityLevel
 from app.models.report import GeneratedReport
 from app.models.risk import RiskRecord
+from app.models.user import User
 from app.services.report_service import (
     ReportRiskNotFoundError,
     generate_risk_dossier_docx,
@@ -26,6 +29,66 @@ class ReportTrackingBusinessRuleError(ValueError):
     pass
 
 
+def _validate_report_actor(
+    db: Session,
+    *,
+    generated_by_user_id: uuid.UUID | None,
+) -> User:
+    if generated_by_user_id is None:
+        raise ReportTrackingBusinessRuleError(
+            "Report generation requires an authenticated active user"
+        )
+
+    user = db.get(User, generated_by_user_id)
+    if user is None:
+        raise ReportTrackingBusinessRuleError("Report generation user does not exist")
+    if not user.is_active:
+        raise ReportTrackingBusinessRuleError("Report generation user is inactive")
+    return user
+
+
+def _validate_report_generation_authority(
+    db: Session,
+    *,
+    risk_record: RiskRecord,
+    actor_user_id: uuid.UUID,
+) -> None:
+    if actor_user_id in {risk_record.owner_user_id, risk_record.created_by_user_id}:
+        return
+
+    if risk_record.board_of_origin_id is not None:
+        board_membership = db.scalar(
+            select(CommitteeMember.id)
+            .join(Committee, CommitteeMember.committee_id == Committee.id)
+            .where(
+                CommitteeMember.committee_id == risk_record.board_of_origin_id,
+                CommitteeMember.user_id == actor_user_id,
+                CommitteeMember.is_active.is_(True),
+                Committee.is_active.is_(True),
+            )
+        )
+        if board_membership is not None:
+            return
+
+    governance_membership = db.scalar(
+        select(CommitteeMember.id)
+        .join(Committee, CommitteeMember.committee_id == Committee.id)
+        .where(
+            CommitteeMember.user_id == actor_user_id,
+            CommitteeMember.is_active.is_(True),
+            Committee.is_active.is_(True),
+            Committee.is_fixed.is_(True),
+            Committee.authority_level.in_([AuthorityLevel.MIDDLE, AuthorityLevel.HIGH]),
+        )
+    )
+    if governance_membership is not None:
+        return
+
+    raise ReportTrackingBusinessRuleError(
+        "User is not authorized to generate this risk report"
+    )
+
+
 def generate_and_track_risk_dossier_report(
     db: Session,
     *,
@@ -36,6 +99,12 @@ def generate_and_track_risk_dossier_report(
     risk_record = db.get(RiskRecord, risk_record_id)
     if risk_record is None:
         raise ReportTrackingBusinessRuleError("Risk record does not exist")
+    _validate_report_actor(db, generated_by_user_id=generated_by_user_id)
+    _validate_report_generation_authority(
+        db,
+        risk_record=risk_record,
+        actor_user_id=generated_by_user_id,
+    )
 
     try:
         file_path = generate_risk_dossier_docx(

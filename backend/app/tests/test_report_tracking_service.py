@@ -9,14 +9,18 @@ from sqlalchemy.pool import StaticPool
 import app.models  # noqa: F401
 from app.models.audit import AuditLog
 from app.models.base import Base
+from app.models.committee import Committee, CommitteeMember
 from app.models.enums import (
     AuditAction,
+    AuthorityLevel,
+    CommitteeType,
     RiskDomain,
     RiskLifecycleStatus,
     RiskWorkflowStatus,
 )
 from app.models.report import GeneratedReport
 from app.models.risk import RiskRecord
+from app.models.user import User
 from app.services.report_tracking_service import (
     GeneratedReportNotFoundError,
     RISK_DOSSIER_REPORT_TYPE,
@@ -53,13 +57,20 @@ def _create_risk_record(
     db_session: Session,
     *,
     risk_id: str = "RISK-2026-0001",
+    creator: User | None = None,
+    owner: User | None = None,
+    board_of_origin_id: uuid.UUID | None = None,
 ) -> RiskRecord:
+    creator = creator or _create_user(db_session)
     risk_record = RiskRecord(
         risk_id=risk_id,
         problem_description=f"Risk record {uuid.uuid4()}",
         domain=RiskDomain.FLIGHT_TEST,
         workflow_status=RiskWorkflowStatus.DRAFT,
         lifecycle_status=RiskLifecycleStatus.OPEN,
+        created_by_user_id=creator.id,
+        owner_user_id=owner.id if owner is not None else None,
+        board_of_origin_id=board_of_origin_id,
         is_active=True,
     )
     db_session.add(risk_record)
@@ -67,17 +78,75 @@ def _create_risk_record(
     return risk_record
 
 
+def _create_user(db_session: Session, *, is_active: bool = True) -> User:
+    user = User(
+        email=f"{uuid.uuid4()}@example.com",
+        display_name="Report User",
+        is_active=is_active,
+    )
+    db_session.add(user)
+    db_session.flush()
+    return user
+
+
+def _create_committee(
+    db_session: Session,
+    *,
+    authority_level: AuthorityLevel = AuthorityLevel.LOW,
+    is_active: bool = True,
+    is_fixed: bool = False,
+) -> Committee:
+    committee_type = {
+        AuthorityLevel.LOW: CommitteeType.OPERATIONAL_BOARD,
+        AuthorityLevel.MIDDLE: CommitteeType.RISK_MANAGEMENT_COMMITTEE,
+        AuthorityLevel.HIGH: CommitteeType.EXECUTIVE_SAFETY_MANAGEMENT_COMMITTEE,
+    }[authority_level]
+    committee = Committee(
+        name=f"{authority_level.value} Committee {uuid.uuid4()}",
+        authority_level=authority_level,
+        committee_type=committee_type,
+        is_active=is_active,
+        is_fixed=is_fixed,
+    )
+    db_session.add(committee)
+    db_session.flush()
+    return committee
+
+
+def _create_membership(
+    db_session: Session,
+    *,
+    committee: Committee,
+    user: User,
+    is_active: bool = True,
+) -> CommitteeMember:
+    membership = CommitteeMember(
+        committee_id=committee.id,
+        user_id=user.id,
+        is_active=is_active,
+    )
+    db_session.add(membership)
+    db_session.flush()
+    return membership
+
+
 def _generate_report(
     db_session: Session,
     tmp_path: Path,
     *,
     risk_record: RiskRecord | None = None,
+    generated_by_user_id: uuid.UUID | None = None,
 ) -> GeneratedReport:
     risk_record = risk_record or _create_risk_record(db_session)
     return generate_and_track_risk_dossier_report(
         db_session,
         risk_record_id=risk_record.id,
         output_dir=tmp_path,
+        generated_by_user_id=(
+            generated_by_user_id
+            if generated_by_user_id is not None
+            else risk_record.created_by_user_id
+        ),
     )
 
 
@@ -89,6 +158,128 @@ def test_generate_and_track_risk_dossier_report_creates_docx_file(
 
     assert Path(generated_report.file_path).exists()
     assert generated_report.file_path.endswith(".docx")
+
+
+def test_generate_report_requires_active_actor(db_session: Session, tmp_path: Path) -> None:
+    risk_record = _create_risk_record(db_session)
+    inactive_user = _create_user(db_session, is_active=False)
+
+    with pytest.raises(ReportTrackingBusinessRuleError, match="authenticated active user"):
+        generate_and_track_risk_dossier_report(
+            db_session, risk_record_id=risk_record.id, output_dir=tmp_path
+        )
+    with pytest.raises(ReportTrackingBusinessRuleError, match="user does not exist"):
+        generate_and_track_risk_dossier_report(
+            db_session,
+            risk_record_id=risk_record.id,
+            output_dir=tmp_path,
+            generated_by_user_id=uuid.uuid4(),
+        )
+    with pytest.raises(ReportTrackingBusinessRuleError, match="user is inactive"):
+        generate_and_track_risk_dossier_report(
+            db_session,
+            risk_record_id=risk_record.id,
+            output_dir=tmp_path,
+            generated_by_user_id=inactive_user.id,
+        )
+
+
+def test_report_generation_authorizes_creator_owner_board_and_governance_members(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    creator = _create_user(db_session)
+    owner = _create_user(db_session)
+    board_member = _create_user(db_session)
+    middle_member = _create_user(db_session)
+    high_member = _create_user(db_session)
+    board = _create_committee(db_session)
+    middle_committee = _create_committee(
+        db_session,
+        authority_level=AuthorityLevel.MIDDLE,
+        is_fixed=True,
+    )
+    high_committee = _create_committee(
+        db_session,
+        authority_level=AuthorityLevel.HIGH,
+        is_fixed=True,
+    )
+    _create_membership(db_session, committee=board, user=board_member)
+    _create_membership(db_session, committee=middle_committee, user=middle_member)
+    _create_membership(db_session, committee=high_committee, user=high_member)
+    risk_record = _create_risk_record(
+        db_session,
+        creator=creator,
+        owner=owner,
+        board_of_origin_id=board.id,
+    )
+
+    reports = [
+        _generate_report(
+            db_session,
+            tmp_path,
+            risk_record=risk_record,
+            generated_by_user_id=user.id,
+        )
+        for user in (creator, owner, board_member, middle_member, high_member)
+    ]
+
+    assert [report.generated_by_user_id for report in reports] == [
+        creator.id,
+        owner.id,
+        board_member.id,
+        middle_member.id,
+        high_member.id,
+    ]
+
+
+def test_report_generation_rejects_unrelated_or_inactive_memberships(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    creator = _create_user(db_session)
+    unrelated_user = _create_user(db_session)
+    board_member_with_inactive_membership = _create_user(db_session)
+    inactive_committee_member = _create_user(db_session)
+    low_committee_member = _create_user(db_session)
+    board = _create_committee(db_session)
+    inactive_committee = _create_committee(db_session, is_active=False)
+    unrelated_low_committee = _create_committee(db_session)
+    _create_membership(
+        db_session,
+        committee=board,
+        user=board_member_with_inactive_membership,
+        is_active=False,
+    )
+    _create_membership(
+        db_session,
+        committee=inactive_committee,
+        user=inactive_committee_member,
+    )
+    _create_membership(
+        db_session,
+        committee=unrelated_low_committee,
+        user=low_committee_member,
+    )
+    risk_record = _create_risk_record(
+        db_session,
+        creator=creator,
+        board_of_origin_id=board.id,
+    )
+
+    for user in (
+        unrelated_user,
+        board_member_with_inactive_membership,
+        inactive_committee_member,
+        low_committee_member,
+    ):
+        with pytest.raises(ReportTrackingBusinessRuleError, match="not authorized"):
+            _generate_report(
+                db_session,
+                tmp_path,
+                risk_record=risk_record,
+                generated_by_user_id=user.id,
+            )
 
 
 def test_generate_and_track_risk_dossier_report_creates_generated_report_row(
@@ -149,6 +340,7 @@ def test_generate_report_writes_generate_report_audit_log(
 
     assert audit_log is not None
     assert audit_log.new_value["report_id"] == str(generated_report.id)
+    assert audit_log.changed_by_user_id == generated_report.generated_by_user_id
 
 
 def test_get_generated_report_returns_existing_report(
