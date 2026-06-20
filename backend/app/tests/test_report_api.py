@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Generator
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
 from app.models.enums import RiskDomain, RiskLifecycleStatus, RiskWorkflowStatus
+from app.models.report import GeneratedReport
 from app.models.risk import RiskRecord
 
 
@@ -183,6 +185,52 @@ def test_get_report_returns_report(
 
     assert response.status_code == 200
     assert response.json()["id"] == report_response.json()["id"]
+
+
+def test_download_report_returns_docx_file(
+    client: TestClient,
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    report_response = _post_report(client, risk_record.id, tmp_path)
+
+    response = client.get(f"/reports/{report_response.json()['id']}/download")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert (
+        f'filename="{Path(report_response.json()["file_path"]).name}"'
+        in response.headers["content-disposition"]
+    )
+    assert response.content
+
+
+def test_download_unknown_report_returns_http_404(client: TestClient) -> None:
+    response = client.get(f"/reports/{uuid.uuid4()}/download")
+
+    assert response.status_code == 404
+
+
+def test_download_report_with_missing_file_returns_http_400(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    generated_report = GeneratedReport(
+        report_type="RISK_DOSSIER_DOCX",
+        file_path="missing.docx",
+        generated_at=datetime.now(timezone.utc),
+        template_version="1.0",
+    )
+    db_session.add(generated_report)
+    db_session.commit()
+    db_session.refresh(generated_report)
+
+    response = client.get(f"/reports/{generated_report.id}/download")
+
+    assert response.status_code == 400
 
 
 def test_get_unknown_report_returns_http_404(client: TestClient) -> None:

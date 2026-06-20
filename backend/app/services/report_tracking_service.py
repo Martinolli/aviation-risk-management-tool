@@ -80,6 +80,30 @@ def get_generated_report(
     return db.get(GeneratedReport, generated_report_id)
 
 
+def get_generated_report_file_path(
+    db: Session,
+    *,
+    generated_report_id: uuid.UUID,
+) -> Path:
+    generated_report = db.get(GeneratedReport, generated_report_id)
+    if generated_report is None:
+        raise GeneratedReportNotFoundError("Generated report not found")
+
+    if not generated_report.file_path:
+        raise ReportTrackingBusinessRuleError("Generated report file path is missing")
+
+    try:
+        file_path = Path(generated_report.file_path)
+        if not file_path.exists():
+            raise ReportTrackingBusinessRuleError("Generated report file does not exist")
+        if not file_path.is_file():
+            raise ReportTrackingBusinessRuleError("Generated report path is not a file")
+    except (OSError, ValueError, TypeError) as exc:
+        raise ReportTrackingBusinessRuleError("Generated report file path is invalid") from exc
+
+    return file_path
+
+
 def list_generated_reports(
     db: Session,
     *,

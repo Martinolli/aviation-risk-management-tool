@@ -18,10 +18,12 @@ from app.models.enums import (
 from app.models.report import GeneratedReport
 from app.models.risk import RiskRecord
 from app.services.report_tracking_service import (
+    GeneratedReportNotFoundError,
     RISK_DOSSIER_REPORT_TYPE,
     ReportTrackingBusinessRuleError,
     generate_and_track_risk_dossier_report,
     get_generated_report,
+    get_generated_report_file_path,
     list_generated_reports,
 )
 
@@ -165,6 +167,55 @@ def test_get_generated_report_returns_none_for_unknown_report(
     db_session: Session,
 ) -> None:
     assert get_generated_report(db_session, generated_report_id=uuid.uuid4()) is None
+
+
+def test_get_generated_report_file_path_returns_existing_file(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    generated_report = _generate_report(db_session, tmp_path)
+
+    assert get_generated_report_file_path(
+        db_session,
+        generated_report_id=generated_report.id,
+    ) == Path(generated_report.file_path)
+
+
+def test_get_generated_report_file_path_raises_for_unknown_report(
+    db_session: Session,
+) -> None:
+    with pytest.raises(GeneratedReportNotFoundError):
+        get_generated_report_file_path(db_session, generated_report_id=uuid.uuid4())
+
+
+@pytest.mark.parametrize("file_path", ["missing.docx", ""])
+def test_get_generated_report_file_path_raises_for_missing_file(
+    db_session: Session,
+    tmp_path: Path,
+    file_path: str,
+) -> None:
+    generated_report = _generate_report(db_session, tmp_path)
+    generated_report.file_path = str(tmp_path / file_path) if file_path else file_path
+
+    with pytest.raises(ReportTrackingBusinessRuleError):
+        get_generated_report_file_path(
+            db_session,
+            generated_report_id=generated_report.id,
+        )
+
+
+def test_get_generated_report_file_path_raises_for_directory(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    generated_report = _generate_report(db_session, tmp_path)
+    generated_report.file_path = str(tmp_path)
+
+    with pytest.raises(ReportTrackingBusinessRuleError):
+        get_generated_report_file_path(
+            db_session,
+            generated_report_id=generated_report.id,
+        )
 
 
 def test_list_generated_reports_returns_reports(
