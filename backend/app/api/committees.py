@@ -3,8 +3,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_optional_current_user, get_optional_current_user_id
 from app.core.database import get_db
 from app.models.committee import Committee
+from app.models.user import User
 from app.schemas.committee import (
     CommitteeArchive,
     CommitteeCreate,
@@ -55,9 +57,14 @@ def get_committee_endpoint(
 def create_committee_endpoint(
     data: CommitteeCreate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
-        committee = create_committee(db, data=data, changed_by_user_id=None)
+        committee = create_committee(
+            db,
+            data=data,
+            changed_by_user_id=get_optional_current_user_id(current_user),
+        )
         return _commit_and_refresh(db, committee)
     except CommitteeBusinessRuleError as exc:
         db.rollback()
@@ -71,13 +78,14 @@ def update_committee_endpoint(
     committee_id: uuid.UUID,
     data: CommitteeUpdate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         committee = update_committee(
             db,
             committee_id=committee_id,
             data=data,
-            changed_by_user_id=None,
+            changed_by_user_id=get_optional_current_user_id(current_user),
         )
         return _commit_and_refresh(db, committee)
     except CommitteeNotFoundError as exc:
@@ -97,12 +105,13 @@ def archive_committee_endpoint(
     committee_id: uuid.UUID,
     data: CommitteeArchive,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         committee = archive_committee(
             db,
             committee_id=committee_id,
-            changed_by_user_id=None,
+            changed_by_user_id=get_optional_current_user_id(current_user),
             archive_reason=data.archive_reason,
         )
         return _commit_and_refresh(db, committee)

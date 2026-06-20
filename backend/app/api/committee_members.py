@@ -3,8 +3,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_optional_current_user, get_optional_current_user_id
 from app.core.database import get_db
 from app.models.committee import CommitteeMember
+from app.models.user import User
 from app.schemas.committee_member import (
     CommitteeMemberCreate,
     CommitteeMemberRead,
@@ -61,11 +63,16 @@ def get_committee_member_endpoint(
 def create_committee_member_endpoint(
     data: CommitteeMemberCreate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         return _commit_and_refresh(
             db,
-            create_committee_member(db, data=data, changed_by_user_id=None),
+            create_committee_member(
+                db,
+                data=data,
+                changed_by_user_id=get_optional_current_user_id(current_user),
+            ),
         )
     except CommitteeMemberBusinessRuleError as exc:
         db.rollback()
@@ -79,6 +86,7 @@ def update_committee_member_endpoint(
     committee_member_id: uuid.UUID,
     data: CommitteeMemberUpdate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         return _commit_and_refresh(
@@ -87,7 +95,7 @@ def update_committee_member_endpoint(
                 db,
                 committee_member_id=committee_member_id,
                 data=data,
-                changed_by_user_id=None,
+                changed_by_user_id=get_optional_current_user_id(current_user),
             ),
         )
     except CommitteeMemberNotFoundError as exc:

@@ -3,8 +3,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_optional_current_user, get_optional_current_user_id
 from app.core.database import get_db
 from app.models.risk import RiskRecord
+from app.models.user import User
 from app.schemas.risk import (
     RiskRecordCreate,
     RiskRecordRead,
@@ -75,12 +77,13 @@ def get_risk_record_endpoint(
 def create_risk_record_endpoint(
     data: RiskRecordCreate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         risk_record = create_risk_record(
             db,
             data=data,
-            created_by_user_id=None,
+            created_by_user_id=get_optional_current_user_id(current_user),
         )
         return _commit_and_refresh(db, risk_record)
     except RiskRecordBusinessRuleError as exc:
@@ -96,13 +99,14 @@ def update_risk_record_endpoint(
     risk_record_id: uuid.UUID,
     data: RiskRecordUpdate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         risk_record = update_risk_record(
             db,
             risk_record_id=risk_record_id,
             data=data,
-            changed_by_user_id=None,
+            changed_by_user_id=get_optional_current_user_id(current_user),
         )
         return _commit_and_refresh(db, risk_record)
     except RiskRecordNotFoundError as exc:
@@ -124,12 +128,13 @@ def submit_risk_record_endpoint(
     risk_record_id: uuid.UUID,
     data: RiskRecordSubmit | None = None,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         risk_record = submit_risk_record(
             db,
             risk_record_id=risk_record_id,
-            changed_by_user_id=None,
+            changed_by_user_id=get_optional_current_user_id(current_user),
             reason=data.reason if data is not None else None,
         )
         return _commit_and_refresh(db, risk_record)

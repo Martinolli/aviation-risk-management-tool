@@ -3,8 +3,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_optional_current_user, get_optional_current_user_id
 from app.core.database import get_db
 from app.models.risk import RiskAssessment
+from app.models.user import User
 from app.schemas.risk_assessment import (
     RiskAssessmentCreate,
     RiskAssessmentRead,
@@ -61,12 +63,13 @@ def get_risk_assessment_endpoint(
 def create_risk_assessment_endpoint(
     data: RiskAssessmentCreate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         assessment = create_risk_assessment(
             db,
             data=data,
-            assessed_by_user_id=None,
+            assessed_by_user_id=get_optional_current_user_id(current_user),
         )
         return _commit_and_refresh(db, assessment)
     except RiskAssessmentBusinessRuleError as exc:
@@ -82,13 +85,14 @@ def update_risk_assessment_endpoint(
     risk_assessment_id: uuid.UUID,
     data: RiskAssessmentUpdate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         assessment = update_risk_assessment(
             db,
             risk_assessment_id=risk_assessment_id,
             data=data,
-            changed_by_user_id=None,
+            changed_by_user_id=get_optional_current_user_id(current_user),
         )
         return _commit_and_refresh(db, assessment)
     except RiskAssessmentNotFoundError as exc:

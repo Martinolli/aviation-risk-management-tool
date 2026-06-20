@@ -3,8 +3,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_optional_current_user, get_optional_current_user_id
 from app.core.database import get_db
 from app.models.role import Role
+from app.models.user import User
 from app.schemas.role import RoleCreate, RoleRead, RoleUpdate
 from app.services.role_service import (
     RoleBusinessRuleError,
@@ -38,11 +40,19 @@ def get_role_endpoint(role_id: uuid.UUID, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=RoleRead, status_code=status.HTTP_201_CREATED)
-def create_role_endpoint(data: RoleCreate, db: Session = Depends(get_db)):
+def create_role_endpoint(
+    data: RoleCreate,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
     try:
         return _commit_and_refresh(
             db,
-            create_role(db, data=data, changed_by_user_id=None),
+            create_role(
+                db,
+                data=data,
+                changed_by_user_id=get_optional_current_user_id(current_user),
+            ),
         )
     except RoleBusinessRuleError as exc:
         db.rollback()
@@ -56,6 +66,7 @@ def update_role_endpoint(
     role_id: uuid.UUID,
     data: RoleUpdate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         return _commit_and_refresh(
@@ -64,7 +75,7 @@ def update_role_endpoint(
                 db,
                 role_id=role_id,
                 data=data,
-                changed_by_user_id=None,
+                changed_by_user_id=get_optional_current_user_id(current_user),
             ),
         )
     except RoleNotFoundError as exc:

@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_optional_current_user, get_optional_current_user_id
 from app.core.database import get_db
 from app.models.report import GeneratedReport
+from app.models.user import User
 from app.schemas.report import (
     GenerateRiskDossierReportRequest,
     GeneratedReportRead,
@@ -40,13 +42,14 @@ def generate_risk_dossier_report_endpoint(
     risk_record_id: uuid.UUID,
     data: GenerateRiskDossierReportRequest | None = None,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         generated_report = generate_and_track_risk_dossier_report(
             db,
             risk_record_id=risk_record_id,
             output_dir=data.output_dir if data is not None else None,
-            generated_by_user_id=None,
+            generated_by_user_id=get_optional_current_user_id(current_user),
         )
         return _commit_and_refresh(db, generated_report)
     except ReportTrackingBusinessRuleError as exc:

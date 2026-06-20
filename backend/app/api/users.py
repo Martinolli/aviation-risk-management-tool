@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_optional_current_user, get_optional_current_user_id
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserRead, UserUpdate
@@ -41,11 +42,19 @@ def get_user_endpoint(user_id: uuid.UUID, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def create_user_endpoint(data: UserCreate, db: Session = Depends(get_db)):
+def create_user_endpoint(
+    data: UserCreate,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
     try:
         return _commit_and_refresh(
             db,
-            create_user(db, data=data, changed_by_user_id=None),
+            create_user(
+                db,
+                data=data,
+                changed_by_user_id=get_optional_current_user_id(current_user),
+            ),
         )
     except UserBusinessRuleError as exc:
         db.rollback()
@@ -59,6 +68,7 @@ def update_user_endpoint(
     user_id: uuid.UUID,
     data: UserUpdate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         return _commit_and_refresh(
@@ -67,7 +77,7 @@ def update_user_endpoint(
                 db,
                 user_id=user_id,
                 data=data,
-                changed_by_user_id=None,
+                changed_by_user_id=get_optional_current_user_id(current_user),
             ),
         )
     except UserNotFoundError as exc:

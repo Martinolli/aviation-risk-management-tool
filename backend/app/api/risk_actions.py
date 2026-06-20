@@ -3,8 +3,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import get_optional_current_user, get_optional_current_user_id
 from app.core.database import get_db
 from app.models.risk import RiskAction
+from app.models.user import User
 from app.schemas.risk_action import (
     RiskActionComplete,
     RiskActionCreate,
@@ -56,12 +58,13 @@ def get_risk_action_endpoint(
 def create_risk_action_endpoint(
     data: RiskActionCreate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         action = create_risk_action(
             db,
             data=data,
-            created_by_user_id=None,
+            created_by_user_id=get_optional_current_user_id(current_user),
         )
         return _commit_and_refresh(db, action)
     except RiskActionBusinessRuleError as exc:
@@ -77,13 +80,14 @@ def update_risk_action_endpoint(
     risk_action_id: uuid.UUID,
     data: RiskActionUpdate,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         action = update_risk_action(
             db,
             risk_action_id=risk_action_id,
             data=data,
-            changed_by_user_id=None,
+            changed_by_user_id=get_optional_current_user_id(current_user),
         )
         return _commit_and_refresh(db, action)
     except RiskActionNotFoundError as exc:
@@ -105,12 +109,13 @@ def complete_risk_action_endpoint(
     risk_action_id: uuid.UUID,
     data: RiskActionComplete,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
         action = complete_risk_action(
             db,
             risk_action_id=risk_action_id,
-            changed_by_user_id=None,
+            changed_by_user_id=get_optional_current_user_id(current_user),
             completion_notes=data.completion_notes,
         )
         return _commit_and_refresh(db, action)
