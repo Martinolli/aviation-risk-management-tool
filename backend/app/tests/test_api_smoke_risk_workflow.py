@@ -56,6 +56,7 @@ def _create_committee(client: TestClient) -> dict[str, object]:
 def _create_risk(
     client: TestClient,
     committee_id: str | None = None,
+    headers: dict[str, str] | None = None,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "problem_description": "Unexpected vibration observed during taxi test.",
@@ -71,9 +72,21 @@ def _create_risk(
     if committee_id is not None:
         payload["board_of_origin_id"] = committee_id
 
-    response = client.post("/risks", json=payload)
+    response = client.post("/risks", json=payload, headers=headers)
     assert response.status_code == 201
     return response.json()
+
+
+def _create_risk_actor_headers(client: TestClient) -> dict[str, str]:
+    response = client.post(
+        "/users",
+        json={
+            "email": "smoke-risk-actor@example.com",
+            "display_name": "Smoke Risk Actor",
+        },
+    )
+    assert response.status_code == 201
+    return {"X-User-Id": response.json()["id"]}
 
 
 def _create_assessment(
@@ -188,8 +201,9 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
     committee = _create_committee(client)
     committee_id = committee["id"]
     decision_headers = _create_decision_headers(client, committee_id)
+    risk_headers = _create_risk_actor_headers(client)
 
-    risk = _create_risk(client, committee_id=committee_id)
+    risk = _create_risk(client, committee_id=committee_id, headers=risk_headers)
     risk_record_id = risk["id"]
 
     assert risk["risk_id"] is not None
@@ -199,6 +213,7 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
     submit_response = client.post(
         f"/risks/{risk_record_id}/submit",
         json={"reason": "Ready for operational board review"},
+        headers=risk_headers,
     )
     assert submit_response.status_code == 200
     assert submit_response.json()["workflow_status"] == (
@@ -275,7 +290,11 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
 def test_invalid_governance_decisions_through_api(client: TestClient) -> None:
     committee = _create_committee(client)
     decision_headers = _create_decision_headers(client, committee["id"])
-    risk = _create_risk(client, committee_id=committee["id"])
+    risk = _create_risk(
+        client,
+        committee_id=committee["id"],
+        headers=_create_risk_actor_headers(client),
+    )
 
     approve_decision = _create_decision(
         client,
@@ -312,7 +331,7 @@ def test_invalid_governance_decisions_through_api(client: TestClient) -> None:
 
 
 def test_completed_action_protection_through_api(client: TestClient) -> None:
-    risk = _create_risk(client)
+    risk = _create_risk(client, headers=_create_risk_actor_headers(client))
     action = _create_action(client, risk["id"])
     action_headers = _create_action_actor_headers(client, risk["id"])
 

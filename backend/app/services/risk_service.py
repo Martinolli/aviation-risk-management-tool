@@ -7,6 +7,7 @@ import app.services.audit_service as audit_service
 from app.models.committee import Committee
 from app.models.enums import AuditAction, RiskLifecycleStatus, RiskWorkflowStatus
 from app.models.risk import RiskRecord
+from app.models.user import User
 from app.schemas.risk import RiskRecordCreate, RiskRecordUpdate
 from app.services.risk_numbering_service import generate_next_risk_id
 
@@ -61,6 +62,74 @@ def _validate_board_of_origin(db: Session, board_of_origin_id: uuid.UUID | None)
         raise RiskRecordBusinessRuleError("Board of origin is inactive")
 
 
+def _validate_risk_actor(
+    db: Session,
+    *,
+    user_id: uuid.UUID | None,
+    operation: str,
+) -> User:
+    if user_id is None:
+        messages = {
+            "create": "Risk record creation requires an authenticated active user",
+            "update": "Risk record update requires an authenticated active user",
+            "submit": "Risk record submission requires an authenticated active user",
+        }
+        raise RiskRecordBusinessRuleError(messages[operation])
+
+    user = db.get(User, user_id)
+    if user is None:
+        raise RiskRecordBusinessRuleError("Risk record user does not exist")
+    if not user.is_active:
+        raise RiskRecordBusinessRuleError("Risk record user is inactive")
+    return user
+
+
+def _validate_risk_owner(
+    db: Session,
+    *,
+    owner_user_id: uuid.UUID | None,
+) -> None:
+    if owner_user_id is None:
+        return
+
+    owner = db.get(User, owner_user_id)
+    if owner is None:
+        raise RiskRecordBusinessRuleError("Risk record owner does not exist")
+    if not owner.is_active:
+        raise RiskRecordBusinessRuleError("Risk record owner is inactive")
+
+
+def _validate_risk_record_actor_authority(
+    *,
+    risk_record: RiskRecord,
+    actor_user_id: uuid.UUID,
+    operation: str,
+) -> None:
+    if (
+        risk_record.owner_user_id is not None
+        and risk_record.owner_user_id != actor_user_id
+    ):
+        if operation == "submit":
+            raise RiskRecordBusinessRuleError(
+                "Only the assigned risk owner can submit this risk record"
+            )
+        raise RiskRecordBusinessRuleError(
+            "Only the assigned risk owner can update this risk record"
+        )
+    if (
+        risk_record.owner_user_id is None
+        and risk_record.created_by_user_id is not None
+        and risk_record.created_by_user_id != actor_user_id
+    ):
+        if operation == "submit":
+            raise RiskRecordBusinessRuleError(
+                "Only the risk creator can submit this risk record"
+            )
+        raise RiskRecordBusinessRuleError(
+            "Only the risk creator can update this risk record"
+        )
+
+
 def create_risk_record(
     db: Session,
     *,
@@ -69,6 +138,8 @@ def create_risk_record(
 ) -> RiskRecord:
     _validate_problem_description(data.problem_description)
     _validate_board_of_origin(db, data.board_of_origin_id)
+    _validate_risk_actor(db, user_id=created_by_user_id, operation="create")
+    _validate_risk_owner(db, owner_user_id=data.owner_user_id)
 
     risk_record = RiskRecord(
         risk_id=generate_next_risk_id(db),
@@ -132,6 +203,12 @@ def update_risk_record(
     risk_record = get_risk_record(db, risk_record_id=risk_record_id)
     if risk_record is None:
         raise RiskRecordNotFoundError("Risk record not found")
+    _validate_risk_actor(db, user_id=changed_by_user_id, operation="update")
+    _validate_risk_record_actor_authority(
+        risk_record=risk_record,
+        actor_user_id=changed_by_user_id,
+        operation="update",
+    )
     if not risk_record.is_active:
         raise RiskRecordBusinessRuleError("Archived or inactive risks cannot be updated")
     if risk_record.workflow_status == RiskWorkflowStatus.CLOSED:
@@ -176,6 +253,12 @@ def submit_risk_record(
     risk_record = get_risk_record(db, risk_record_id=risk_record_id)
     if risk_record is None:
         raise RiskRecordNotFoundError("Risk record not found")
+    _validate_risk_actor(db, user_id=changed_by_user_id, operation="submit")
+    _validate_risk_record_actor_authority(
+        risk_record=risk_record,
+        actor_user_id=changed_by_user_id,
+        operation="submit",
+    )
     if not risk_record.is_active:
         raise RiskRecordBusinessRuleError("Archived or inactive risks cannot be submitted")
     if risk_record.workflow_status != RiskWorkflowStatus.DRAFT:

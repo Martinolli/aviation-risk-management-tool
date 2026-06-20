@@ -109,11 +109,10 @@ def _audit_log(
     return audit_log
 
 
-def test_write_without_header_preserves_anonymous_behavior(client: TestClient) -> None:
+def test_risk_write_without_header_is_rejected(client: TestClient) -> None:
     response = client.post("/risks", json=_risk_payload())
 
-    assert response.status_code == 201
-    assert response.json()["created_by_user_id"] is None
+    assert response.status_code == 400
 
 
 def test_valid_header_attributes_workflow_operations(
