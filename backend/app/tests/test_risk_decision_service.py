@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 import app.models  # noqa: F401
 from app.models.audit import AuditLog
 from app.models.base import Base
-from app.models.committee import Committee
+from app.models.committee import Committee, CommitteeMember
 from app.models.enums import (
     AuditAction,
     AuthorityLevel,
@@ -20,6 +20,7 @@ from app.models.enums import (
     RiskWorkflowStatus,
 )
 from app.models.risk import RiskRecord
+from app.models.user import User
 from app.schemas.risk_decision import RiskDecisionCreate
 from app.services.risk_decision_service import (
     RiskDecisionBusinessRuleError,
@@ -96,6 +97,40 @@ def _create_committee(
     return committee
 
 
+def _create_user(db_session: Session, *, is_active: bool = True) -> User:
+    user = User(
+        email=f"{uuid.uuid4()}@example.com",
+        display_name="Decision User",
+        is_active=is_active,
+    )
+    db_session.add(user)
+    db_session.flush()
+    return user
+
+
+def _create_membership(
+    db_session: Session,
+    *,
+    committee: Committee,
+    user: User,
+    is_active: bool = True,
+) -> CommitteeMember:
+    membership = CommitteeMember(
+        committee_id=committee.id,
+        user_id=user.id,
+        is_active=is_active,
+    )
+    db_session.add(membership)
+    db_session.flush()
+    return membership
+
+
+def _create_decision_user(db_session: Session, committee: Committee) -> User:
+    user = _create_user(db_session)
+    _create_membership(db_session, committee=committee, user=user)
+    return user
+
+
 def _decision_data(
     risk_record_id: uuid.UUID,
     committee_id: uuid.UUID,
@@ -118,6 +153,7 @@ def _create_decision_for_authority(
 ):
     risk_record = _create_risk_record(db_session)
     committee = _create_committee(db_session, authority_level=authority_level)
+    user = _create_decision_user(db_session, committee)
     decision = create_risk_decision(
         db_session,
         data=_decision_data(
@@ -125,6 +161,7 @@ def _create_decision_for_authority(
             committee.id,
             decision_type=decision_type,
         ),
+        decided_by_user_id=user.id,
     )
     return risk_record, committee, decision
 
@@ -218,6 +255,7 @@ def test_middle_escalate_changes_workflow_status(db_session: Session) -> None:
 def test_high_escalate_raises_business_rule_error(db_session: Session) -> None:
     risk_record = _create_risk_record(db_session)
     committee = _create_committee(db_session, authority_level=AuthorityLevel.HIGH)
+    user = _create_decision_user(db_session, committee)
 
     with pytest.raises(RiskDecisionBusinessRuleError):
         create_risk_decision(
@@ -227,6 +265,7 @@ def test_high_escalate_raises_business_rule_error(db_session: Session) -> None:
                 committee.id,
                 decision_type=RiskDecisionType.ESCALATE,
             ),
+            decided_by_user_id=user.id,
         )
 
 
@@ -255,6 +294,7 @@ def test_accept_residual_risk_by_low_raises_business_rule_error(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     committee = _create_committee(db_session, authority_level=AuthorityLevel.LOW)
+    user = _create_decision_user(db_session, committee)
 
     with pytest.raises(RiskDecisionBusinessRuleError):
         create_risk_decision(
@@ -264,6 +304,7 @@ def test_accept_residual_risk_by_low_raises_business_rule_error(
                 committee.id,
                 decision_type=RiskDecisionType.ACCEPT_RESIDUAL_RISK,
             ),
+            decided_by_user_id=user.id,
         )
 
 
@@ -285,6 +326,7 @@ def test_close_by_middle_or_high_changes_workflow_and_lifecycle_status(
 def test_close_by_low_raises_business_rule_error(db_session: Session) -> None:
     risk_record = _create_risk_record(db_session)
     committee = _create_committee(db_session, authority_level=AuthorityLevel.LOW)
+    user = _create_decision_user(db_session, committee)
 
     with pytest.raises(RiskDecisionBusinessRuleError):
         create_risk_decision(
@@ -294,6 +336,7 @@ def test_close_by_low_raises_business_rule_error(db_session: Session) -> None:
                 committee.id,
                 decision_type=RiskDecisionType.CLOSE,
             ),
+            decided_by_user_id=user.id,
         )
 
 
@@ -384,6 +427,105 @@ def test_blank_decision_text_raises_business_rule_error(db_session: Session) -> 
         )
 
 
+def test_decision_requires_an_active_authenticated_member(db_session: Session) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee = _create_committee(db_session)
+
+    with pytest.raises(
+        RiskDecisionBusinessRuleError,
+        match="authenticated active user",
+    ):
+        create_risk_decision(
+            db_session,
+            data=_decision_data(risk_record.id, committee.id),
+        )
+
+
+def test_decision_rejects_unknown_or_inactive_user(db_session: Session) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee = _create_committee(db_session)
+    inactive_user = _create_user(db_session, is_active=False)
+
+    with pytest.raises(RiskDecisionBusinessRuleError, match="user does not exist"):
+        create_risk_decision(
+            db_session,
+            data=_decision_data(risk_record.id, committee.id),
+            decided_by_user_id=uuid.uuid4(),
+        )
+    with pytest.raises(RiskDecisionBusinessRuleError, match="user is inactive"):
+        create_risk_decision(
+            db_session,
+            data=_decision_data(risk_record.id, committee.id),
+            decided_by_user_id=inactive_user.id,
+        )
+
+
+def test_decision_rejects_inactive_committee_or_invalid_membership(
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    user = _create_user(db_session)
+    inactive_committee = _create_committee(db_session, is_active=False)
+    active_committee = _create_committee(db_session)
+
+    with pytest.raises(RiskDecisionBusinessRuleError, match="committee is inactive"):
+        create_risk_decision(
+            db_session,
+            data=_decision_data(risk_record.id, inactive_committee.id),
+            decided_by_user_id=user.id,
+        )
+    with pytest.raises(RiskDecisionBusinessRuleError, match="not an active member"):
+        create_risk_decision(
+            db_session,
+            data=_decision_data(risk_record.id, active_committee.id),
+            decided_by_user_id=user.id,
+        )
+
+    _create_membership(
+        db_session,
+        committee=active_committee,
+        user=user,
+        is_active=False,
+    )
+    with pytest.raises(RiskDecisionBusinessRuleError, match="not an active member"):
+        create_risk_decision(
+            db_session,
+            data=_decision_data(risk_record.id, active_committee.id),
+            decided_by_user_id=user.id,
+        )
+
+    other_committee = _create_committee(db_session)
+    _create_membership(db_session, committee=other_committee, user=user)
+    with pytest.raises(RiskDecisionBusinessRuleError, match="not an active member"):
+        create_risk_decision(
+            db_session,
+            data=_decision_data(risk_record.id, active_committee.id),
+            decided_by_user_id=user.id,
+        )
+
+
+def test_authorized_decision_stores_and_audits_decider(db_session: Session) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee = _create_committee(db_session)
+    user = _create_decision_user(db_session, committee)
+
+    decision = create_risk_decision(
+        db_session,
+        data=_decision_data(risk_record.id, committee.id),
+        decided_by_user_id=user.id,
+    )
+    workflow_audit_log = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entity_id == risk_record.id,
+            AuditLog.action == AuditAction.APPROVE,
+        )
+    )
+
+    assert decision.decided_by_user_id == user.id
+    assert workflow_audit_log is not None
+    assert workflow_audit_log.changed_by_user_id == user.id
+
+
 def test_create_decision_writes_create_audit_log(db_session: Session) -> None:
     risk_record, _committee, decision = _create_decision_for_authority(
         db_session,
@@ -429,13 +571,16 @@ def test_list_risk_decisions_filtered_by_risk_record_id(
     first_risk = _create_risk_record(db_session)
     second_risk = _create_risk_record(db_session)
     committee = _create_committee(db_session)
+    user = _create_decision_user(db_session, committee)
     first_decision = create_risk_decision(
         db_session,
         data=_decision_data(first_risk.id, committee.id),
+        decided_by_user_id=user.id,
     )
     second_decision = create_risk_decision(
         db_session,
         data=_decision_data(second_risk.id, committee.id),
+        decided_by_user_id=user.id,
     )
 
     decisions = list_risk_decisions(db_session, risk_record_id=first_risk.id)
@@ -448,13 +593,17 @@ def test_list_risk_decisions_filtered_by_committee_id(db_session: Session) -> No
     risk_record = _create_risk_record(db_session)
     first_committee = _create_committee(db_session)
     second_committee = _create_committee(db_session)
+    first_user = _create_decision_user(db_session, first_committee)
+    second_user = _create_decision_user(db_session, second_committee)
     first_decision = create_risk_decision(
         db_session,
         data=_decision_data(risk_record.id, first_committee.id),
+        decided_by_user_id=first_user.id,
     )
     second_decision = create_risk_decision(
         db_session,
         data=_decision_data(risk_record.id, second_committee.id),
+        decided_by_user_id=second_user.id,
     )
 
     decisions = list_risk_decisions(db_session, committee_id=first_committee.id)

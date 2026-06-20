@@ -110,11 +110,33 @@ def _create_action(client: TestClient, risk_record_id: str) -> dict[str, object]
     return response.json()
 
 
+def _create_decision_headers(
+    client: TestClient,
+    committee_id: str,
+) -> dict[str, str]:
+    user_response = client.post(
+        "/users",
+        json={
+            "email": f"decision-{committee_id}@example.com",
+            "display_name": "Smoke Decision Maker",
+        },
+    )
+    assert user_response.status_code == 201
+    user_id = user_response.json()["id"]
+    membership_response = client.post(
+        "/committee-members",
+        json={"committee_id": committee_id, "user_id": user_id},
+    )
+    assert membership_response.status_code == 201
+    return {"X-User-Id": user_id}
+
+
 def _create_decision(
     client: TestClient,
     risk_record_id: str,
     committee_id: str,
     decision_type: str,
+    headers: dict[str, str],
 ) -> dict[str, object]:
     response = client.post(
         "/risk-decisions",
@@ -124,6 +146,7 @@ def _create_decision(
             "decision_type": decision_type,
             "decision_text": f"{decision_type} decision recorded by committee.",
         },
+        headers=headers,
     )
     assert response.status_code == 201
     return response.json()
@@ -132,6 +155,7 @@ def _create_decision(
 def test_full_risk_workflow_through_api(client: TestClient) -> None:
     committee = _create_committee(client)
     committee_id = committee["id"]
+    decision_headers = _create_decision_headers(client, committee_id)
 
     risk = _create_risk(client, committee_id=committee_id)
     risk_record_id = risk["id"]
@@ -160,7 +184,13 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
     assert complete_response.json()["status"] == "COMPLETED"
 
     residual_assessment = _create_assessment(client, risk_record_id, "RESIDUAL")
-    decision = _create_decision(client, risk_record_id, committee_id, "APPROVE")
+    decision = _create_decision(
+        client,
+        risk_record_id,
+        committee_id,
+        "APPROVE",
+        decision_headers,
+    )
     assert decision["decision_type"] == "APPROVE"
 
     risk_response = client.get(f"/risks/{risk_record_id}")
@@ -199,6 +229,7 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
 
 def test_invalid_governance_decisions_through_api(client: TestClient) -> None:
     committee = _create_committee(client)
+    decision_headers = _create_decision_headers(client, committee["id"])
     risk = _create_risk(client, committee_id=committee["id"])
 
     approve_decision = _create_decision(
@@ -206,6 +237,7 @@ def test_invalid_governance_decisions_through_api(client: TestClient) -> None:
         risk["id"],
         committee["id"],
         "APPROVE",
+        decision_headers,
     )
     assert approve_decision["decision_type"] == "APPROVE"
 
@@ -217,6 +249,7 @@ def test_invalid_governance_decisions_through_api(client: TestClient) -> None:
             "decision_type": "CLOSE",
             "decision_text": "Attempting LOW close.",
         },
+        headers=decision_headers,
     )
     assert close_response.status_code == 400
 
@@ -228,6 +261,7 @@ def test_invalid_governance_decisions_through_api(client: TestClient) -> None:
             "decision_type": "ACCEPT_RESIDUAL_RISK",
             "decision_text": "Attempting LOW residual risk acceptance.",
         },
+        headers=decision_headers,
     )
     assert accept_residual_response.status_code == 400
 

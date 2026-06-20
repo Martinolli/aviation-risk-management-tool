@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.main import app
 from app.models.audit import AuditLog
 from app.models.base import Base
-from app.models.committee import Committee
+from app.models.committee import Committee, CommitteeMember
 from app.models.enums import AuditAction, AuthorityLevel, CommitteeType
 from app.models.risk import RiskRecord
 from app.models.user import User
@@ -72,6 +72,23 @@ def _create_committee(db_session: Session) -> Committee:
     db_session.commit()
     db_session.refresh(committee)
     return committee
+
+
+def _create_membership(
+    db_session: Session,
+    *,
+    committee: Committee,
+    user: User,
+) -> CommitteeMember:
+    membership = CommitteeMember(
+        committee_id=committee.id,
+        user_id=user.id,
+        is_active=True,
+    )
+    db_session.add(membership)
+    db_session.commit()
+    db_session.refresh(membership)
+    return membership
 
 
 def _audit_log(
@@ -165,6 +182,7 @@ def test_valid_header_attributes_workflow_operations(
     ).changed_by_user_id == user.id
 
     committee = _create_committee(db_session)
+    _create_membership(db_session, committee=committee, user=user)
     decision_response = client.post(
         "/risk-decisions",
         json={

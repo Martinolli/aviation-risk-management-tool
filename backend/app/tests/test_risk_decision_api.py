@@ -4,16 +4,18 @@ from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401
 from app.core.database import get_db
+from app.models.audit import AuditLog
 from app.main import app
 from app.models.base import Base
-from app.models.committee import Committee
+from app.models.committee import Committee, CommitteeMember
 from app.models.enums import (
+    AuditAction,
     AuthorityLevel,
     CommitteeType,
     RiskDecisionType,
@@ -22,6 +24,7 @@ from app.models.enums import (
     RiskWorkflowStatus,
 )
 from app.models.risk import RiskDecision, RiskRecord
+from app.models.user import User
 
 
 @pytest.fixture()
@@ -124,6 +127,36 @@ def _create_decision(
     return decision
 
 
+def _create_user(db_session: Session, *, is_active: bool = True) -> User:
+    user = User(
+        email=f"{uuid.uuid4()}@example.com",
+        display_name="Decision User",
+        is_active=is_active,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+def _create_membership(
+    db_session: Session,
+    *,
+    committee: Committee,
+    user: User,
+    is_active: bool = True,
+) -> CommitteeMember:
+    membership = CommitteeMember(
+        committee_id=committee.id,
+        user_id=user.id,
+        is_active=is_active,
+    )
+    db_session.add(membership)
+    db_session.commit()
+    db_session.refresh(membership)
+    return membership
+
+
 def test_get_risk_decisions_returns_list(
     client: TestClient,
     db_session: Session,
@@ -145,10 +178,13 @@ def test_post_risk_decisions_creates_decision(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     committee = _create_committee(db_session)
+    user = _create_user(db_session)
+    _create_membership(db_session, committee=committee, user=user)
 
     response = client.post(
         "/risk-decisions",
         json=_decision_payload(risk_record.id, committee.id),
+        headers={"X-User-Id": str(user.id)},
     )
 
     assert response.status_code == 201
@@ -156,6 +192,7 @@ def test_post_risk_decisions_creates_decision(
     assert body["risk_record_id"] == str(risk_record.id)
     assert body["committee_id"] == str(committee.id)
     assert body["decision_type"] == "APPROVE"
+    assert body["decided_by_user_id"] == str(user.id)
 
 
 def test_post_with_empty_decision_text_returns_error(
@@ -238,6 +275,86 @@ def test_get_unknown_decision_returns_http_404(client: TestClient) -> None:
     response = client.get(f"/risk-decisions/{uuid.uuid4()}")
 
     assert response.status_code == 404
+
+
+def test_post_decision_requires_active_committee_membership(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee = _create_committee(db_session)
+    user = _create_user(db_session)
+    payload = _decision_payload(risk_record.id, committee.id)
+
+    assert client.post("/risk-decisions", json=payload).status_code == 400
+    assert client.post(
+        "/risk-decisions",
+        json=payload,
+        headers={"X-User-Id": str(user.id)},
+    ).status_code == 400
+
+    _create_membership(db_session, committee=committee, user=user, is_active=False)
+    assert client.post(
+        "/risk-decisions",
+        json=payload,
+        headers={"X-User-Id": str(user.id)},
+    ).status_code == 400
+
+    other_committee = _create_committee(db_session)
+    _create_membership(db_session, committee=other_committee, user=user)
+    assert client.post(
+        "/risk-decisions",
+        json=payload,
+        headers={"X-User-Id": str(user.id)},
+    ).status_code == 400
+
+
+def test_post_decision_with_active_member_attributes_workflow_audit(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee = _create_committee(db_session)
+    user = _create_user(db_session)
+    _create_membership(db_session, committee=committee, user=user)
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(risk_record.id, committee.id),
+        headers={"X-User-Id": str(user.id)},
+    )
+    audit_log = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entity_id == risk_record.id,
+            AuditLog.action == AuditAction.APPROVE,
+        )
+    )
+
+    assert response.status_code == 201
+    assert response.json()["decided_by_user_id"] == str(user.id)
+    assert audit_log is not None
+    assert audit_log.changed_by_user_id == user.id
+
+
+def test_post_decision_rejects_unknown_and_inactive_header_users(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee = _create_committee(db_session)
+    inactive_user = _create_user(db_session, is_active=False)
+    payload = _decision_payload(risk_record.id, committee.id)
+
+    assert client.post(
+        "/risk-decisions",
+        json=payload,
+        headers={"X-User-Id": str(uuid.uuid4())},
+    ).status_code == 401
+    assert client.post(
+        "/risk-decisions",
+        json=payload,
+        headers={"X-User-Id": str(inactive_user.id)},
+    ).status_code == 403
 
 
 def test_get_risk_decisions_filtered_by_risk_record_id(

@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import app.services.audit_service as audit_service
-from app.models.committee import Committee
+from app.models.committee import Committee, CommitteeMember
 from app.models.enums import (
     AuditAction,
     AuthorityLevel,
@@ -14,6 +14,7 @@ from app.models.enums import (
     RiskWorkflowStatus,
 )
 from app.models.risk import RiskDecision, RiskRecord
+from app.models.user import User
 from app.schemas.risk_decision import RiskDecisionCreate
 
 RISK_DECISION_ENTITY_TYPE = "RiskDecision"
@@ -61,10 +62,42 @@ def _get_decidable_risk_record(db: Session, risk_record_id: uuid.UUID) -> RiskRe
 def _get_active_committee(db: Session, committee_id: uuid.UUID) -> Committee:
     committee = db.get(Committee, committee_id)
     if committee is None:
-        raise RiskDecisionBusinessRuleError("Committee does not exist")
+        raise RiskDecisionBusinessRuleError("Decision committee does not exist")
     if not committee.is_active:
-        raise RiskDecisionBusinessRuleError("Inactive committees cannot make decisions")
+        raise RiskDecisionBusinessRuleError("Decision committee is inactive")
     return committee
+
+
+def _validate_decision_authority(
+    db: Session,
+    *,
+    committee: Committee,
+    decided_by_user_id: uuid.UUID | None,
+) -> None:
+    if decided_by_user_id is None:
+        raise RiskDecisionBusinessRuleError(
+            "Decision requires an authenticated active user"
+        )
+
+    user = db.get(User, decided_by_user_id)
+    if user is None:
+        raise RiskDecisionBusinessRuleError("Decision user does not exist")
+    if not user.is_active:
+        raise RiskDecisionBusinessRuleError("Decision user is inactive")
+    if not committee.is_active:
+        raise RiskDecisionBusinessRuleError("Decision committee is inactive")
+
+    membership = db.scalar(
+        select(CommitteeMember.id).where(
+            CommitteeMember.committee_id == committee.id,
+            CommitteeMember.user_id == decided_by_user_id,
+            CommitteeMember.is_active.is_(True),
+        )
+    )
+    if membership is None:
+        raise RiskDecisionBusinessRuleError(
+            "Decision user is not an active member of the committee"
+        )
 
 
 def _decision_effect(
@@ -182,6 +215,11 @@ def create_risk_decision(
     risk_record = _get_decidable_risk_record(db, data.risk_record_id)
     committee = _get_active_committee(db, data.committee_id)
     _decision_effect(committee, data.decision_type)
+    _validate_decision_authority(
+        db,
+        committee=committee,
+        decided_by_user_id=decided_by_user_id,
+    )
 
     decision = RiskDecision(
         risk_record_id=data.risk_record_id,
