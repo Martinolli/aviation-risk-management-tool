@@ -121,3 +121,27 @@ The command creates the default 5 × 5 matrix and is idempotent by default. Use
 pairs to their default values; archived records are never reactivated. It does
 not run automatically on application startup, and the matrix remains
 configurable after seeding.
+
+## MVP Backend Smoke Flow
+
+Run the local MVP workflow from the `backend/` directory:
+
+```powershell
+alembic upgrade head
+python -m app.cli bootstrap-admin --email admin@example.com --display-name "Admin User" --password "ChangeMe123!"
+python -m app.cli seed-default-risk-matrix
+uvicorn app.main:app --reload
+```
+
+Then use the preferred `Authorization: Bearer <access_token>` flow:
+
+1. `POST /auth/login`
+2. `GET /auth/me`
+3. `POST /risks`
+4. `POST /risk-assessments` with `severity_level_id` and `likelihood_level_id`
+5. `POST /risk-actions`
+6. `POST /risk-decisions`
+7. `POST /reports/risk-dossiers/{risk_record_id}`
+
+The default matrix enables calculated assessments immediately. `X-User-Id`
+remains a temporary fallback, but Bearer authentication is the preferred path.
