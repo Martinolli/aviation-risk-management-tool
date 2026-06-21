@@ -7,6 +7,10 @@ from app.api.dependencies import get_optional_current_user, get_optional_current
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.services.admin_authorization_service import (
+    AdminAuthorizationBusinessRuleError,
+    validate_admin_actor,
+)
 from app.services.user_service import (
     UserBusinessRuleError,
     UserNotFoundError,
@@ -48,6 +52,9 @@ def create_user_endpoint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
+        validate_admin_actor(
+            db, user_id=get_optional_current_user_id(current_user)
+        )
         return _commit_and_refresh(
             db,
             create_user(
@@ -56,7 +63,7 @@ def create_user_endpoint(
                 changed_by_user_id=get_optional_current_user_id(current_user),
             ),
         )
-    except UserBusinessRuleError as exc:
+    except (AdminAuthorizationBusinessRuleError, UserBusinessRuleError) as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -71,6 +78,9 @@ def update_user_endpoint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
+        validate_admin_actor(
+            db, user_id=get_optional_current_user_id(current_user)
+        )
         return _commit_and_refresh(
             db,
             update_user(
@@ -85,7 +95,7 @@ def update_user_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
-    except UserBusinessRuleError as exc:
+    except (AdminAuthorizationBusinessRuleError, UserBusinessRuleError) as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)

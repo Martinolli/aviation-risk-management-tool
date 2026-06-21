@@ -1,3 +1,8 @@
+from app.services.admin_authorization_service import (
+    AdminAuthorizationBusinessRuleError,
+    is_active_fixed_governance_member,
+    validate_admin_actor,
+)
 from app.services.audit_query_service import (
     AuditQueryBusinessRuleError,
     get_audit_log,
@@ -99,6 +104,7 @@ from app.services.user_service import (
 
 __all__ = [
     "AuditQueryBusinessRuleError",
+    "AdminAuthorizationBusinessRuleError",
     "CommitteeBusinessRuleError",
     "CommitteeMemberBusinessRuleError",
     "CommitteeMemberNotFoundError",
@@ -136,6 +142,7 @@ __all__ = [
     "get_committee",
     "get_committee_member",
     "get_audit_log",
+    "is_active_fixed_governance_member",
     "get_default_committee_names",
     "generate_next_risk_id",
     "generate_and_track_risk_dossier_report",
@@ -168,4 +175,5 @@ __all__ = [
     "update_risk_record",
     "update_role",
     "update_user",
+    "validate_admin_actor",
 ]

@@ -8,6 +8,10 @@ from app.core.database import get_db
 from app.models.role import Role
 from app.models.user import User
 from app.schemas.role import RoleCreate, RoleRead, RoleUpdate
+from app.services.admin_authorization_service import (
+    AdminAuthorizationBusinessRuleError,
+    validate_admin_actor,
+)
 from app.services.role_service import (
     RoleBusinessRuleError,
     RoleNotFoundError,
@@ -46,6 +50,9 @@ def create_role_endpoint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
+        validate_admin_actor(
+            db, user_id=get_optional_current_user_id(current_user)
+        )
         return _commit_and_refresh(
             db,
             create_role(
@@ -54,7 +61,7 @@ def create_role_endpoint(
                 changed_by_user_id=get_optional_current_user_id(current_user),
             ),
         )
-    except RoleBusinessRuleError as exc:
+    except (AdminAuthorizationBusinessRuleError, RoleBusinessRuleError) as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -69,6 +76,9 @@ def update_role_endpoint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
+        validate_admin_actor(
+            db, user_id=get_optional_current_user_id(current_user)
+        )
         return _commit_and_refresh(
             db,
             update_role(
@@ -83,7 +93,7 @@ def update_role_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
-    except RoleBusinessRuleError as exc:
+    except (AdminAuthorizationBusinessRuleError, RoleBusinessRuleError) as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)

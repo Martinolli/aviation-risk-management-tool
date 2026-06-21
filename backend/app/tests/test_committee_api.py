@@ -11,8 +11,9 @@ import app.models  # noqa: F401
 from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
-from app.models.committee import Committee
+from app.models.committee import Committee, CommitteeMember
 from app.models.enums import AuthorityLevel, CommitteeType
+from app.models.user import User
 
 
 @pytest.fixture()
@@ -67,6 +68,22 @@ def _create_committee(
     return committee
 
 
+def _admin_headers(db_session: Session) -> dict[str, str]:
+    admin = User(email=f"admin-{uuid.uuid4()}@example.com", display_name="Admin", is_active=True)
+    governance_committee = Committee(
+        name=_name("Governance"),
+        authority_level=AuthorityLevel.MIDDLE,
+        committee_type=CommitteeType.RISK_MANAGEMENT_COMMITTEE,
+        is_fixed=True,
+        is_active=True,
+    )
+    db_session.add_all([admin, governance_committee])
+    db_session.flush()
+    db_session.add(CommitteeMember(committee_id=governance_committee.id, user_id=admin.id, is_active=True))
+    db_session.commit()
+    return {"X-User-Id": str(admin.id)}
+
+
 def test_get_committees_returns_list(
     client: TestClient,
     db_session: Session,
@@ -82,6 +99,7 @@ def test_get_committees_returns_list(
 
 def test_post_committees_with_low_operational_board_returns_created_committee(
     client: TestClient,
+    db_session: Session,
 ) -> None:
     payload = {
         "name": _name("Aircraft Safety Committee"),
@@ -90,7 +108,7 @@ def test_post_committees_with_low_operational_board_returns_created_committee(
         "committee_type": "OPERATIONAL_BOARD",
     }
 
-    response = client.post("/committees", json=payload)
+    response = client.post("/committees", json=payload, headers=_admin_headers(db_session))
 
     assert response.status_code == 201
     body = response.json()
@@ -102,6 +120,7 @@ def test_post_committees_with_low_operational_board_returns_created_committee(
 
 def test_post_committees_with_middle_returns_http_400(
     client: TestClient,
+    db_session: Session,
 ) -> None:
     response = client.post(
         "/committees",
@@ -110,7 +129,7 @@ def test_post_committees_with_middle_returns_http_400(
             "description": None,
             "authority_level": "MIDDLE",
             "committee_type": "RISK_MANAGEMENT_COMMITTEE",
-        },
+        }, headers=_admin_headers(db_session),
     )
 
     assert response.status_code == 400
@@ -123,7 +142,7 @@ def test_patch_committee_updates_low_committee(
     committee = _create_committee(db_session, name=_name("Industrial Safety Committee"))
     new_name = _name("Industrial Safety Board")
 
-    response = client.patch(f"/committees/{committee.id}", json={"name": new_name})
+    response = client.patch(f"/committees/{committee.id}", json={"name": new_name}, headers=_admin_headers(db_session))
 
     assert response.status_code == 200
     assert response.json()["name"] == new_name
@@ -138,6 +157,7 @@ def test_archive_low_committee(
     response = client.post(
         f"/committees/{committee.id}/archive",
         json={"archive_reason": "No longer active"},
+        headers=_admin_headers(db_session),
     )
 
     assert response.status_code == 200
@@ -162,6 +182,7 @@ def test_archive_fixed_committee_returns_http_400(
     response = client.post(
         f"/committees/{committee.id}/archive",
         json={"archive_reason": "Attempted archive"},
+        headers=_admin_headers(db_session),
     )
 
     assert response.status_code == 400
@@ -171,3 +192,17 @@ def test_get_unknown_committee_returns_http_404(client: TestClient) -> None:
     response = client.get(f"/committees/{uuid.uuid4()}")
 
     assert response.status_code == 404
+
+
+def test_committee_writes_require_governance_admin(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    payload = {
+        "name": _name("Unauthorised Committee"),
+        "authority_level": "LOW",
+        "committee_type": "OPERATIONAL_BOARD",
+    }
+
+    assert client.post("/committees", json=payload).status_code == 400
+    assert client.post("/committees", json=payload, headers=_admin_headers(db_session)).status_code == 201

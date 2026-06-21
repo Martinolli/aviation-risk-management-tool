@@ -10,6 +10,9 @@ import app.models  # noqa: F401
 from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
+from app.models.committee import Committee, CommitteeMember
+from app.models.enums import AuthorityLevel, CommitteeType
+from app.models.user import User
 
 
 @pytest.fixture()
@@ -39,7 +42,23 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
     app.dependency_overrides.clear()
 
 
-def _create_committee(client: TestClient) -> dict[str, object]:
+def _admin_headers(db_session: Session) -> dict[str, str]:
+    user = User(email="smoke-admin@example.com", display_name="Smoke Admin", is_active=True)
+    committee = Committee(
+        name="Smoke Governance Committee",
+        authority_level=AuthorityLevel.MIDDLE,
+        committee_type=CommitteeType.RISK_MANAGEMENT_COMMITTEE,
+        is_fixed=True,
+        is_active=True,
+    )
+    db_session.add_all([user, committee])
+    db_session.flush()
+    db_session.add(CommitteeMember(committee_id=committee.id, user_id=user.id, is_active=True))
+    db_session.commit()
+    return {"X-User-Id": str(user.id)}
+
+
+def _create_committee(client: TestClient, admin_headers: dict[str, str]) -> dict[str, object]:
     response = client.post(
         "/committees",
         json={
@@ -48,6 +67,7 @@ def _create_committee(client: TestClient) -> dict[str, object]:
             "authority_level": "LOW",
             "committee_type": "OPERATIONAL_BOARD",
         },
+        headers=admin_headers,
     )
     assert response.status_code == 201
     return response.json()
@@ -77,13 +97,16 @@ def _create_risk(
     return response.json()
 
 
-def _create_risk_actor_headers(client: TestClient) -> dict[str, str]:
+def _create_risk_actor_headers(
+    client: TestClient, admin_headers: dict[str, str]
+) -> dict[str, str]:
     response = client.post(
         "/users",
         json={
             "email": "smoke-risk-actor@example.com",
             "display_name": "Smoke Risk Actor",
         },
+        headers=admin_headers,
     )
     assert response.status_code == 201
     return {"X-User-Id": response.json()["id"]}
@@ -128,6 +151,7 @@ def _create_action(client: TestClient, risk_record_id: str) -> dict[str, object]
 def _create_action_actor_headers(
     client: TestClient,
     risk_record_id: str,
+    admin_headers: dict[str, str],
 ) -> dict[str, str]:
     response = client.post(
         "/users",
@@ -135,6 +159,7 @@ def _create_action_actor_headers(
             "email": f"action-{risk_record_id}@example.com",
             "display_name": "Smoke Action Actor",
         },
+        headers=admin_headers,
     )
     assert response.status_code == 201
     return {"X-User-Id": response.json()["id"]}
@@ -143,6 +168,7 @@ def _create_action_actor_headers(
 def _create_assessment_actor_headers(
     client: TestClient,
     risk_record_id: str,
+    admin_headers: dict[str, str],
 ) -> dict[str, str]:
     response = client.post(
         "/users",
@@ -150,6 +176,7 @@ def _create_assessment_actor_headers(
             "email": f"assessment-{risk_record_id}@example.com",
             "display_name": "Smoke Assessment Actor",
         },
+        headers=admin_headers,
     )
     assert response.status_code == 201
     return {"X-User-Id": response.json()["id"]}
@@ -158,6 +185,7 @@ def _create_assessment_actor_headers(
 def _create_decision_headers(
     client: TestClient,
     committee_id: str,
+    admin_headers: dict[str, str],
 ) -> dict[str, str]:
     user_response = client.post(
         "/users",
@@ -165,12 +193,14 @@ def _create_decision_headers(
             "email": f"decision-{committee_id}@example.com",
             "display_name": "Smoke Decision Maker",
         },
+        headers=admin_headers,
     )
     assert user_response.status_code == 201
     user_id = user_response.json()["id"]
     membership_response = client.post(
         "/committee-members",
         json={"committee_id": committee_id, "user_id": user_id},
+        headers=admin_headers,
     )
     assert membership_response.status_code == 201
     return {"X-User-Id": user_id}
@@ -197,11 +227,12 @@ def _create_decision(
     return response.json()
 
 
-def test_full_risk_workflow_through_api(client: TestClient) -> None:
-    committee = _create_committee(client)
+def test_full_risk_workflow_through_api(client: TestClient, db_session: Session) -> None:
+    admin_headers = _admin_headers(db_session)
+    committee = _create_committee(client, admin_headers)
     committee_id = committee["id"]
-    decision_headers = _create_decision_headers(client, committee_id)
-    risk_headers = _create_risk_actor_headers(client)
+    decision_headers = _create_decision_headers(client, committee_id, admin_headers)
+    risk_headers = _create_risk_actor_headers(client, admin_headers)
 
     risk = _create_risk(client, committee_id=committee_id, headers=risk_headers)
     risk_record_id = risk["id"]
@@ -220,7 +251,7 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
         "SUBMITTED_TO_OPERATIONAL_BOARD"
     )
 
-    assessment_headers = _create_assessment_actor_headers(client, risk_record_id)
+    assessment_headers = _create_assessment_actor_headers(client, risk_record_id, admin_headers)
     initial_assessment = _create_assessment(
         client,
         risk_record_id,
@@ -228,7 +259,7 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
         assessment_headers,
     )
     action = _create_action(client, risk_record_id)
-    action_headers = _create_action_actor_headers(client, risk_record_id)
+    action_headers = _create_action_actor_headers(client, risk_record_id, admin_headers)
 
     complete_response = client.post(
         f"/risk-actions/{action['id']}/complete",
@@ -288,13 +319,14 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
     assert {"CREATE", "SUBMIT", "APPROVE"}.issubset(audit_actions)
 
 
-def test_invalid_governance_decisions_through_api(client: TestClient) -> None:
-    committee = _create_committee(client)
-    decision_headers = _create_decision_headers(client, committee["id"])
+def test_invalid_governance_decisions_through_api(client: TestClient, db_session: Session) -> None:
+    admin_headers = _admin_headers(db_session)
+    committee = _create_committee(client, admin_headers)
+    decision_headers = _create_decision_headers(client, committee["id"], admin_headers)
     risk = _create_risk(
         client,
         committee_id=committee["id"],
-        headers=_create_risk_actor_headers(client),
+        headers=_create_risk_actor_headers(client, admin_headers),
     )
 
     approve_decision = _create_decision(
@@ -331,10 +363,11 @@ def test_invalid_governance_decisions_through_api(client: TestClient) -> None:
     assert accept_residual_response.status_code == 400
 
 
-def test_completed_action_protection_through_api(client: TestClient) -> None:
-    risk = _create_risk(client, headers=_create_risk_actor_headers(client))
+def test_completed_action_protection_through_api(client: TestClient, db_session: Session) -> None:
+    admin_headers = _admin_headers(db_session)
+    risk = _create_risk(client, headers=_create_risk_actor_headers(client, admin_headers))
     action = _create_action(client, risk["id"])
-    action_headers = _create_action_actor_headers(client, risk["id"])
+    action_headers = _create_action_actor_headers(client, risk["id"], admin_headers)
 
     complete_response = client.post(
         f"/risk-actions/{action['id']}/complete",

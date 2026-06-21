@@ -12,6 +12,10 @@ from app.schemas.committee_member import (
     CommitteeMemberRead,
     CommitteeMemberUpdate,
 )
+from app.services.admin_authorization_service import (
+    AdminAuthorizationBusinessRuleError,
+    validate_admin_actor,
+)
 from app.services.committee_member_service import (
     CommitteeMemberBusinessRuleError,
     CommitteeMemberNotFoundError,
@@ -66,6 +70,9 @@ def create_committee_member_endpoint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
+        validate_admin_actor(
+            db, user_id=get_optional_current_user_id(current_user)
+        )
         return _commit_and_refresh(
             db,
             create_committee_member(
@@ -74,7 +81,10 @@ def create_committee_member_endpoint(
                 changed_by_user_id=get_optional_current_user_id(current_user),
             ),
         )
-    except CommitteeMemberBusinessRuleError as exc:
+    except (
+        AdminAuthorizationBusinessRuleError,
+        CommitteeMemberBusinessRuleError,
+    ) as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -89,6 +99,9 @@ def update_committee_member_endpoint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
+        validate_admin_actor(
+            db, user_id=get_optional_current_user_id(current_user)
+        )
         return _commit_and_refresh(
             db,
             update_committee_member(
@@ -103,7 +116,10 @@ def update_committee_member_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
-    except CommitteeMemberBusinessRuleError as exc:
+    except (
+        AdminAuthorizationBusinessRuleError,
+        CommitteeMemberBusinessRuleError,
+    ) as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)

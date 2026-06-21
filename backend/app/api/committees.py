@@ -13,6 +13,10 @@ from app.schemas.committee import (
     CommitteeRead,
     CommitteeUpdate,
 )
+from app.services.admin_authorization_service import (
+    AdminAuthorizationBusinessRuleError,
+    validate_admin_actor,
+)
 from app.services.committee_service import (
     CommitteeBusinessRuleError,
     CommitteeNotFoundError,
@@ -60,13 +64,16 @@ def create_committee_endpoint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
+        validate_admin_actor(
+            db, user_id=get_optional_current_user_id(current_user)
+        )
         committee = create_committee(
             db,
             data=data,
             changed_by_user_id=get_optional_current_user_id(current_user),
         )
         return _commit_and_refresh(db, committee)
-    except CommitteeBusinessRuleError as exc:
+    except (AdminAuthorizationBusinessRuleError, CommitteeBusinessRuleError) as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -81,6 +88,9 @@ def update_committee_endpoint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
+        validate_admin_actor(
+            db, user_id=get_optional_current_user_id(current_user)
+        )
         committee = update_committee(
             db,
             committee_id=committee_id,
@@ -93,7 +103,7 @@ def update_committee_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Committee not found"
         ) from exc
-    except CommitteeBusinessRuleError as exc:
+    except (AdminAuthorizationBusinessRuleError, CommitteeBusinessRuleError) as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -108,6 +118,9 @@ def archive_committee_endpoint(
     current_user: User | None = Depends(get_optional_current_user),
 ):
     try:
+        validate_admin_actor(
+            db, user_id=get_optional_current_user_id(current_user)
+        )
         committee = archive_committee(
             db,
             committee_id=committee_id,
@@ -120,7 +133,7 @@ def archive_committee_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Committee not found"
         ) from exc
-    except CommitteeBusinessRuleError as exc:
+    except (AdminAuthorizationBusinessRuleError, CommitteeBusinessRuleError) as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
