@@ -93,6 +93,9 @@ Use the returned access token on protected requests:
 Authorization: Bearer <access_token>
 ```
 
+Use `GET /auth/me` with the same Authorization header to retrieve the current
+`UserRead` payload. This supports frontend session restore and token validation.
+
 `X-User-Id` remains a temporary MVP fallback and will be removed later.
 The bundled JWT secret is development-only. Production deployments must set
 `JWT_SECRET_KEY` to a private secret of at least 32 bytes for HS256.

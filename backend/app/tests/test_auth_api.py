@@ -11,6 +11,8 @@ import app.models  # noqa: F401
 from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
+from app.models.committee import Committee, CommitteeMember
+from app.models.enums import AuthorityLevel, CommitteeType
 from app.models.user import User
 from app.services.security_service import hash_password
 
@@ -120,3 +122,108 @@ def test_login_rejects_inactive_and_passwordless_users(
 
 def test_login_rejects_malformed_request(client: TestClient) -> None:
     assert client.post("/auth/login", json={"email": "admin@example.com"}).status_code == 422
+
+
+def _login_headers(client: TestClient, user: User) -> dict[str, str]:
+    response = client.post(
+        "/auth/login",
+        json={"email": user.email, "password": "StrongPassword123!"},
+    )
+    assert response.status_code == 200
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+def test_auth_me_returns_bearer_user_without_password_fields(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    user = _user(db_session)
+
+    response = client.get("/auth/me", headers=_login_headers(client, user))
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(user.id)
+    assert response.json()["email"] == user.email
+    assert response.json()["display_name"] == user.display_name
+    assert "password" not in response.json()
+    assert "password_hash" not in response.json()
+
+
+def test_auth_me_requires_authentication(client: TestClient) -> None:
+    response = client.get("/auth/me")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Authentication required"
+
+
+def test_auth_me_supports_temporary_x_user_id_fallback(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    user = _user(db_session, password=None)
+
+    response = client.get("/auth/me", headers={"X-User-Id": str(user.id)})
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(user.id)
+
+
+def test_auth_me_bearer_token_takes_precedence_over_x_user_id(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    token_user = _user(db_session)
+    header_user = _user(db_session, password=None)
+    headers = _login_headers(client, token_user)
+    headers["X-User-Id"] = str(header_user.id)
+
+    response = client.get("/auth/me", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(token_user.id)
+
+
+def test_auth_me_rejects_invalid_and_inactive_bearer_users(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    user = _user(db_session)
+    token = _login_headers(client, user)["Authorization"]
+    user.is_active = False
+    db_session.commit()
+
+    invalid_response = client.get(
+        "/auth/me", headers={"Authorization": "Bearer invalid"}
+    )
+    inactive_response = client.get("/auth/me", headers={"Authorization": token})
+
+    assert invalid_response.status_code == 401
+    assert inactive_response.status_code == 403
+
+
+def test_jwt_authenticates_governance_admin_write(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    admin = _user(db_session)
+    committee = Committee(
+        name=f"Governance {uuid.uuid4()}",
+        authority_level=AuthorityLevel.MIDDLE,
+        committee_type=CommitteeType.RISK_MANAGEMENT_COMMITTEE,
+        is_fixed=True,
+        is_active=True,
+    )
+    db_session.add(committee)
+    db_session.flush()
+    db_session.add(
+        CommitteeMember(committee_id=committee.id, user_id=admin.id, is_active=True)
+    )
+    db_session.commit()
+
+    response = client.post(
+        "/roles",
+        json={"name": f"JWT Admin Role {uuid.uuid4()}"},
+        headers=_login_headers(client, admin),
+    )
+
+    assert response.status_code == 201
