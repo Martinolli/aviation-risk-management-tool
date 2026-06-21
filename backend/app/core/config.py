@@ -10,7 +10,7 @@ class Settings(BaseSettings):
         "aviation_risk_management"
     )
     # Production deployments must override this development-only value.
-    jwt_secret_key: str = "dev-change-me"
+    jwt_secret_key: str = "dev-change-me-use-env-secret-in-production-32bytes"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
 

@@ -77,8 +77,7 @@ creates or reuses the supplied admin user, and assigns that user to the Risk
 Management Committee. It is idempotent and intended for controlled
 backend/server-side initialization only; it is not a public API endpoint.
 The password option is optional for now but recommended. It is securely hashed
-before storage; plaintext passwords are never stored. JWT/login is not
-implemented yet, so `X-User-Id` remains the temporary MVP attribution mechanism.
+before storage; plaintext passwords are never stored.
 
 ## Authentication
 
@@ -95,4 +94,5 @@ Authorization: Bearer <access_token>
 ```
 
 `X-User-Id` remains a temporary MVP fallback and will be removed later.
-Production deployments must override the development JWT secret key.
+The bundled JWT secret is development-only. Production deployments must set
+`JWT_SECRET_KEY` to a private secret of at least 32 bytes for HS256.
