@@ -259,7 +259,7 @@ def test_full_risk_workflow_through_api(client: TestClient) -> None:
         "APPROVED_AT_OPERATIONAL_BOARD"
     )
 
-    detail_response = client.get(f"/risks/{risk_record_id}/detail")
+    detail_response = client.get(f"/risks/{risk_record_id}/detail", headers=risk_headers)
     assert detail_response.status_code == 200
     detail = detail_response.json()
 

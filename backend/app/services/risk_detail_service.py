@@ -4,8 +4,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.audit import AuditLog
-from app.models.enums import AuditAction
+from app.models.committee import Committee, CommitteeMember
+from app.models.enums import AuditAction, AuthorityLevel
 from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
+from app.models.user import User
 
 RISK_RECORD_ENTITY_TYPE = "RiskRecord"
 WORKFLOW_AUDIT_ACTIONS = {
@@ -19,6 +21,119 @@ WORKFLOW_AUDIT_ACTIONS = {
 
 class RiskDetailNotFoundError(ValueError):
     pass
+
+
+class RiskDetailBusinessRuleError(ValueError):
+    pass
+
+
+def _validate_risk_detail_reader(
+    db: Session,
+    *,
+    user_id: uuid.UUID | None,
+) -> User:
+    if user_id is None:
+        raise RiskDetailBusinessRuleError(
+            "Risk detail access requires an authenticated active user"
+        )
+    user = db.get(User, user_id)
+    if user is None:
+        raise RiskDetailBusinessRuleError("Risk detail user does not exist")
+    if not user.is_active:
+        raise RiskDetailBusinessRuleError("Risk detail user is inactive")
+    return user
+
+
+def _is_active_committee_member(
+    db: Session,
+    *,
+    committee_id: uuid.UUID | None,
+    user_id: uuid.UUID,
+) -> bool:
+    if committee_id is None:
+        return False
+    return db.scalar(
+        select(CommitteeMember.id)
+        .join(Committee, CommitteeMember.committee_id == Committee.id)
+        .where(
+            CommitteeMember.committee_id == committee_id,
+            CommitteeMember.user_id == user_id,
+            CommitteeMember.is_active.is_(True),
+            Committee.is_active.is_(True),
+        )
+    ) is not None
+
+
+def _is_active_fixed_governance_member(
+    db: Session,
+    *,
+    user_id: uuid.UUID,
+) -> bool:
+    return db.scalar(
+        select(CommitteeMember.id)
+        .join(Committee, CommitteeMember.committee_id == Committee.id)
+        .where(
+            CommitteeMember.user_id == user_id,
+            CommitteeMember.is_active.is_(True),
+            Committee.is_active.is_(True),
+            Committee.is_fixed.is_(True),
+            Committee.authority_level.in_([AuthorityLevel.MIDDLE, AuthorityLevel.HIGH]),
+        )
+    ) is not None
+
+
+def _validate_risk_detail_authority(
+    db: Session,
+    *,
+    risk_record: RiskRecord,
+    user_id: uuid.UUID,
+) -> None:
+    if user_id in {risk_record.owner_user_id, risk_record.created_by_user_id}:
+        return
+    if _is_active_committee_member(
+        db,
+        committee_id=risk_record.board_of_origin_id,
+        user_id=user_id,
+    ):
+        return
+    if db.scalar(
+        select(RiskAssessment.id).where(
+            RiskAssessment.risk_record_id == risk_record.id,
+            RiskAssessment.assessed_by_user_id == user_id,
+        )
+    ) is not None:
+        return
+    if db.scalar(
+        select(RiskAction.id).where(
+            RiskAction.risk_record_id == risk_record.id,
+            RiskAction.action_owner_user_id == user_id,
+        )
+    ) is not None:
+        return
+    if db.scalar(
+        select(RiskDecision.id).where(
+            RiskDecision.risk_record_id == risk_record.id,
+            RiskDecision.decided_by_user_id == user_id,
+        )
+    ) is not None:
+        return
+    decision_committee_ids = db.scalars(
+        select(RiskDecision.committee_id).where(
+            RiskDecision.risk_record_id == risk_record.id
+        )
+    )
+    if any(
+        _is_active_committee_member(
+            db,
+            committee_id=committee_id,
+            user_id=user_id,
+        )
+        for committee_id in decision_committee_ids
+    ):
+        return
+    if _is_active_fixed_governance_member(db, user_id=user_id):
+        return
+    raise RiskDetailBusinessRuleError("User is not authorized to read this risk detail")
 
 
 def _count_audit_logs(
@@ -73,14 +188,14 @@ def _audit_summary(db: Session, *, risk_record_id: uuid.UUID) -> dict[str, objec
     }
 
 
-def get_risk_record_detail(
+def _build_risk_record_detail(
     db: Session,
     *,
     risk_record_id: uuid.UUID,
-) -> dict[str, object]:
+) -> dict[str, object] | None:
     risk_record = db.get(RiskRecord, risk_record_id)
     if risk_record is None:
-        raise RiskDetailNotFoundError("Risk record not found")
+        return None
 
     assessments = list(
         db.scalars(
@@ -111,3 +226,21 @@ def get_risk_record_detail(
         "decisions": decisions,
         "audit_summary": _audit_summary(db, risk_record_id=risk_record_id),
     }
+
+
+def get_risk_record_detail(
+    db: Session,
+    *,
+    risk_record_id: uuid.UUID,
+    requested_by_user_id: uuid.UUID | None,
+) -> dict[str, object] | None:
+    _validate_risk_detail_reader(db, user_id=requested_by_user_id)
+    risk_record = db.get(RiskRecord, risk_record_id)
+    if risk_record is None:
+        return None
+    _validate_risk_detail_authority(
+        db,
+        risk_record=risk_record,
+        user_id=requested_by_user_id,
+    )
+    return _build_risk_record_detail(db, risk_record_id=risk_record_id)

@@ -11,8 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
 from app.services.risk_detail_service import (
-    RiskDetailNotFoundError,
-    get_risk_record_detail,
+    _build_risk_record_detail,
 )
 
 
@@ -139,10 +138,9 @@ def generate_risk_dossier_docx(
     risk_record_id: uuid.UUID,
     output_dir: Path | str,
 ) -> Path:
-    try:
-        detail = get_risk_record_detail(db, risk_record_id=risk_record_id)
-    except RiskDetailNotFoundError as exc:
-        raise ReportRiskNotFoundError("Risk record not found") from exc
+    detail = _build_risk_record_detail(db, risk_record_id=risk_record_id)
+    if detail is None:
+        raise ReportRiskNotFoundError("Risk record not found")
 
     risk_record: RiskRecord = detail["risk_record"]
     assessments: list[RiskAssessment] = detail["assessments"]

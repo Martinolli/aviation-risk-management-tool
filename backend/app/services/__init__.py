@@ -59,6 +59,7 @@ from app.services.risk_decision_service import (
     list_risk_decisions,
 )
 from app.services.risk_detail_service import (
+    RiskDetailBusinessRuleError,
     RiskDetailNotFoundError,
     get_risk_record_detail,
 )
@@ -110,6 +111,7 @@ __all__ = [
     "RiskAssessmentNotFoundError",
     "RiskDecisionBusinessRuleError",
     "RiskDecisionNotFoundError",
+    "RiskDetailBusinessRuleError",
     "RiskDetailNotFoundError",
     "RiskNumberingError",
     "RiskRecordBusinessRuleError",
