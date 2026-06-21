@@ -8,6 +8,13 @@ from app.services.audit_query_service import (
     get_audit_log,
     list_audit_logs,
 )
+from app.services.auth_service import (
+    AuthenticationError,
+    TokenError,
+    authenticate_user,
+    create_access_token,
+    decode_access_token,
+)
 from app.services.bootstrap_service import (
     BootstrapBusinessRuleError,
     bootstrap_governance_admin,
@@ -113,6 +120,7 @@ from app.services.user_service import (
 
 __all__ = [
     "AuditQueryBusinessRuleError",
+    "AuthenticationError",
     "AdminAuthorizationBusinessRuleError",
     "BootstrapBusinessRuleError",
     "CommitteeBusinessRuleError",
@@ -133,6 +141,7 @@ __all__ = [
     "RiskRecordBusinessRuleError",
     "RiskRecordNotFoundError",
     "SecurityBusinessRuleError",
+    "TokenError",
     "RoleBusinessRuleError",
     "RoleNotFoundError",
     "ReportGenerationError",
@@ -141,8 +150,10 @@ __all__ = [
     "UserBusinessRuleError",
     "UserNotFoundError",
     "archive_committee",
+    "authenticate_user",
     "bootstrap_governance_admin",
     "complete_risk_action",
+    "create_access_token",
     "create_committee",
     "create_committee_member",
     "create_risk_action",
@@ -156,6 +167,7 @@ __all__ = [
     "get_audit_log",
     "is_active_fixed_governance_member",
     "get_default_committee_names",
+    "decode_access_token",
     "generate_next_risk_id",
     "generate_and_track_risk_dossier_report",
     "generate_risk_dossier_docx",

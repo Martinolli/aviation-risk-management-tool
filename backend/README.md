@@ -79,3 +79,20 @@ backend/server-side initialization only; it is not a public API endpoint.
 The password option is optional for now but recommended. It is securely hashed
 before storage; plaintext passwords are never stored. JWT/login is not
 implemented yet, so `X-User-Id` remains the temporary MVP attribution mechanism.
+
+## Authentication
+
+Bootstrap an admin with a password, then send `POST /auth/login` with:
+
+```json
+{"email": "admin@example.com", "password": "ChangeMe123!"}
+```
+
+Use the returned access token on protected requests:
+
+```text
+Authorization: Bearer <access_token>
+```
+
+`X-User-Id` remains a temporary MVP fallback and will be removed later.
+Production deployments must override the development JWT secret key.

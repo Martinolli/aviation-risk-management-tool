@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from collections.abc import Generator
 
 import pytest
@@ -16,6 +17,7 @@ from app.models.committee import Committee, CommitteeMember
 from app.models.enums import AuditAction, AuthorityLevel, CommitteeType
 from app.models.risk import RiskRecord
 from app.models.user import User
+from app.services.auth_service import create_access_token
 
 
 @pytest.fixture()
@@ -224,3 +226,73 @@ def test_unknown_and_inactive_header_users_are_rejected(
     assert unknown_response.json()["detail"] == "User not found"
     assert inactive_response.status_code == 403
     assert inactive_response.json()["detail"] == "User is inactive"
+
+
+def test_bearer_token_authenticates_and_takes_precedence_over_x_user_id(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    token_user = _create_user(db_session)
+    conflicting_user = _create_user(db_session, is_active=False)
+    token = create_access_token(user_id=token_user.id)
+
+    response = client.post(
+        "/risks",
+        json=_risk_payload(),
+        headers={
+            "Authorization": f"Bearer {token}",
+            "X-User-Id": str(conflicting_user.id),
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["created_by_user_id"] == str(token_user.id)
+
+
+@pytest.mark.parametrize(
+    "authorization,expected_detail",
+    [
+        ("not-a-token", "Invalid authorization header"),
+        ("Basic abc", "Invalid authorization header"),
+        ("Bearer malformed", "Invalid or expired access token"),
+    ],
+)
+def test_invalid_authorization_headers_are_rejected(
+    client: TestClient,
+    authorization: str,
+    expected_detail: str,
+) -> None:
+    response = client.post(
+        "/risks",
+        json=_risk_payload(),
+        headers={"Authorization": authorization},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == expected_detail
+
+
+def test_expired_unknown_and_inactive_bearer_users_are_rejected(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    inactive_user = _create_user(db_session, is_active=False)
+    expired_token = create_access_token(
+        user_id=uuid.uuid4(), expires_delta=timedelta(seconds=-1)
+    )
+    unknown_token = create_access_token(user_id=uuid.uuid4())
+    inactive_token = create_access_token(user_id=inactive_user.id)
+
+    expired_response = client.post(
+        "/risks", json=_risk_payload(), headers={"Authorization": f"Bearer {expired_token}"}
+    )
+    unknown_response = client.post(
+        "/risks", json=_risk_payload(), headers={"Authorization": f"Bearer {unknown_token}"}
+    )
+    inactive_response = client.post(
+        "/risks", json=_risk_payload(), headers={"Authorization": f"Bearer {inactive_token}"}
+    )
+
+    assert expired_response.status_code == 401
+    assert unknown_response.status_code == 401
+    assert inactive_response.status_code == 403

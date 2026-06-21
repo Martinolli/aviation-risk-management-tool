@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.audit_logs import router as audit_log_router
+from app.api.auth import router as auth_router
 from app.api.committees import router as committee_router
 from app.api.committee_members import router as committee_member_router
 from app.api.health import router as health_router
@@ -17,6 +18,7 @@ from app.core.config import settings
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name)
     app.include_router(health_router)
+    app.include_router(auth_router)
     app.include_router(audit_log_router)
     app.include_router(committee_router)
     app.include_router(committee_member_router)

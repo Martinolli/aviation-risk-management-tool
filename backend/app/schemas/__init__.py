@@ -1,4 +1,5 @@
 from app.schemas.audit import AuditLogRead
+from app.schemas.auth import LoginRequest, TokenResponse
 from app.schemas.committee import (
     CommitteeArchive,
     CommitteeCreate,
@@ -38,6 +39,7 @@ from app.schemas.user import UserCreate, UserRead, UserUpdate
 
 __all__ = [
     "AuditLogRead",
+    "LoginRequest",
     "CommitteeArchive",
     "CommitteeCreate",
     "CommitteeRead",
@@ -68,4 +70,5 @@ __all__ = [
     "UserCreate",
     "UserRead",
     "UserUpdate",
+    "TokenResponse",
 ]

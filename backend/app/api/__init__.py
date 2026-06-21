@@ -1,4 +1,5 @@
 from app.api.audit_logs import router as audit_logs_router
+from app.api.auth import router as auth_router
 from app.api.committees import router as committees_router
 from app.api.committee_members import router as committee_members_router
 from app.api.health import router as health_router
@@ -12,6 +13,7 @@ from app.api.users import router as users_router
 
 __all__ = [
     "audit_logs_router",
+    "auth_router",
     "committees_router",
     "committee_members_router",
     "health_router",
