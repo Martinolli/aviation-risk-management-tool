@@ -23,7 +23,9 @@ python -m pip install -e ".[dev]"
 
 ## Configure Environment
 
-Copy `.env.example` to `.env` and adjust values as needed.
+Copy `.env.example` to `backend/.env` and adjust values as needed. The backend
+settings load `.env` relative to the working directory, so this assumes backend
+commands are run from `backend/`.
 
 ```powershell
 Copy-Item .env.example .env
@@ -33,6 +35,57 @@ Default database URL:
 
 ```text
 postgresql+psycopg://postgres:postgres@localhost:5432/aviation_risk_management
+```
+
+## Local PostgreSQL with Docker Compose
+
+From the repository root, start the local PostgreSQL 16 service:
+
+```powershell
+docker compose up -d postgres
+docker compose ps
+```
+
+Then run the backend setup from the repository root:
+
+```powershell
+cd backend
+Copy-Item .env.example .env
+alembic upgrade head
+python -m app.cli bootstrap-admin --email admin@example.com --display-name "Admin User" --password "ChangeMe123!"
+python -m app.cli seed-default-risk-matrix
+uvicorn app.main:app --reload
+```
+
+Useful database lifecycle commands from the repository root:
+
+```powershell
+docker compose logs -f postgres
+docker compose down
+docker compose down -v
+```
+
+`docker compose down -v` deletes the local PostgreSQL database volume and all
+of its data. The Compose credentials and JWT secret are for local development
+only; do not use these default credentials in production.
+
+After FastAPI starts, verify login:
+
+```text
+POST http://127.0.0.1:8000/auth/login
+```
+
+Request body:
+
+```json
+{"email": "admin@example.com", "password": "ChangeMe123!"}
+```
+
+Then verify the token:
+
+```text
+GET http://127.0.0.1:8000/auth/me
+Authorization: Bearer <access_token>
 ```
 
 ## Run Tests
