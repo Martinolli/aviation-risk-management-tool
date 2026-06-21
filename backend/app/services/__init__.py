@@ -19,6 +19,10 @@ from app.services.bootstrap_service import (
     BootstrapBusinessRuleError,
     bootstrap_governance_admin,
 )
+from app.services.default_risk_matrix_seed_service import (
+    DefaultRiskMatrixSeedError,
+    seed_default_risk_matrix,
+)
 from app.services.committee_service import (
     CommitteeBusinessRuleError,
     CommitteeNotFoundError,
@@ -152,6 +156,7 @@ __all__ = [
     "AuthenticationError",
     "AdminAuthorizationBusinessRuleError",
     "BootstrapBusinessRuleError",
+    "DefaultRiskMatrixSeedError",
     "CommitteeBusinessRuleError",
     "CommitteeMemberBusinessRuleError",
     "CommitteeMemberNotFoundError",
@@ -188,6 +193,7 @@ __all__ = [
     "archive_severity_level",
     "authenticate_user",
     "bootstrap_governance_admin",
+    "seed_default_risk_matrix",
     "complete_risk_action",
     "calculate_risk_assessment_from_matrix",
     "clear_risk_assessment_matrix_calculation",

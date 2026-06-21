@@ -107,3 +107,17 @@ configurable through `/risk-matrix`. Read operations require an authenticated
 user; writes and archives require an active fixed MIDDLE or HIGH governance
 committee member. Automatic risk calculation for `RiskAssessment` is not part
 of this configuration feature and will be added later.
+
+### Default Matrix Seed
+
+Initialize the configurable aviation-style 5 × 5 reference matrix with:
+
+```powershell
+python -m app.cli seed-default-risk-matrix
+```
+
+The command creates the default 5 × 5 matrix and is idempotent by default. Use
+`--overwrite-existing` to restore active default records and default matrix
+pairs to their default values; archived records are never reactivated. It does
+not run automatically on application startup, and the matrix remains
+configurable after seeding.
