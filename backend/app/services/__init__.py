@@ -8,6 +8,10 @@ from app.services.audit_query_service import (
     get_audit_log,
     list_audit_logs,
 )
+from app.services.bootstrap_service import (
+    BootstrapBusinessRuleError,
+    bootstrap_governance_admin,
+)
 from app.services.committee_service import (
     CommitteeBusinessRuleError,
     CommitteeNotFoundError,
@@ -105,6 +109,7 @@ from app.services.user_service import (
 __all__ = [
     "AuditQueryBusinessRuleError",
     "AdminAuthorizationBusinessRuleError",
+    "BootstrapBusinessRuleError",
     "CommitteeBusinessRuleError",
     "CommitteeMemberBusinessRuleError",
     "CommitteeMemberNotFoundError",
@@ -130,6 +135,7 @@ __all__ = [
     "UserBusinessRuleError",
     "UserNotFoundError",
     "archive_committee",
+    "bootstrap_governance_admin",
     "complete_risk_action",
     "create_committee",
     "create_committee_member",

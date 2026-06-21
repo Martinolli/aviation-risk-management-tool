@@ -63,12 +63,16 @@ Expected response:
 {"status":"ok","service":"aviation-risk-management-tool"}
 ```
 
-## Seed Default Committees
+## Bootstrap a Development Database
 
-The default aviation SMS governance committees can be created by calling
-`seed_default_committees(db)` from `app.services.seed_service`. The seed is
-idempotent: existing committees with matching names are returned as-is, and only
-newly created committees receive audit log records.
+Run database migrations first, if applicable, then run this command from the
+`backend/` directory:
 
-This is currently a service function. A later task may expose it through a CLI
-command or an admin-only API operation.
+```powershell
+python -m app.cli bootstrap-admin --email admin@example.com --display-name "Admin User"
+```
+
+The command creates or ensures the default governance committees and roles,
+creates or reuses the supplied admin user, and assigns that user to the Risk
+Management Committee. It is idempotent and intended for controlled
+backend/server-side initialization only; it is not a public API endpoint.
