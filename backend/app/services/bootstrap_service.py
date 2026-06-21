@@ -5,6 +5,7 @@ from app.models.committee import Committee, CommitteeMember
 from app.models.enums import AuthorityLevel
 from app.models.role import Role
 from app.models.user import User
+from app.services.security_service import hash_password
 from app.services.seed_service import seed_default_committees
 
 DEFAULT_ADMIN_ROLE_NAME = "Governance Administrator"
@@ -30,6 +31,7 @@ def bootstrap_governance_admin(
     *,
     admin_email: str,
     admin_display_name: str,
+    admin_password: str | None = None,
 ) -> dict[str, object]:
     normalized_email = admin_email.strip().lower()
     display_name = admin_display_name.strip()
@@ -57,6 +59,9 @@ def bootstrap_governance_admin(
         user = User(
             email=normalized_email,
             display_name=display_name,
+            password_hash=(
+                hash_password(admin_password) if admin_password is not None else None
+            ),
             is_active=True,
         )
         db.add(user)
@@ -66,6 +71,10 @@ def bootstrap_governance_admin(
             raise BootstrapBusinessRuleError("Bootstrap admin user exists but is inactive")
         if not (user.display_name or "").strip():
             user.display_name = display_name
+            db.add(user)
+            db.flush()
+        if admin_password is not None and not user.password_hash:
+            user.password_hash = hash_password(admin_password)
             db.add(user)
             db.flush()
 

@@ -16,6 +16,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     bootstrap_parser.add_argument("--email", required=True)
     bootstrap_parser.add_argument("--display-name", required=True)
+    bootstrap_parser.add_argument("--password")
     return parser
 
 
@@ -30,6 +31,7 @@ def main(argv: list[str] | None = None) -> int:
             db,
             admin_email=args.email,
             admin_display_name=args.display_name,
+            admin_password=args.password,
         )
         db.commit()
         user = result["user"]

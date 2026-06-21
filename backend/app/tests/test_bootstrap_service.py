@@ -20,6 +20,7 @@ from app.services.bootstrap_service import (
     BootstrapBusinessRuleError,
     bootstrap_governance_admin,
 )
+from app.services.security_service import verify_password
 
 
 @pytest.fixture()
@@ -35,11 +36,15 @@ def db_session() -> Session:
     Base.metadata.drop_all(engine)
 
 
-def _bootstrap(db_session: Session) -> dict[str, object]:
+def _bootstrap(
+    db_session: Session,
+    password: str | None = None,
+) -> dict[str, object]:
     return bootstrap_governance_admin(
         db_session,
         admin_email=" Admin@Example.COM ",
         admin_display_name=" Admin User ",
+        admin_password=password,
     )
 
 
@@ -160,3 +165,39 @@ def test_bootstrap_rejects_invalid_risk_management_committee(
 
     with pytest.raises(BootstrapBusinessRuleError, match="fixed MIDDLE"):
         _bootstrap(db_session)
+
+
+def test_bootstrap_password_is_hashed_and_not_returned(db_session: Session) -> None:
+    password = "StrongPassword123!"
+
+    result = _bootstrap(db_session, password=password)
+
+    assert verify_password(password, result["user"].password_hash)
+    assert "password" not in result
+    assert "password_hash" not in result
+
+
+def test_bootstrap_password_does_not_overwrite_existing_hash(db_session: Session) -> None:
+    first_password = "StrongPassword123!"
+    second_password = "DifferentPassword456!"
+    first_result = _bootstrap(db_session, password=first_password)
+    original_hash = first_result["user"].password_hash
+
+    second_result = _bootstrap(db_session, password=second_password)
+
+    assert second_result["user"].password_hash == original_hash
+    assert verify_password(first_password, original_hash)
+    assert not verify_password(second_password, original_hash)
+
+
+def test_bootstrap_sets_password_for_existing_active_user_without_hash(
+    db_session: Session,
+) -> None:
+    user = User(email="admin@example.com", display_name="Admin", is_active=True)
+    db_session.add(user)
+    db_session.flush()
+
+    result = _bootstrap(db_session, password="StrongPassword123!")
+
+    assert result["user"] is user
+    assert verify_password("StrongPassword123!", user.password_hash)

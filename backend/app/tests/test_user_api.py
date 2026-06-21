@@ -3,7 +3,7 @@ from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -11,9 +11,11 @@ import app.models  # noqa: F401
 from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
+from app.models.audit import AuditLog
 from app.models.committee import Committee, CommitteeMember
 from app.models.enums import AuthorityLevel, CommitteeType
 from app.models.user import User
+from app.services.security_service import verify_password
 
 
 @pytest.fixture()
@@ -76,3 +78,46 @@ def test_user_writes_require_governance_admin(client: TestClient, db_session: Se
     db_session.commit()
     assert client.post("/users", json=_payload(), headers={"X-User-Id": str(regular.id)}).status_code == 400
     assert client.post("/users", json=_payload(), headers=_admin_headers(db_session, level=AuthorityLevel.HIGH)).status_code == 201
+
+
+def test_user_password_api_fields_are_hashed_and_never_returned(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    headers = _admin_headers(db_session)
+    first_password = "StrongPassword123!"
+    second_password = "NewStrongPassword456!"
+    response = client.post(
+        "/users",
+        json={**_payload(), "password": first_password},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert "password" not in response.json()
+    assert "password_hash" not in response.json()
+    user = db_session.get(User, uuid.UUID(response.json()["id"]))
+    assert user is not None
+    assert verify_password(first_password, user.password_hash)
+
+    update_response = client.patch(
+        f"/users/{user.id}",
+        json={"password": second_password},
+        headers=headers,
+    )
+    password_audit_log = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entity_id == user.id,
+            AuditLog.field_name == "password",
+        )
+    )
+
+    assert update_response.status_code == 200
+    assert "password" not in update_response.json()
+    assert "password_hash" not in update_response.json()
+    assert verify_password(second_password, user.password_hash)
+    assert password_audit_log is not None
+    assert password_audit_log.new_value == "***UPDATED***"
+    assert first_password not in str(password_audit_log.new_value)
+    assert second_password not in str(password_audit_log.new_value)
+    assert user.password_hash not in str(password_audit_log.new_value)

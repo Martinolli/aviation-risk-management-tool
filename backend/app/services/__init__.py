@@ -34,6 +34,11 @@ from app.services.seed_service import (
     get_default_committee_names,
     seed_default_committees,
 )
+from app.services.security_service import (
+    SecurityBusinessRuleError,
+    hash_password,
+    verify_password,
+)
 from app.services.risk_service import (
     RiskRecordBusinessRuleError,
     RiskRecordNotFoundError,
@@ -127,6 +132,7 @@ __all__ = [
     "RiskNumberingError",
     "RiskRecordBusinessRuleError",
     "RiskRecordNotFoundError",
+    "SecurityBusinessRuleError",
     "RoleBusinessRuleError",
     "RoleNotFoundError",
     "ReportGenerationError",
@@ -161,6 +167,7 @@ __all__ = [
     "get_risk_record",
     "get_role",
     "get_user",
+    "hash_password",
     "list_committees",
     "list_committee_members",
     "list_audit_logs",
@@ -182,4 +189,5 @@ __all__ = [
     "update_role",
     "update_user",
     "validate_admin_actor",
+    "verify_password",
 ]

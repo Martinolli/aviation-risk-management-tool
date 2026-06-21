@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 import app.services.audit_service as audit_service
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
+from app.services.security_service import hash_password
 
 USER_ENTITY_TYPE = "User"
 
@@ -50,6 +51,7 @@ def create_user(
     user = User(
         email=data.email.strip(),
         display_name=data.display_name.strip(),
+        password_hash=hash_password(data.password) if data.password is not None else None,
         is_active=True,
     )
     db.add(user)
@@ -88,6 +90,7 @@ def update_user(
         raise UserNotFoundError("User not found")
 
     update_data = data.model_dump(exclude_unset=True)
+    password = update_data.pop("password", None)
     if "display_name" in update_data:
         if update_data["display_name"] is None:
             raise UserBusinessRuleError("display_name must not be empty")
@@ -106,6 +109,19 @@ def update_user(
             field_name=field_name,
             old_value=old_value,
             new_value=new_value,
+            changed_by_user_id=changed_by_user_id,
+            reason=reason,
+        )
+
+    if password is not None:
+        user.password_hash = hash_password(password)
+        audit_service.log_change(
+            db,
+            entity_type=USER_ENTITY_TYPE,
+            entity_id=user.id,
+            field_name="password",
+            old_value=None,
+            new_value="***UPDATED***",
             changed_by_user_id=changed_by_user_id,
             reason=reason,
         )

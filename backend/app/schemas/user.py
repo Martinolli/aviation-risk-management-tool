@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class UserCreate(BaseModel):
     email: str
     display_name: str = Field(..., min_length=1)
+    password: str | None = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -14,6 +15,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     display_name: str | None = None
     is_active: bool | None = None
+    password: str | None = None
 
     model_config = ConfigDict(extra="forbid")
 

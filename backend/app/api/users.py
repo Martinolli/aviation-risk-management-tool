@@ -19,6 +19,7 @@ from app.services.user_service import (
     list_users,
     update_user,
 )
+from app.services.security_service import SecurityBusinessRuleError
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -63,7 +64,11 @@ def create_user_endpoint(
                 changed_by_user_id=get_optional_current_user_id(current_user),
             ),
         )
-    except (AdminAuthorizationBusinessRuleError, UserBusinessRuleError) as exc:
+    except (
+        AdminAuthorizationBusinessRuleError,
+        SecurityBusinessRuleError,
+        UserBusinessRuleError,
+    ) as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -95,7 +100,11 @@ def update_user_endpoint(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
-    except (AdminAuthorizationBusinessRuleError, UserBusinessRuleError) as exc:
+    except (
+        AdminAuthorizationBusinessRuleError,
+        SecurityBusinessRuleError,
+        UserBusinessRuleError,
+    ) as exc:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)

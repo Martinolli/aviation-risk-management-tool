@@ -69,10 +69,13 @@ Run database migrations first, if applicable, then run this command from the
 `backend/` directory:
 
 ```powershell
-python -m app.cli bootstrap-admin --email admin@example.com --display-name "Admin User"
+python -m app.cli bootstrap-admin --email admin@example.com --display-name "Admin User" --password "ChangeMe123!"
 ```
 
 The command creates or ensures the default governance committees and roles,
 creates or reuses the supplied admin user, and assigns that user to the Risk
 Management Committee. It is idempotent and intended for controlled
 backend/server-side initialization only; it is not a public API endpoint.
+The password option is optional for now but recommended. It is securely hashed
+before storage; plaintext passwords are never stored. JWT/login is not
+implemented yet, so `X-User-Id` remains the temporary MVP attribution mechanism.

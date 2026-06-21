@@ -17,6 +17,7 @@ from app.services.user_service import (
     list_users,
     update_user,
 )
+from app.services.security_service import verify_password
 
 
 class NoCommitSession(Session):
@@ -37,8 +38,16 @@ def db_session() -> Session:
     Base.metadata.drop_all(engine)
 
 
-def _data(email: str | None = None, display_name: str = "Avery Pilot") -> UserCreate:
-    return UserCreate(email=email or f"{uuid.uuid4()}@example.com", display_name=display_name)
+def _data(
+    email: str | None = None,
+    display_name: str = "Avery Pilot",
+    password: str | None = None,
+) -> UserCreate:
+    return UserCreate(
+        email=email or f"{uuid.uuid4()}@example.com",
+        display_name=display_name,
+        password=password,
+    )
 
 
 def test_create_user_succeeds_is_active_and_writes_audit_log(db_session: Session) -> None:
@@ -52,6 +61,52 @@ def test_create_user_succeeds_is_active_and_writes_audit_log(db_session: Session
     )
     assert user.is_active is True
     assert audit_log is not None
+    assert user.password_hash is None
+
+
+def test_create_and_update_user_password_hashes_and_audits_safely(
+    db_session: Session,
+) -> None:
+    old_password = "StrongPassword123!"
+    new_password = "NewStrongPassword456!"
+    user = create_user(db_session, data=_data(password=old_password))
+
+    assert user.password_hash is not None
+    assert user.password_hash != old_password
+    assert verify_password(old_password, user.password_hash)
+
+    update_user(
+        db_session,
+        user_id=user.id,
+        data=UserUpdate(password=new_password),
+    )
+    password_audit_log = db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.entity_id == user.id,
+            AuditLog.action == AuditAction.UPDATE,
+            AuditLog.field_name == "password",
+        )
+    )
+
+    assert verify_password(new_password, user.password_hash)
+    assert not verify_password(old_password, user.password_hash)
+    assert password_audit_log is not None
+    assert password_audit_log.new_value == "***UPDATED***"
+    assert old_password not in str(password_audit_log.new_value)
+    assert new_password not in str(password_audit_log.new_value)
+    assert user.password_hash not in str(password_audit_log.new_value)
+
+
+def test_update_user_with_null_password_does_not_clear_existing_password(
+    db_session: Session,
+) -> None:
+    password = "StrongPassword123!"
+    user = create_user(db_session, data=_data(password=password))
+    original_hash = user.password_hash
+
+    update_user(db_session, user_id=user.id, data=UserUpdate(password=None))
+
+    assert user.password_hash == original_hash
 
 
 def test_create_user_rejects_duplicate_email_case_insensitively(db_session: Session) -> None:
