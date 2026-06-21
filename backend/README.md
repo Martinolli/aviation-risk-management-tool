@@ -99,3 +99,11 @@ Use `GET /auth/me` with the same Authorization header to retrieve the current
 `X-User-Id` remains a temporary MVP fallback and will be removed later.
 The bundled JWT secret is development-only. Production deployments must set
 `JWT_SECRET_KEY` to a private secret of at least 32 bytes for HS256.
+
+## Risk Matrix Configuration
+
+Severity levels, likelihood levels, risk levels, and risk matrix cells are
+configurable through `/risk-matrix`. Read operations require an authenticated
+user; writes and archives require an active fixed MIDDLE or HIGH governance
+committee member. Automatic risk calculation for `RiskAssessment` is not part
+of this configuration feature and will be added later.

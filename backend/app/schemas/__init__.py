@@ -30,6 +30,20 @@ from app.schemas.risk_assessment import (
 )
 from app.schemas.risk_decision import RiskDecisionCreate, RiskDecisionRead
 from app.schemas.risk_detail import RiskAuditSummary, RiskRecordDetailRead
+from app.schemas.risk_matrix import (
+    RiskLevelCreate,
+    RiskLevelRead,
+    RiskLevelUpdate,
+    RiskLikelihoodLevelCreate,
+    RiskLikelihoodLevelRead,
+    RiskLikelihoodLevelUpdate,
+    RiskMatrixCellCreate,
+    RiskMatrixCellRead,
+    RiskMatrixCellUpdate,
+    RiskSeverityLevelCreate,
+    RiskSeverityLevelRead,
+    RiskSeverityLevelUpdate,
+)
 from app.schemas.report import (
     GenerateRiskDossierReportRequest,
     GeneratedReportRead,
@@ -64,6 +78,18 @@ __all__ = [
     "RiskRecordRead",
     "RiskRecordSubmit",
     "RiskRecordUpdate",
+    "RiskLevelCreate",
+    "RiskLevelRead",
+    "RiskLevelUpdate",
+    "RiskLikelihoodLevelCreate",
+    "RiskLikelihoodLevelRead",
+    "RiskLikelihoodLevelUpdate",
+    "RiskMatrixCellCreate",
+    "RiskMatrixCellRead",
+    "RiskMatrixCellUpdate",
+    "RiskSeverityLevelCreate",
+    "RiskSeverityLevelRead",
+    "RiskSeverityLevelUpdate",
     "RoleCreate",
     "RoleRead",
     "RoleUpdate",

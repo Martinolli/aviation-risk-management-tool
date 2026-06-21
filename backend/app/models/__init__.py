@@ -15,6 +15,12 @@ from app.models.llm import LLMAnalysis
 from app.models.report import GeneratedReport
 from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
 from app.models.role import Role
+from app.models.risk_matrix import (
+    RiskLevel,
+    RiskLikelihoodLevel,
+    RiskMatrixCell,
+    RiskSeverityLevel,
+)
 from app.models.user import User
 
 __all__ = [
@@ -34,7 +40,11 @@ __all__ = [
     "RiskDecisionType",
     "RiskDomain",
     "RiskLifecycleStatus",
+    "RiskLevel",
+    "RiskLikelihoodLevel",
+    "RiskMatrixCell",
     "RiskRecord",
+    "RiskSeverityLevel",
     "RiskWorkflowStatus",
     "Role",
     "User",
