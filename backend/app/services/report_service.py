@@ -98,6 +98,10 @@ def _assessment_rows(assessments: list[RiskAssessment]) -> list[list[Any]]:
             assessment.severity,
             assessment.likelihood,
             assessment.risk_level,
+            assessment.calculated_score,
+            assessment.is_tolerable,
+            assessment.requires_mitigation,
+            assessment.requires_escalation,
             assessment.rationale,
             _format_datetime(assessment.assessed_at),
         ]
@@ -204,7 +208,7 @@ def generate_risk_dossier_docx(
     if assessments:
         _add_table(
             document,
-            ["Type", "Severity", "Likelihood", "Risk Level", "Rationale", "Assessed At"],
+            ["Type", "Severity", "Likelihood", "Risk Level", "Score", "Tolerable", "Mitigation", "Escalation", "Rationale", "Assessed At"],
             _assessment_rows(assessments),
         )
     else:

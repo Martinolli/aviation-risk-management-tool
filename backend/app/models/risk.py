@@ -79,6 +79,22 @@ class RiskAssessment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     likelihood: Mapped[str] = mapped_column(String(100), nullable=False)
     risk_level: Mapped[str] = mapped_column(String(100), nullable=False)
     rationale: Mapped[str | None] = mapped_column(Text)
+    severity_level_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("risk_severity_levels.id"), nullable=True
+    )
+    likelihood_level_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("risk_likelihood_levels.id"), nullable=True
+    )
+    calculated_risk_level_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("risk_levels.id"), nullable=True
+    )
+    matrix_cell_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("risk_matrix_cells.id"), nullable=True
+    )
+    calculated_score: Mapped[int | None] = mapped_column()
+    is_tolerable: Mapped[bool | None] = mapped_column(Boolean)
+    requires_mitigation: Mapped[bool | None] = mapped_column(Boolean)
+    requires_escalation: Mapped[bool | None] = mapped_column(Boolean)
     assessed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
@@ -86,6 +102,10 @@ class RiskAssessment(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     risk_record: Mapped[RiskRecord] = relationship(back_populates="assessments")
     assessed_by_user = relationship("User")
+    severity_level = relationship("RiskSeverityLevel")
+    likelihood_level = relationship("RiskLikelihoodLevel")
+    calculated_risk_level = relationship("RiskLevel")
+    matrix_cell = relationship("RiskMatrixCell")
 
 
 class RiskAction(UUIDPrimaryKeyMixin, TimestampMixin, Base):

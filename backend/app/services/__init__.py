@@ -63,6 +63,11 @@ from app.services.risk_assessment_service import (
     list_risk_assessments,
     update_risk_assessment,
 )
+from app.services.risk_assessment_calculation_service import (
+    RiskAssessmentCalculationError,
+    calculate_risk_assessment_from_matrix,
+    clear_risk_assessment_matrix_calculation,
+)
 from app.services.risk_action_service import (
     RiskActionBusinessRuleError,
     RiskActionNotFoundError,
@@ -156,6 +161,7 @@ __all__ = [
     "RiskActionBusinessRuleError",
     "RiskActionNotFoundError",
     "RiskAssessmentBusinessRuleError",
+    "RiskAssessmentCalculationError",
     "RiskAssessmentNotFoundError",
     "RiskDecisionBusinessRuleError",
     "RiskDecisionNotFoundError",
@@ -183,6 +189,8 @@ __all__ = [
     "authenticate_user",
     "bootstrap_governance_admin",
     "complete_risk_action",
+    "calculate_risk_assessment_from_matrix",
+    "clear_risk_assessment_matrix_calculation",
     "create_access_token",
     "create_committee",
     "create_likelihood_level",
