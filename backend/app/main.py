@@ -1,4 +1,9 @@
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.audit_logs import router as audit_log_router
 from app.api.auth import router as auth_router
@@ -14,10 +19,59 @@ from app.api.reports import router as report_router
 from app.api.roles import router as role_router
 from app.api.users import router as user_router
 from app.core.config import settings
+from app.core.errors import (
+    ErrorCode,
+    error_from_http_exception,
+    error_response,
+    validation_error_details,
+)
+
+
+logger = logging.getLogger(__name__)
+
+
+def register_error_handlers(app: FastAPI) -> None:
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(
+        request: Request, exc: StarletteHTTPException
+    ) -> JSONResponse:
+        code, message, details = error_from_http_exception(exc.status_code, exc.detail)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_response(code, message, details),
+            headers=exc.headers,
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def request_validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content=error_response(
+                ErrorCode.VALIDATION_ERROR,
+                "Request validation failed.",
+                validation_error_details(exc.errors()),
+            ),
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
+        logger.exception("Unhandled API exception", exc_info=exc)
+        return JSONResponse(
+            status_code=500,
+            content=error_response(
+                ErrorCode.INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred.",
+            ),
+        )
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name)
+    register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(audit_log_router)

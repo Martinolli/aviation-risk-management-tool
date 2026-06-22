@@ -153,7 +153,8 @@ def test_auth_me_requires_authentication(client: TestClient) -> None:
     response = client.get("/auth/me")
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Authentication required"
+    assert response.json()["error"]["code"] == "UNAUTHENTICATED"
+    assert response.json()["error"]["message"] == "Authentication required"
 
 
 def test_auth_me_supports_temporary_x_user_id_fallback(

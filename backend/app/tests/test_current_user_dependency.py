@@ -223,9 +223,9 @@ def test_unknown_and_inactive_header_users_are_rejected(
     )
 
     assert unknown_response.status_code == 401
-    assert unknown_response.json()["detail"] == "User not found"
+    assert unknown_response.json()["error"]["message"] == "User not found"
     assert inactive_response.status_code == 403
-    assert inactive_response.json()["detail"] == "User is inactive"
+    assert inactive_response.json()["error"]["message"] == "User is inactive"
 
 
 def test_bearer_token_authenticates_and_takes_precedence_over_x_user_id(
@@ -269,7 +269,8 @@ def test_invalid_authorization_headers_are_rejected(
     )
 
     assert response.status_code == 401
-    assert response.json()["detail"] == expected_detail
+    assert response.json()["error"]["code"] == "UNAUTHENTICATED"
+    assert response.json()["error"]["message"] == expected_detail
 
 
 def test_expired_unknown_and_inactive_bearer_users_are_rejected(
