@@ -2,6 +2,8 @@
 
 FastAPI backend skeleton for the Aviation Risk Management Tool.
 
+For frontend/API integration details, see [the MVP API contract](docs/api_contract.md).
+
 ## Requirements
 
 - Python 3.11 or newer
