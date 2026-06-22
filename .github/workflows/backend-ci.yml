@@ -30,3 +30,43 @@ jobs:
           python -m pip install -e ".[dev]"
       - name: Run tests
         run: pytest
+
+  postgres-migrations:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aviation_risk_management
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aviation_risk_management"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: "postgresql+psycopg://postgres:postgres@localhost:5432/aviation_risk_management"
+      JWT_SECRET_KEY: "ci-change-me-use-env-secret-in-production-32bytes"
+      JWT_ALGORITHM: "HS256"
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Run Alembic migrations
+        run: alembic upgrade head
+      - name: Show Alembic current revision
+        run: alembic current

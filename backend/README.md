@@ -98,6 +98,8 @@ pytest
 
 GitHub Actions runs this backend pytest suite on pushes and pull requests to
 `main`. Run `pytest` locally before committing.
+GitHub Actions also runs a PostgreSQL Alembic migration smoke test to confirm
+migrations upgrade successfully against PostgreSQL.
 
 ## Run Locally
 
