@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401
+from app.core.config import settings
 from app.core.database import get_db
 from app.main import app
 from app.models.audit import AuditLog
@@ -297,3 +298,73 @@ def test_expired_unknown_and_inactive_bearer_users_are_rejected(
     assert expired_response.status_code == 401
     assert unknown_response.status_code == 401
     assert inactive_response.status_code == 403
+
+
+def test_bearer_authentication_works_when_x_user_id_fallback_is_disabled(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = _create_user(db_session)
+    monkeypatch.setattr(settings, "enable_x_user_id_auth_fallback", False)
+
+    response = client.get(
+        "/auth/me",
+        headers={"Authorization": f"Bearer {create_access_token(user_id=user.id)}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(user.id)
+
+
+def test_x_user_id_fallback_works_when_explicitly_enabled(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = _create_user(db_session)
+    monkeypatch.setattr(settings, "enable_x_user_id_auth_fallback", True)
+
+    response = client.get("/auth/me", headers={"X-User-Id": str(user.id)})
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(user.id)
+
+
+def test_x_user_id_fallback_is_rejected_when_disabled(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = _create_user(db_session)
+    monkeypatch.setattr(settings, "enable_x_user_id_auth_fallback", False)
+
+    response = client.get("/auth/me", headers={"X-User-Id": str(user.id)})
+
+    assert response.status_code == 401
+    assert response.json() == {
+        "error": {
+            "code": "UNAUTHENTICATED",
+            "message": "X-User-Id authentication fallback is disabled",
+            "details": {},
+        }
+    }
+
+
+def test_invalid_bearer_token_is_not_bypassed_by_x_user_id_fallback(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    fallback_user = _create_user(db_session)
+
+    response = client.post(
+        "/risks",
+        json=_risk_payload(),
+        headers={
+            "Authorization": "Bearer invalid",
+            "X-User-Id": str(fallback_user.id),
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "UNAUTHENTICATED"

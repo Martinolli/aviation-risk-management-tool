@@ -3,6 +3,7 @@ import uuid
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.user import User
 from app.services.auth_service import TokenError, decode_access_token
@@ -42,6 +43,12 @@ def get_optional_current_user(
 
     if x_user_id is None:
         return None
+
+    if not settings.enable_x_user_id_auth_fallback:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="X-User-Id authentication fallback is disabled",
+        )
 
     user = db.get(User, x_user_id)
     if user is None:

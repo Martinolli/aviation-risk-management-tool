@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "dev-change-me-use-env-secret-in-production-32bytes"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
+    enable_x_user_id_auth_fallback: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

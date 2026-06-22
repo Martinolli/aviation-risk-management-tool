@@ -154,7 +154,15 @@ Authorization: Bearer <access_token>
 Use `GET /auth/me` with the same Authorization header to retrieve the current
 `UserRead` payload. This supports frontend session restore and token validation.
 
-`X-User-Id` remains a temporary MVP fallback and will be removed later.
+Bearer token authentication is preferred. `X-User-Id` is a temporary
+development/testing fallback controlled by `ENABLE_X_USER_ID_AUTH_FALLBACK`;
+keep it disabled outside local development and testing:
+
+```text
+ENABLE_X_USER_ID_AUTH_FALLBACK=false
+```
+
+Set it to `true` only when local compatibility testing requires the fallback.
 The bundled JWT secret is development-only. Production deployments must set
 `JWT_SECRET_KEY` to a private secret of at least 32 bytes for HS256.
 
@@ -201,5 +209,6 @@ Then use the preferred `Authorization: Bearer <access_token>` flow:
 6. `POST /risk-decisions`
 7. `POST /reports/risk-dossiers/{risk_record_id}`
 
-The default matrix enables calculated assessments immediately. `X-User-Id`
-remains a temporary fallback, but Bearer authentication is the preferred path.
+The default matrix enables calculated assessments immediately. Bearer
+authentication is the preferred path; enable the temporary `X-User-Id`
+fallback only for local development/testing compatibility.
