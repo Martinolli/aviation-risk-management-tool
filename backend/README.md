@@ -96,6 +96,9 @@ Run from the `backend/` directory:
 pytest
 ```
 
+GitHub Actions runs this backend pytest suite on pushes and pull requests to
+`main`. Run `pytest` locally before committing.
+
 ## Run Locally
 
 Run from the `backend/` directory:
