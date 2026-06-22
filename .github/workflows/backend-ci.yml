@@ -13,9 +13,9 @@ jobs:
       run:
         working-directory: backend
     env:
-      DATABASE_URL: sqlite+pysqlite:///:memory:
-      JWT_SECRET_KEY: ci-change-me-use-env-secret-in-production-32bytes
-      JWT_ALGORITHM: HS256
+      DATABASE_URL: "sqlite+pysqlite:///:memory:"
+      JWT_SECRET_KEY: "ci-change-me-use-env-secret-in-production-32bytes"
+      JWT_ALGORITHM: "HS256"
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
     steps:
       - uses: actions/checkout@v4
