@@ -14,8 +14,20 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
     enable_x_user_id_auth_fallback: bool = False
+    cors_allowed_origins: str = (
+        "http://localhost:5174,http://127.0.0.1:5174"
+    )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Return configured CORS origins after trimming empty values."""
+        return [
+            origin.strip()
+            for origin in self.cors_allowed_origins.split(",")
+            if origin.strip()
+        ]
 
 
 @lru_cache

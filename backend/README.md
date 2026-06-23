@@ -33,6 +33,10 @@ commands are run from `backend/`.
 Copy-Item .env.example .env
 ```
 
+Local frontend CORS is configured for `http://localhost:5174` and
+`http://127.0.0.1:5174`. Configure `CORS_ALLOWED_ORIGINS` explicitly for each
+environment.
+
 Default database URL:
 
 ```text

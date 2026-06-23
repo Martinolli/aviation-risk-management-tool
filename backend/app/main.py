@@ -2,6 +2,7 @@ import logging
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -71,6 +72,13 @@ def register_error_handlers(app: FastAPI) -> None:
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(auth_router)
