@@ -45,6 +45,34 @@ a {
   min-height: 4.5rem;
 }
 
+.user-controls {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.user-summary {
+  color: #d9e2ec;
+  display: grid;
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+.user-summary strong {
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.logout-button {
+  background: transparent;
+  border-color: #9fb3c8;
+  padding: 0.45rem 0.65rem;
+}
+
+.logout-button:hover {
+  background: #243b53;
+}
+
 .app-name {
   color: #fff;
   font-size: 1.1rem;
@@ -129,6 +157,12 @@ h1 {
   color: #742a2a;
 }
 
+.signed-in-status,
+.form-status {
+  color: #1c4532;
+  font-size: 1.05rem;
+}
+
 .button,
 button {
   background: #075985;
@@ -172,6 +206,14 @@ button:hover {
   gap: 0.55rem;
 }
 
+.form-error {
+  background: #fff5f5;
+  border-left: 4px solid #c53030;
+  color: #742a2a;
+  margin: 0.75rem 0 0;
+  padding: 0.7rem 0.8rem;
+}
+
 .form-card label {
   font-weight: 600;
   margin-top: 0.55rem;
@@ -194,6 +236,11 @@ button:hover {
   margin-top: 1rem;
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 @media (max-width: 560px) {
   .header-content {
     align-items: flex-start;
@@ -201,6 +248,10 @@ button:hover {
     gap: 0.75rem;
     padding-bottom: 1rem;
     padding-top: 1rem;
+  }
+
+  .user-controls {
+    width: 100%;
   }
 
   .main-content {

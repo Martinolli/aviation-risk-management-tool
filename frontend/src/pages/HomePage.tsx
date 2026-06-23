@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { getHealth } from "../api/health";
 import type { HealthResponse } from "../api/types";
+import { useAuth } from "../auth/AuthContext";
 
 type HealthCheckState =
   | { status: "loading" }
@@ -11,6 +12,7 @@ type HealthCheckState =
   | { status: "error"; message: string };
 
 export function HomePage() {
+  const { isAuthenticated, user } = useAuth();
   const [healthCheck, setHealthCheck] = useState<HealthCheckState>({
     status: "loading",
   });
@@ -53,9 +55,15 @@ export function HomePage() {
         incrementally.
       </p>
       <BackendConnectionStatus healthCheck={healthCheck} />
-      <Link className="button" to="/login">
-        Go to login
-      </Link>
+      {isAuthenticated && user ? (
+        <p className="signed-in-status">
+          Signed in as <strong>{user.display_name || user.email}</strong>
+        </p>
+      ) : (
+        <Link className="button" to="/login">
+          Go to login
+        </Link>
+      )}
     </section>
   );
 }
