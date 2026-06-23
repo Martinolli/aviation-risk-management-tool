@@ -33,7 +33,7 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-The frontend development server defaults to `http://127.0.0.1:5173`.
+The frontend development server defaults to `http://127.0.0.1:5174`.
 
 ## Authority Structure
 
