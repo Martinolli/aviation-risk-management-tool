@@ -21,6 +21,20 @@ The system manages a risk from the initial Problem Description through hazard id
 - Reporting: DOCX report generation
 - AI assistance: LLM-assisted risk structuring from the Problem Description
 
+## Frontend Local Startup
+
+The React and TypeScript frontend expects the local backend API at
+`http://127.0.0.1:8000` by default.
+
+```powershell
+cd frontend
+npm install
+Copy-Item .env.example .env
+npm run dev
+```
+
+The frontend development server defaults to `http://127.0.0.1:5173`.
+
 ## Authority Structure
 
 The tool supports three authority levels:
