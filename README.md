@@ -33,7 +33,8 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-The frontend development server defaults to `http://127.0.0.1:5174`.
+The frontend development server defaults to `http://127.0.0.1:5174`. The home
+page checks backend connectivity through `GET /health`.
 
 ## Authority Structure
 

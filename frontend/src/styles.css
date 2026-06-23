@@ -103,6 +103,32 @@ h1 {
   margin: 1.25rem 0 1.75rem;
 }
 
+.connection-status {
+  border-left: 4px solid;
+  display: grid;
+  gap: 0.2rem;
+  margin: 0 0 1.75rem;
+  padding: 0.8rem 1rem;
+}
+
+.connection-status--loading {
+  background: #eaf2f8;
+  border-color: #486581;
+  color: #334e68;
+}
+
+.connection-status--success {
+  background: #e3f9e5;
+  border-color: #2f855a;
+  color: #1c4532;
+}
+
+.connection-status--error {
+  background: #fff5f5;
+  border-color: #c53030;
+  color: #742a2a;
+}
+
 .button,
 button {
   background: #075985;

@@ -6,6 +6,11 @@ export interface StandardApiError {
   };
 }
 
+export interface HealthResponse {
+  status: string;
+  service: string;
+}
+
 export interface UserRead {
   id: string;
   email: string;
