@@ -118,11 +118,24 @@ export interface RiskMatrixCellRead {
 
 export interface RiskActionRead {
   id: string;
+  risk_record_id?: string | null;
   title?: string | null;
   description?: string | null;
-  status?: string | null;
+  action_owner_user_id?: string | null;
   due_date?: string | null;
+  status?: string | null;
+  completion_notes?: string | null;
   completed_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface RiskActionCreateRequest {
+  risk_record_id: string;
+  title: string;
+  description?: string | null;
+  action_owner_user_id?: string | null;
+  due_date?: string | null;
 }
 
 export interface RiskDecisionRead {

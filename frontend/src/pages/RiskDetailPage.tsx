@@ -109,6 +109,9 @@ export function RiskDetailPage() {
   const initialAssessmentExists = assessments.some(
     (assessment) => assessment.assessment_type === "INITIAL",
   );
+  const initialAssessment = assessments.find(
+    (assessment) => assessment.assessment_type === "INITIAL",
+  );
   const successMessage = getSuccessMessage(location.state);
 
   return (
@@ -226,6 +229,22 @@ export function RiskDetailPage() {
       </DetailSection>
 
       <DetailSection title="Mitigation actions">
+        <div className="detail-section-action">
+          <Link className="button" to={`/risks/${risk.id}/actions/new`}>
+            Add mitigation action
+          </Link>
+        </div>
+        {initialAssessment?.requires_mitigation === true && (
+          <p className="guidance-note">
+            This risk assessment requires mitigation.
+          </p>
+        )}
+        {initialAssessment?.requires_mitigation === false && (
+          <p className="guidance-note">
+            Mitigation is not required by the current assessment, but actions
+            may still be recorded if needed.
+          </p>
+        )}
         {actions.length === 0 ? (
           <p className="detail-empty">No mitigation actions recorded yet.</p>
         ) : (
@@ -235,6 +254,18 @@ export function RiskDetailPage() {
                 <strong>{action.title || "Untitled action"}</strong>
                 <span>{action.status || "Status not specified"}</span>
                 {action.description && <span>{action.description}</span>}
+                <div className="action-metadata">
+                  {action.action_owner_user_id && (
+                    <span>Owner: {action.action_owner_user_id}</span>
+                  )}
+                  {action.due_date && <span>Due: {action.due_date}</span>}
+                  {action.completed_at && (
+                    <span>Completed: {formatDateTime(action.completed_at)}</span>
+                  )}
+                </div>
+                {action.completion_notes && (
+                  <span>Completion notes: {action.completion_notes}</span>
+                )}
               </li>
             ))}
           </ul>
