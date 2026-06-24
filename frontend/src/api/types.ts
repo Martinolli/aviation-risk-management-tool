@@ -52,15 +52,64 @@ export interface RiskCreateRequest {
 
 export interface RiskAssessmentRead {
   id: string;
+  risk_record_id?: string | null;
   assessment_type?: string | null;
   severity?: string | null;
   likelihood?: string | null;
   risk_level?: string | null;
+  rationale?: string | null;
+  assessed_by_user_id?: string | null;
+  assessed_at?: string | null;
+  severity_level_id?: string | null;
+  likelihood_level_id?: string | null;
+  calculated_risk_level_id?: string | null;
+  matrix_cell_id?: string | null;
   calculated_score?: number | null;
   is_tolerable?: boolean | null;
   requires_mitigation?: boolean | null;
   requires_escalation?: boolean | null;
   created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface RiskAssessmentCreateRequest {
+  risk_record_id: string;
+  assessment_type: "INITIAL" | "RESIDUAL";
+  rationale?: string | null;
+  severity_level_id?: string | null;
+  likelihood_level_id?: string | null;
+}
+
+export interface RiskMatrixReferenceRead {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  numeric_value: number;
+  is_active: boolean;
+  archived_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type RiskSeverityLevelRead = RiskMatrixReferenceRead;
+export type RiskLikelihoodLevelRead = RiskMatrixReferenceRead;
+
+export interface RiskLevelRead extends RiskMatrixReferenceRead {
+  color?: string | null;
+  is_tolerable: boolean;
+  requires_mitigation: boolean;
+  requires_escalation: boolean;
+}
+
+export interface RiskMatrixCellRead {
+  id: string;
+  severity_level_id: string;
+  likelihood_level_id: string;
+  risk_level_id: string;
+  score?: number | null;
+  label?: string | null;
+  is_active: boolean;
 }
 
 export interface RiskActionRead {

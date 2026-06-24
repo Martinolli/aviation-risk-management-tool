@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { getRiskDetail } from "../api/risks";
@@ -14,6 +14,7 @@ type RiskDetailState =
 export function RiskDetailPage() {
   const { isAuthenticated, token } = useAuth();
   const { riskRecordId } = useParams();
+  const location = useLocation();
   const [riskDetail, setRiskDetail] = useState<RiskDetailState>({
     status: "loading",
   });
@@ -105,12 +106,22 @@ export function RiskDetailPage() {
   const assessments = riskDetail.detail.assessments ?? [];
   const actions = riskDetail.detail.actions ?? [];
   const decisions = riskDetail.detail.decisions ?? [];
+  const initialAssessmentExists = assessments.some(
+    (assessment) => assessment.assessment_type === "INITIAL",
+  );
+  const successMessage = getSuccessMessage(location.state);
 
   return (
     <section className="risk-detail-page" aria-labelledby="risk-detail-heading">
       <Link className="back-link" to="/risks">
         Back to risk records
       </Link>
+
+      {successMessage && (
+        <p aria-live="polite" className="workspace-success" role="status">
+          {successMessage}
+        </p>
+      )}
 
       <header className="risk-detail-header">
         <p className="eyebrow">Risk record</p>
@@ -155,6 +166,17 @@ export function RiskDetailPage() {
       </DetailSection>
 
       <DetailSection title="Assessments">
+        <div className="detail-section-action">
+          {initialAssessmentExists ? (
+            <span className="detail-action-muted">
+              Initial assessment already recorded.
+            </span>
+          ) : (
+            <Link className="button" to={`/risks/${risk.id}/assessments/new`}>
+              Add initial assessment
+            </Link>
+          )}
+        </div>
         {assessments.length === 0 ? (
           <p className="detail-empty">No assessments recorded yet.</p>
         ) : (
@@ -164,6 +186,19 @@ export function RiskDetailPage() {
                 <strong>{assessment.assessment_type || "Assessment"}</strong>
                 <span>
                   Severity: {assessment.severity || "Not specified"} · Likelihood: {assessment.likelihood || "Not specified"} · Risk level: {assessment.risk_level || "Not specified"}
+                </span>
+                {assessment.calculated_score !== null &&
+                  assessment.calculated_score !== undefined && (
+                    <span>Calculated score: {assessment.calculated_score}</span>
+                  )}
+                <div className="assessment-flags">
+                  <span>Tolerable: {formatOptionalBoolean(assessment.is_tolerable)}</span>
+                  <span>Mitigation: {formatOptionalBoolean(assessment.requires_mitigation)}</span>
+                  <span>Escalation: {formatOptionalBoolean(assessment.requires_escalation)}</span>
+                </div>
+                {assessment.rationale && <span>Rationale: {assessment.rationale}</span>}
+                <span>
+                  Recorded {formatDateTime(assessment.assessed_at || assessment.created_at)}
                 </span>
               </li>
             ))}
@@ -235,4 +270,25 @@ function formatDateTime(value: string | null | undefined): string {
 
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "Not available" : date.toLocaleString();
+}
+
+function formatOptionalBoolean(value: boolean | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "Not specified";
+  }
+
+  return value ? "Yes" : "No";
+}
+
+function getSuccessMessage(state: unknown): string | null {
+  if (
+    !state ||
+    typeof state !== "object" ||
+    !("successMessage" in state) ||
+    typeof state.successMessage !== "string"
+  ) {
+    return null;
+  }
+
+  return state.successMessage;
 }

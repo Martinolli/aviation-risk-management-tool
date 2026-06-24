@@ -582,6 +582,16 @@ button:disabled {
   margin: 0 0 1rem;
 }
 
+.detail-section-action {
+  margin: -0.2rem 0 1rem;
+}
+
+.detail-action-muted {
+  color: #627d98;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .detail-copy {
   line-height: 1.65;
   margin: 0;
@@ -637,6 +647,108 @@ button:disabled {
   line-height: 1.5;
 }
 
+.assessment-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.assessment-flags span {
+  background: #eaf2f8;
+  border-radius: 999px;
+  color: #334e68;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.2rem 0.45rem;
+}
+
+.risk-assessment-page {
+  max-width: 680px;
+}
+
+.assessment-form {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+  display: grid;
+  gap: 0.55rem;
+  padding: 1.5rem;
+}
+
+.assessment-form label {
+  color: #243b53;
+  font-weight: 600;
+  margin-top: 0.45rem;
+}
+
+.assessment-form label span {
+  color: #627d98;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.assessment-form select,
+.assessment-form textarea {
+  border: 1px solid #9fb3c8;
+  border-radius: 0.25rem;
+  color: #1b2636;
+  font: inherit;
+  padding: 0.7rem;
+}
+
+.assessment-form textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.assessment-form select:focus,
+.assessment-form textarea:focus {
+  border-color: #075985;
+  box-shadow: 0 0 0 3px rgb(7 89 133 / 18%);
+  outline: none;
+}
+
+.assessment-form select:disabled,
+.assessment-form textarea:disabled {
+  background: #f0f4f8;
+  color: #627d98;
+  cursor: not-allowed;
+}
+
+.matrix-preview {
+  background: #eaf2f8;
+  border-left: 4px solid #486581;
+  color: #243b53;
+  margin: 0.5rem 0;
+  padding: 1rem;
+}
+
+.matrix-preview p {
+  color: #486581;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0.4rem 0 0.8rem;
+}
+
+.matrix-preview dl {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.matrix-preview dt {
+  color: #627d98;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.matrix-preview dd {
+  margin: 0.15rem 0 0;
+}
+
 @media (max-width: 560px) {
   .header-content {
     align-items: flex-start;
@@ -669,6 +781,14 @@ button:disabled {
   .risk-detail-header,
   .detail-section {
     padding: 1.25rem;
+  }
+
+  .assessment-form {
+    padding: 1.25rem;
+  }
+
+  .matrix-preview dl {
+    grid-template-columns: 1fr;
   }
 
   .form-card {
