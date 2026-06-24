@@ -142,11 +142,45 @@ export interface RiskActionCompleteRequest {
   completion_notes?: string | null;
 }
 
+export interface CommitteeRead {
+  id: string;
+  name: string;
+  description?: string | null;
+  authority_level: "LOW" | "MIDDLE" | "HIGH" | string;
+  committee_type: string;
+  is_fixed: boolean;
+  is_active: boolean;
+  archived_at?: string | null;
+  archive_reason?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export type RiskDecisionType =
+  | "APPROVE"
+  | "REJECT"
+  | "ESCALATE"
+  | "RETURN_FOR_REVISION"
+  | "ACCEPT_RESIDUAL_RISK"
+  | "CLOSE";
+
+export interface RiskDecisionCreateRequest {
+  risk_record_id: string;
+  committee_id: string;
+  decision_type: RiskDecisionType;
+  decision_text: string;
+}
+
 export interface RiskDecisionRead {
   id: string;
+  risk_record_id?: string | null;
+  committee_id?: string | null;
   decision_type?: string | null;
   decision_text?: string | null;
+  decided_by_user_id?: string | null;
+  decided_at?: string | null;
   created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface RiskAuditSummary {

@@ -314,6 +314,11 @@ export function RiskDetailPage() {
       </DetailSection>
 
       <DetailSection title="Committee decisions">
+        <div className="detail-section-action">
+          <Link className="button" to={`/risks/${risk.id}/decisions/new`}>
+            Record committee decision
+          </Link>
+        </div>
         {decisions.length === 0 ? (
           <p className="detail-empty">No committee decisions recorded yet.</p>
         ) : (
@@ -322,6 +327,17 @@ export function RiskDetailPage() {
               <li key={decision.id}>
                 <strong>{decision.decision_type || "Decision"}</strong>
                 <span>{decision.decision_text || "No decision text provided."}</span>
+                <div className="decision-metadata">
+                  {decision.committee_id && (
+                    <span>Committee: {decision.committee_id}</span>
+                  )}
+                  {decision.decided_by_user_id && (
+                    <span>Decided by: {decision.decided_by_user_id}</span>
+                  )}
+                  {decision.decided_at && (
+                    <span>Decided: {formatDateTime(decision.decided_at)}</span>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

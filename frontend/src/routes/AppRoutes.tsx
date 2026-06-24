@@ -10,6 +10,7 @@ import { RiskAssessmentCreatePage } from "../pages/RiskAssessmentCreatePage";
 import { RiskActionCreatePage } from "../pages/RiskActionCreatePage";
 import { RiskActionCompletePage } from "../pages/RiskActionCompletePage";
 import { RiskDetailPage } from "../pages/RiskDetailPage";
+import { RiskDecisionCreatePage } from "../pages/RiskDecisionCreatePage";
 import { RiskListPage } from "../pages/RiskListPage";
 import { RiskSubmitPage } from "../pages/RiskSubmitPage";
 
@@ -46,6 +47,10 @@ export function AppRoutes() {
         <Route
           path="/risks/:riskRecordId/actions/:riskActionId/complete"
           element={<RiskActionCompletePage />}
+        />
+        <Route
+          path="/risks/:riskRecordId/decisions/new"
+          element={<RiskDecisionCreatePage />}
         />
         <Route path="/risks/:riskRecordId/submit" element={<RiskSubmitPage />} />
         <Route path="/risks/:riskRecordId" element={<RiskDetailPage />} />
