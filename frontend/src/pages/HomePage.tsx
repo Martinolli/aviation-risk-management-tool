@@ -56,9 +56,16 @@ export function HomePage() {
       </p>
       <BackendConnectionStatus healthCheck={healthCheck} />
       {isAuthenticated && user ? (
-        <p className="signed-in-status">
-          Signed in as <strong>{user.display_name || user.email}</strong>
-        </p>
+        <section className="signed-in-card" aria-labelledby="signed-in-heading">
+          <p className="eyebrow">Your session</p>
+          <h2 id="signed-in-heading">
+            Signed in as {user.display_name || user.email}
+          </h2>
+          <p>
+            You can now start working with risk records when the risk workspace
+            is added.
+          </p>
+        </section>
       ) : (
         <Link className="button" to="/login">
           Go to login

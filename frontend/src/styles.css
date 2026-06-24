@@ -98,6 +98,21 @@ a {
   color: #fff;
 }
 
+.nav-placeholder {
+  color: #9fb3c8;
+  cursor: not-allowed;
+  display: inline-flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+  line-height: 1.1;
+  opacity: 0.75;
+  padding: 0.45rem 0.65rem;
+}
+
+.nav-placeholder small {
+  font-size: 0.65rem;
+}
+
 .main-content {
   padding-bottom: 3rem;
   padding-top: 3rem;
@@ -131,6 +146,31 @@ h1 {
   margin: 1.25rem 0 1.75rem;
 }
 
+.signed-in-card {
+  background: #fff;
+  border: 1px solid #c3dafe;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+  margin-top: 1.75rem;
+  padding: 1.25rem;
+}
+
+.signed-in-card .eyebrow {
+  margin-bottom: 0.4rem;
+}
+
+.signed-in-card h2 {
+  color: #102a43;
+  font-size: 1.3rem;
+  margin: 0;
+}
+
+.signed-in-card p:not(.eyebrow) {
+  color: #486581;
+  line-height: 1.6;
+  margin: 0.75rem 0 0;
+}
+
 .connection-status {
   border-left: 4px solid;
   display: grid;
@@ -157,12 +197,6 @@ h1 {
   color: #742a2a;
 }
 
-.signed-in-status,
-.form-status {
-  color: #1c4532;
-  font-size: 1.05rem;
-}
-
 .button,
 button {
   background: #075985;
@@ -180,6 +214,14 @@ button {
 .button:hover,
 button:hover {
   background: #0c4a6e;
+}
+
+.button:focus-visible,
+button:focus-visible,
+.primary-nav a:focus-visible,
+.app-name:focus-visible {
+  outline: 3px solid #fbbf24;
+  outline-offset: 3px;
 }
 
 .form-page {
@@ -232,6 +274,12 @@ button:hover {
   outline: none;
 }
 
+.form-card input:disabled {
+  background: #f0f4f8;
+  color: #627d98;
+  cursor: not-allowed;
+}
+
 .form-card button {
   margin-top: 1rem;
 }
@@ -239,6 +287,19 @@ button:hover {
 button:disabled {
   cursor: wait;
   opacity: 0.7;
+}
+
+.session-loading {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1.5rem;
+}
+
+.session-loading p {
+  color: #334e68;
+  font-size: 1.05rem;
 }
 
 @media (max-width: 560px) {

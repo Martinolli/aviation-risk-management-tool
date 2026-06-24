@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
 export function LoginPage() {
-  const { isAuthenticated, isLoading, loginWithCredentials } = useAuth();
+  const { isAuthenticated, loginWithCredentials } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -18,6 +19,7 @@ export function LoginPage() {
 
     try {
       await loginWithCredentials(email, password);
+      navigate("/", { replace: true });
     } catch (error) {
       setErrorMessage(
         error instanceof ApiError
@@ -31,10 +33,6 @@ export function LoginPage() {
 
   if (isAuthenticated) {
     return <Navigate replace to="/" />;
-  }
-
-  if (isLoading) {
-    return <p className="form-status">Restoring your session...</p>;
   }
 
   return (
@@ -53,6 +51,7 @@ export function LoginPage() {
             required
             type="email"
             value={email}
+            disabled={isSubmitting}
           />
 
           <label htmlFor="password">Password</label>
@@ -64,6 +63,7 @@ export function LoginPage() {
             required
             type="password"
             value={password}
+            disabled={isSubmitting}
           />
 
           {errorMessage && (
