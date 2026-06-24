@@ -138,6 +138,10 @@ export interface RiskActionCreateRequest {
   due_date?: string | null;
 }
 
+export interface RiskActionCompleteRequest {
+  completion_notes?: string | null;
+}
+
 export interface RiskDecisionRead {
   id: string;
   decision_type?: string | null;

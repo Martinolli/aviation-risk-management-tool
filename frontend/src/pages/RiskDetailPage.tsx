@@ -266,6 +266,16 @@ export function RiskDetailPage() {
                 {action.completion_notes && (
                   <span>Completion notes: {action.completion_notes}</span>
                 )}
+                {isActionCompleted(action) ? (
+                  <span className="completed-action-status">Action completed.</span>
+                ) : (
+                  <Link
+                    className="action-inline-button"
+                    to={`/risks/${risk.id}/actions/${action.id}/complete`}
+                  >
+                    Complete action
+                  </Link>
+                )}
               </li>
             ))}
           </ul>
@@ -328,6 +338,13 @@ function formatOptionalBoolean(value: boolean | null | undefined): string {
   }
 
   return value ? "Yes" : "No";
+}
+
+function isActionCompleted(action: { status?: string | null; completed_at?: string | null }): boolean {
+  return (
+    action.status === "COMPLETED" ||
+    (action.completed_at !== null && action.completed_at !== undefined)
+  );
 }
 
 function getSuccessMessage(state: unknown): string | null {
