@@ -43,3 +43,9 @@ export interface RiskRecordRead {
   created_at: string;
   updated_at: string;
 }
+
+export interface RiskCreateRequest {
+  problem_description: string;
+  domain: string;
+  source_trigger?: string | null;
+}

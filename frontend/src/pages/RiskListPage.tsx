@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { listRisks } from "../api/risks";
@@ -13,7 +13,9 @@ type RiskListState =
 
 export function RiskListPage() {
   const { isAuthenticated, token } = useAuth();
+  const location = useLocation();
   const [riskList, setRiskList] = useState<RiskListState>({ status: "loading" });
+  const successMessage = getSuccessMessage(location.state);
 
   useEffect(() => {
     let isCurrent = true;
@@ -67,10 +69,16 @@ export function RiskListPage() {
             system.
           </p>
         </div>
-        <button className="button button--coming-soon" disabled type="button">
+        <Link className="button" to="/risks/new">
           Create risk
-        </button>
+        </Link>
       </div>
+
+      {successMessage && (
+        <p aria-live="polite" className="workspace-success" role="status">
+          {successMessage}
+        </p>
+      )}
 
       {riskList.status === "loading" && (
         <p aria-live="polite" className="workspace-status" role="status">
@@ -88,7 +96,7 @@ export function RiskListPage() {
       {riskList.status === "success" && riskList.risks.length === 0 && (
         <section className="workspace-empty" aria-labelledby="empty-risks-heading">
           <h2 id="empty-risks-heading">No risk records found yet.</h2>
-          <p>Risk creation will be added in the next task.</p>
+          <p>Create the first draft risk to begin the workflow.</p>
         </section>
       )}
 
@@ -139,4 +147,17 @@ function getRiskDate(risk: RiskRecordRead): string {
   const date = new Date(risk.updated_at || risk.created_at);
 
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString();
+}
+
+function getSuccessMessage(state: unknown): string | null {
+  if (
+    !state ||
+    typeof state !== "object" ||
+    !("successMessage" in state) ||
+    typeof state.successMessage !== "string"
+  ) {
+    return null;
+  }
+
+  return state.successMessage;
 }

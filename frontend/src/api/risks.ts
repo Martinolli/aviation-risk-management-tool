@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import type { RiskRecordRead } from "./types";
+import type { RiskCreateRequest, RiskRecordRead } from "./types";
 
 type RiskListResponse = RiskRecordRead[] | { items?: RiskRecordRead[] };
 
@@ -11,4 +11,15 @@ export async function listRisks(token: string): Promise<RiskRecordRead[]> {
   }
 
   return Array.isArray(response.items) ? response.items : [];
+}
+
+export function createRisk(
+  token: string,
+  request: RiskCreateRequest,
+): Promise<RiskRecordRead> {
+  return apiRequest<RiskRecordRead>("/risks", {
+    method: "POST",
+    body: request,
+    token,
+  });
 }

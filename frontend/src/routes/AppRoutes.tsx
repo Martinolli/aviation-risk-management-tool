@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
+import { RiskCreatePage } from "../pages/RiskCreatePage";
 import { RiskListPage } from "../pages/RiskListPage";
 
 export function AppRoutes() {
@@ -24,6 +25,7 @@ export function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/risks" element={<RiskListPage />} />
+        <Route path="/risks/new" element={<RiskCreatePage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
