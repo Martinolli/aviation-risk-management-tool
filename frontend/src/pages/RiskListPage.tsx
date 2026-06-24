@@ -116,7 +116,11 @@ export function RiskListPage() {
             <tbody>
               {riskList.risks.map((risk) => (
                 <tr key={risk.id}>
-                  <td className="risk-id">{getRiskDisplayId(risk)}</td>
+                  <td className="risk-id">
+                    <Link className="risk-detail-link" to={`/risks/${risk.id}`}>
+                      {getRiskDisplayId(risk)}
+                    </Link>
+                  </td>
                   <td>{risk.domain}</td>
                   <td>
                     <span className="status-badge">{getRiskStatus(risk)}</span>

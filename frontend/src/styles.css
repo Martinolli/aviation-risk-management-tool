@@ -418,6 +418,16 @@ button:disabled {
   white-space: nowrap;
 }
 
+.risk-detail-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.risk-detail-link:hover {
+  color: #075985;
+  text-decoration: underline;
+}
+
 .risk-description {
   max-width: 360px;
   overflow: hidden;
@@ -530,6 +540,103 @@ button:disabled {
   font-weight: 600;
 }
 
+.risk-detail-page {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 860px;
+}
+
+.back-link {
+  color: #075985;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.risk-detail-header,
+.detail-section {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+  padding: 1.5rem;
+}
+
+.risk-detail-header .eyebrow {
+  margin-bottom: 0.4rem;
+}
+
+.risk-detail-header h1 {
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+}
+
+.risk-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.detail-section h2 {
+  color: #102a43;
+  font-size: 1.25rem;
+  margin: 0 0 1rem;
+}
+
+.detail-copy {
+  line-height: 1.65;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.metadata-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.metadata-grid div {
+  min-width: 0;
+}
+
+.metadata-grid dt {
+  color: #627d98;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.metadata-grid dd {
+  margin: 0.3rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.detail-empty {
+  color: #627d98;
+  margin: 0;
+}
+
+.detail-list {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.detail-list li {
+  border-left: 3px solid #9fb3c8;
+  display: grid;
+  gap: 0.3rem;
+  padding-left: 0.75rem;
+}
+
+.detail-list span {
+  color: #486581;
+  line-height: 1.5;
+}
+
 @media (max-width: 560px) {
   .header-content {
     align-items: flex-start;
@@ -552,6 +659,15 @@ button:disabled {
   }
 
   .risk-create-form {
+    padding: 1.25rem;
+  }
+
+  .metadata-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .risk-detail-header,
+  .detail-section {
     padding: 1.25rem;
   }
 

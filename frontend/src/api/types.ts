@@ -49,3 +49,50 @@ export interface RiskCreateRequest {
   domain: string;
   source_trigger?: string | null;
 }
+
+export interface RiskAssessmentRead {
+  id: string;
+  assessment_type?: string | null;
+  severity?: string | null;
+  likelihood?: string | null;
+  risk_level?: string | null;
+  calculated_score?: number | null;
+  is_tolerable?: boolean | null;
+  requires_mitigation?: boolean | null;
+  requires_escalation?: boolean | null;
+  created_at?: string | null;
+}
+
+export interface RiskActionRead {
+  id: string;
+  title?: string | null;
+  description?: string | null;
+  status?: string | null;
+  due_date?: string | null;
+  completed_at?: string | null;
+}
+
+export interface RiskDecisionRead {
+  id: string;
+  decision_type?: string | null;
+  decision_text?: string | null;
+  created_at?: string | null;
+}
+
+export interface RiskAuditSummary {
+  total_count?: number;
+  create_count?: number;
+  update_count?: number;
+  workflow_count?: number;
+  latest_changed_at?: string | null;
+}
+
+export interface RiskDetailResponse {
+  risk_record?: RiskRecordRead;
+  risk?: RiskRecordRead;
+  record?: RiskRecordRead;
+  assessments?: RiskAssessmentRead[];
+  actions?: RiskActionRead[];
+  decisions?: RiskDecisionRead[];
+  audit_summary?: RiskAuditSummary;
+}

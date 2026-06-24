@@ -1,5 +1,9 @@
 import { apiRequest } from "./client";
-import type { RiskCreateRequest, RiskRecordRead } from "./types";
+import type {
+  RiskCreateRequest,
+  RiskDetailResponse,
+  RiskRecordRead,
+} from "./types";
 
 type RiskListResponse = RiskRecordRead[] | { items?: RiskRecordRead[] };
 
@@ -22,4 +26,14 @@ export function createRisk(
     body: request,
     token,
   });
+}
+
+export function getRiskDetail(
+  token: string,
+  riskRecordId: string,
+): Promise<RiskDetailResponse> {
+  return apiRequest<RiskDetailResponse>(
+    `/risks/${encodeURIComponent(riskRecordId)}/detail`,
+    { token },
+  );
 }
