@@ -18,12 +18,14 @@ from app.models.enums import (
     AuditAction,
     AuthorityLevel,
     CommitteeType,
+    RiskActionStatus,
+    RiskAssessmentType,
     RiskDecisionType,
     RiskDomain,
     RiskLifecycleStatus,
     RiskWorkflowStatus,
 )
-from app.models.risk import RiskDecision, RiskRecord
+from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
 from app.models.user import User
 
 
@@ -157,6 +159,57 @@ def _create_membership(
     return membership
 
 
+def _create_residual_assessment(
+    db_session: Session,
+    *,
+    risk_record: RiskRecord,
+    is_tolerable: bool,
+    requires_escalation: bool,
+) -> RiskAssessment:
+    assessment = RiskAssessment(
+        risk_record_id=risk_record.id,
+        assessment_type=RiskAssessmentType.RESIDUAL,
+        severity="LOW",
+        likelihood="LOW",
+        risk_level="LOW",
+        is_tolerable=is_tolerable,
+        requires_escalation=requires_escalation,
+        assessed_at=datetime.now(timezone.utc),
+    )
+    db_session.add(assessment)
+    db_session.commit()
+    db_session.refresh(assessment)
+    return assessment
+
+
+def _create_mitigation_action(
+    db_session: Session,
+    *,
+    risk_record: RiskRecord,
+    status: RiskActionStatus,
+    completed_at: datetime | None = None,
+) -> RiskAction:
+    action = RiskAction(
+        risk_record_id=risk_record.id,
+        title="Mitigation action",
+        status=status,
+        completed_at=completed_at,
+    )
+    db_session.add(action)
+    db_session.commit()
+    db_session.refresh(action)
+    return action
+
+
+def _create_active_low_member(
+    db_session: Session,
+) -> tuple[Committee, User]:
+    committee = _create_committee(db_session, authority_level=AuthorityLevel.LOW)
+    user = _create_user(db_session)
+    _create_membership(db_session, committee=committee, user=user)
+    return committee, user
+
+
 def test_get_risk_decisions_returns_list(
     client: TestClient,
     db_session: Session,
@@ -216,6 +269,8 @@ def test_post_with_high_escalate_returns_http_400(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     committee = _create_committee(db_session, authority_level=AuthorityLevel.HIGH)
+    user = _create_user(db_session)
+    _create_membership(db_session, committee=committee, user=user)
 
     response = client.post(
         "/risk-decisions",
@@ -224,9 +279,255 @@ def test_post_with_high_escalate_returns_http_400(
             committee.id,
             decision_type="ESCALATE",
         ),
+        headers={"X-User-Id": str(user.id)},
     )
 
     assert response.status_code == 400
+    assert "cannot escalate" in response.json()["error"]["message"]
+
+
+def test_low_committee_can_accept_tolerable_residual_risk(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee, user = _create_active_low_member(db_session)
+    _create_residual_assessment(
+        db_session,
+        risk_record=risk_record,
+        is_tolerable=True,
+        requires_escalation=False,
+    )
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(
+            risk_record.id,
+            committee.id,
+            decision_type="ACCEPT_RESIDUAL_RISK",
+        ),
+        headers={"X-User-Id": str(user.id)},
+    )
+
+    db_session.refresh(risk_record)
+    assert response.status_code == 201
+    assert response.json()["decision_type"] == "ACCEPT_RESIDUAL_RISK"
+    assert risk_record.workflow_status == RiskWorkflowStatus.ACCEPTED
+
+
+def test_low_committee_cannot_accept_without_residual_assessment(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee, user = _create_active_low_member(db_session)
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(
+            risk_record.id,
+            committee.id,
+            decision_type="ACCEPT_RESIDUAL_RISK",
+        ),
+        headers={"X-User-Id": str(user.id)},
+    )
+
+    assert response.status_code == 400
+    assert "residual assessment" in response.json()["error"]["message"]
+
+
+def test_low_committee_cannot_accept_residual_risk_requiring_escalation(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee, user = _create_active_low_member(db_session)
+    _create_residual_assessment(
+        db_session,
+        risk_record=risk_record,
+        is_tolerable=True,
+        requires_escalation=True,
+    )
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(
+            risk_record.id,
+            committee.id,
+            decision_type="ACCEPT_RESIDUAL_RISK",
+        ),
+        headers={"X-User-Id": str(user.id)},
+    )
+
+    assert response.status_code == 400
+    assert "requires escalation" in response.json()["error"]["message"]
+
+
+def test_low_committee_cannot_accept_non_tolerable_residual_risk(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee, user = _create_active_low_member(db_session)
+    _create_residual_assessment(
+        db_session,
+        risk_record=risk_record,
+        is_tolerable=False,
+        requires_escalation=False,
+    )
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(
+            risk_record.id,
+            committee.id,
+            decision_type="ACCEPT_RESIDUAL_RISK",
+        ),
+        headers={"X-User-Id": str(user.id)},
+    )
+
+    assert response.status_code == 400
+    assert "non-tolerable" in response.json()["error"]["message"]
+
+
+def test_low_committee_can_close_tolerable_residual_risk_with_completed_actions(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee, user = _create_active_low_member(db_session)
+    _create_residual_assessment(
+        db_session,
+        risk_record=risk_record,
+        is_tolerable=True,
+        requires_escalation=False,
+    )
+    _create_mitigation_action(
+        db_session,
+        risk_record=risk_record,
+        status=RiskActionStatus.COMPLETED,
+        completed_at=datetime.now(timezone.utc),
+    )
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(risk_record.id, committee.id, decision_type="CLOSE"),
+        headers={"X-User-Id": str(user.id)},
+    )
+
+    db_session.refresh(risk_record)
+    assert response.status_code == 201
+    assert risk_record.workflow_status == RiskWorkflowStatus.CLOSED
+    assert risk_record.lifecycle_status == RiskLifecycleStatus.CLOSED
+
+
+def test_low_committee_cannot_close_without_residual_assessment(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee, user = _create_active_low_member(db_session)
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(risk_record.id, committee.id, decision_type="CLOSE"),
+        headers={"X-User-Id": str(user.id)},
+    )
+
+    assert response.status_code == 400
+    assert "residual assessment" in response.json()["error"]["message"]
+
+
+def test_low_committee_cannot_close_non_tolerable_residual_risk(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee, user = _create_active_low_member(db_session)
+    _create_residual_assessment(
+        db_session,
+        risk_record=risk_record,
+        is_tolerable=False,
+        requires_escalation=False,
+    )
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(risk_record.id, committee.id, decision_type="CLOSE"),
+        headers={"X-User-Id": str(user.id)},
+    )
+
+    assert response.status_code == 400
+    assert "non-tolerable" in response.json()["error"]["message"]
+
+
+def test_low_committee_cannot_close_residual_risk_requiring_escalation(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee, user = _create_active_low_member(db_session)
+    _create_residual_assessment(
+        db_session,
+        risk_record=risk_record,
+        is_tolerable=True,
+        requires_escalation=True,
+    )
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(risk_record.id, committee.id, decision_type="CLOSE"),
+        headers={"X-User-Id": str(user.id)},
+    )
+
+    assert response.status_code == 400
+    assert "requires escalation" in response.json()["error"]["message"]
+
+
+def test_low_committee_cannot_close_risk_with_open_mitigation_actions(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee, user = _create_active_low_member(db_session)
+    _create_residual_assessment(
+        db_session,
+        risk_record=risk_record,
+        is_tolerable=True,
+        requires_escalation=False,
+    )
+    _create_mitigation_action(
+        db_session,
+        risk_record=risk_record,
+        status=RiskActionStatus.OPEN,
+    )
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(risk_record.id, committee.id, decision_type="CLOSE"),
+        headers={"X-User-Id": str(user.id)},
+    )
+
+    assert response.status_code == 400
+    assert "open mitigation actions" in response.json()["error"]["message"]
+
+
+def test_low_committee_can_escalate_when_needed(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    committee, user = _create_active_low_member(db_session)
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(risk_record.id, committee.id, decision_type="ESCALATE"),
+        headers={"X-User-Id": str(user.id)},
+    )
+
+    db_session.refresh(risk_record)
+    assert response.status_code == 201
+    assert risk_record.workflow_status == RiskWorkflowStatus.ESCALATED_TO_RISK_MANAGEMENT_COMMITTEE
 
 
 def test_post_with_unknown_risk_returns_http_400(

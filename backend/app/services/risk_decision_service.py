@@ -9,11 +9,13 @@ from app.models.committee import Committee, CommitteeMember
 from app.models.enums import (
     AuditAction,
     AuthorityLevel,
+    RiskActionStatus,
+    RiskAssessmentType,
     RiskDecisionType,
     RiskLifecycleStatus,
     RiskWorkflowStatus,
 )
-from app.models.risk import RiskDecision, RiskRecord
+from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
 from app.models.user import User
 from app.schemas.risk_decision import RiskDecisionCreate
 
@@ -100,6 +102,99 @@ def _validate_decision_authority(
         )
 
 
+def _get_residual_assessment_for_risk(
+    db: Session,
+    risk_record_id: uuid.UUID,
+) -> RiskAssessment | None:
+    statement = (
+        select(RiskAssessment)
+        .where(
+            RiskAssessment.risk_record_id == risk_record_id,
+            RiskAssessment.assessment_type == RiskAssessmentType.RESIDUAL,
+        )
+        .order_by(RiskAssessment.assessed_at.desc(), RiskAssessment.created_at.desc())
+    )
+    return db.scalars(statement).first()
+
+
+def _has_open_mitigation_actions(db: Session, risk_record_id: uuid.UUID) -> bool:
+    actions = db.scalars(
+        select(RiskAction).where(RiskAction.risk_record_id == risk_record_id)
+    ).all()
+
+    for action in actions:
+        if action.completed_at is not None:
+            continue
+        if action.status in {RiskActionStatus.COMPLETED, RiskActionStatus.CANCELLED}:
+            continue
+        if action.status in {RiskActionStatus.OPEN, RiskActionStatus.IN_PROGRESS}:
+            return True
+
+    return False
+
+
+def _validate_residual_acceptance_authority(
+    db: Session,
+    risk_record: RiskRecord,
+    committee: Committee,
+) -> None:
+    if committee.authority_level != AuthorityLevel.LOW:
+        return
+
+    residual_assessment = _get_residual_assessment_for_risk(db, risk_record.id)
+    if residual_assessment is None:
+        raise RiskDecisionBusinessRuleError(
+            "LOW authority committee requires a residual assessment before accepting residual risk"
+        )
+    if residual_assessment.is_tolerable is not True:
+        raise RiskDecisionBusinessRuleError(
+            "LOW authority committee cannot accept non-tolerable residual risk"
+        )
+    if residual_assessment.requires_escalation is True:
+        raise RiskDecisionBusinessRuleError(
+            "LOW authority committee cannot accept residual risk that requires escalation"
+        )
+
+
+def _validate_closure_authority(
+    db: Session,
+    risk_record: RiskRecord,
+    committee: Committee,
+) -> None:
+    if committee.authority_level != AuthorityLevel.LOW:
+        return
+
+    residual_assessment = _get_residual_assessment_for_risk(db, risk_record.id)
+    if residual_assessment is None:
+        raise RiskDecisionBusinessRuleError(
+            "LOW authority committee requires a residual assessment before closing a risk"
+        )
+    if residual_assessment.is_tolerable is not True:
+        raise RiskDecisionBusinessRuleError(
+            "LOW authority committee cannot close a risk with non-tolerable residual risk"
+        )
+    if residual_assessment.requires_escalation is True:
+        raise RiskDecisionBusinessRuleError(
+            "LOW authority committee cannot close a risk that requires escalation"
+        )
+    if _has_open_mitigation_actions(db, risk_record.id):
+        raise RiskDecisionBusinessRuleError(
+            "LOW authority committee cannot close a risk with open mitigation actions"
+        )
+
+
+def _validate_decision_business_context(
+    db: Session,
+    risk_record: RiskRecord,
+    committee: Committee,
+    decision_type: RiskDecisionType,
+) -> None:
+    if decision_type == RiskDecisionType.ACCEPT_RESIDUAL_RISK:
+        _validate_residual_acceptance_authority(db, risk_record, committee)
+    if decision_type == RiskDecisionType.CLOSE:
+        _validate_closure_authority(db, risk_record, committee)
+
+
 def _decision_effect(
     committee: Committee,
     decision_type: RiskDecisionType,
@@ -145,17 +240,9 @@ def _decision_effect(
         )
 
     if decision_type == RiskDecisionType.ACCEPT_RESIDUAL_RISK:
-        if committee.authority_level == AuthorityLevel.LOW:
-            raise RiskDecisionBusinessRuleError(
-                "LOW authority committee cannot accept residual risk"
-            )
         return (RiskWorkflowStatus.ACCEPTED, None, AuditAction.APPROVE)
 
     if decision_type == RiskDecisionType.CLOSE:
-        if committee.authority_level == AuthorityLevel.LOW:
-            raise RiskDecisionBusinessRuleError(
-                "LOW authority committee cannot close risks"
-            )
         # AuditAction has no CLOSE value yet, so CLOSE decisions use APPROVE temporarily.
         return (
             RiskWorkflowStatus.CLOSED,
@@ -214,12 +301,13 @@ def create_risk_decision(
     _validate_decision_text(data.decision_text)
     risk_record = _get_decidable_risk_record(db, data.risk_record_id)
     committee = _get_active_committee(db, data.committee_id)
-    _decision_effect(committee, data.decision_type)
+    _validate_decision_business_context(db, risk_record, committee, data.decision_type)
     _validate_decision_authority(
         db,
         committee=committee,
         decided_by_user_id=decided_by_user_id,
     )
+    _decision_effect(committee, data.decision_type)
 
     decision = RiskDecision(
         risk_record_id=data.risk_record_id,
