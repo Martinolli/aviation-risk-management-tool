@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
+import { RiskListPage } from "../pages/RiskListPage";
 
 export function AppRoutes() {
   const { isLoading } = useAuth();
@@ -22,6 +23,7 @@ export function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/risks" element={<RiskListPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

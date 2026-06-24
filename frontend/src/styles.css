@@ -302,6 +302,148 @@ button:disabled {
   font-size: 1.05rem;
 }
 
+.workspace-page {
+  max-width: 1080px;
+}
+
+.page-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 1.5rem;
+  justify-content: space-between;
+  margin-bottom: 1.75rem;
+}
+
+.page-header h1 {
+  font-size: clamp(2rem, 4vw, 2.75rem);
+}
+
+.page-header p:not(.eyebrow) {
+  color: #486581;
+  line-height: 1.6;
+  margin: 0.9rem 0 0;
+  max-width: 680px;
+}
+
+.button--coming-soon:disabled {
+  cursor: not-allowed;
+  white-space: nowrap;
+}
+
+.workspace-status,
+.workspace-empty,
+.workspace-alert {
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.workspace-status {
+  background: #eaf2f8;
+  color: #334e68;
+}
+
+.workspace-empty {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+}
+
+.workspace-empty h2 {
+  color: #102a43;
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.workspace-empty p {
+  color: #486581;
+  margin: 0.6rem 0 0;
+}
+
+.workspace-alert {
+  background: #fff5f5;
+  border-left: 4px solid #c53030;
+  color: #742a2a;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.risk-table-wrapper {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+  overflow-x: auto;
+}
+
+.risk-table {
+  border-collapse: collapse;
+  min-width: 760px;
+  width: 100%;
+}
+
+.risk-table th,
+.risk-table td {
+  border-bottom: 1px solid #d9e2ec;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.risk-table th {
+  background: #f0f4f8;
+  color: #334e68;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.risk-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.risk-id {
+  color: #102a43;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.risk-description {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-badge {
+  background: #eaf2f8;
+  border-radius: 999px;
+  color: #334e68;
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  white-space: nowrap;
+}
+
+.muted-text {
+  color: #627d98;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.visually-hidden {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 @media (max-width: 560px) {
   .header-content {
     align-items: flex-start;
@@ -317,6 +459,10 @@ button:disabled {
 
   .main-content {
     padding-top: 2rem;
+  }
+
+  .page-header {
+    flex-direction: column;
   }
 
   .form-card {

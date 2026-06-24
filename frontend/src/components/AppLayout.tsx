@@ -23,9 +23,7 @@ export function AppLayout() {
             {!isAuthenticated && <NavLink to="/login">Login</NavLink>}
             {isAuthenticated && (
               <>
-                <span className="nav-placeholder" title="Coming soon">
-                  Risks <small>Coming soon</small>
-                </span>
+                <NavLink to="/risks">Risks</NavLink>
                 <span className="nav-placeholder" title="Coming soon">
                   Committees <small>Coming soon</small>
                 </span>

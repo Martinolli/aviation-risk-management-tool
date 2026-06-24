@@ -29,3 +29,17 @@ export interface LoginResponse {
   expires_in: number;
   user: UserRead;
 }
+
+export interface RiskRecordRead {
+  id: string;
+  risk_id: string | null;
+  problem_description: string;
+  source_trigger: string | null;
+  domain: string;
+  workflow_status: string;
+  lifecycle_status: string;
+  owner_user_id: string | null;
+  created_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
