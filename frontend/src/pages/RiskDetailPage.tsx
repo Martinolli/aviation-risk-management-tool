@@ -112,6 +112,11 @@ export function RiskDetailPage() {
   const initialAssessment = assessments.find(
     (assessment) => assessment.assessment_type === "INITIAL",
   );
+  const residualAssessment = assessments.find(
+    (assessment) => assessment.assessment_type === "RESIDUAL",
+  );
+  const allActionsCompleted =
+    actions.length > 0 && actions.every((action) => isActionCompleted(action));
   const successMessage = getSuccessMessage(location.state);
 
   return (
@@ -188,7 +193,7 @@ export function RiskDetailPage() {
       </DetailSection>
 
       <DetailSection title="Assessments">
-        <div className="detail-section-action">
+        <div className="detail-section-action assessment-action-row">
           {initialAssessmentExists ? (
             <span className="detail-action-muted">
               Initial assessment already recorded.
@@ -198,7 +203,33 @@ export function RiskDetailPage() {
               Add initial assessment
             </Link>
           )}
+          {residualAssessment ? (
+            <span className="detail-action-muted">
+              Residual assessment already recorded.
+            </span>
+          ) : (
+            <Link
+              className="button"
+              to={`/risks/${risk.id}/assessments/residual/new`}
+            >
+              Add residual assessment
+            </Link>
+          )}
         </div>
+        {actions.length === 0 && (
+          <p className="residual-guidance">No mitigation actions recorded yet.</p>
+        )}
+        {actions.length > 0 && allActionsCompleted && (
+          <p className="residual-guidance">
+            Mitigation actions completed. Residual assessment may be recorded.
+          </p>
+        )}
+        {actions.length > 0 && !allActionsCompleted && (
+          <p className="residual-guidance">
+            Some mitigation actions remain open. Confirm whether residual
+            assessment is appropriate.
+          </p>
+        )}
         {assessments.length === 0 ? (
           <p className="detail-empty">No assessments recorded yet.</p>
         ) : (

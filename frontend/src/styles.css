@@ -619,6 +619,13 @@ button:disabled {
   margin: -0.2rem 0 1rem;
 }
 
+.assessment-action-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .detail-action-muted {
   color: #627d98;
   font-size: 0.9rem;
@@ -684,6 +691,16 @@ button:disabled {
   background: #fff8e1;
   border-left: 4px solid #d97706;
   color: #7c2d12;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.8rem;
+}
+
+.residual-guidance {
+  background: #eaf2f8;
+  border-left: 4px solid #486581;
+  color: #334e68;
   font-size: 0.9rem;
   line-height: 1.5;
   margin: 0 0 1rem;

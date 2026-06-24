@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import { getRiskDetail } from "../api/risks";
 import {
   listLikelihoodLevels,
   listRiskLevels,
@@ -11,6 +12,7 @@ import {
 import { createRiskAssessment } from "../api/riskAssessments";
 import type {
   RiskLevelRead,
+  RiskDetailResponse,
   RiskLikelihoodLevelRead,
   RiskMatrixCellRead,
   RiskSeverityLevelRead,
@@ -28,11 +30,26 @@ type RiskMatrixState =
     }
   | { status: "error"; message: string };
 
-export function RiskAssessmentCreatePage() {
+type ResidualContextState =
+  | { status: "not-needed" }
+  | { status: "loading" }
+  | { status: "success"; detail: RiskDetailResponse }
+  | { status: "error"; message: string };
+
+interface RiskAssessmentCreatePageProps {
+  assessmentType?: "INITIAL" | "RESIDUAL";
+}
+
+export function RiskAssessmentCreatePage({
+  assessmentType = "INITIAL",
+}: RiskAssessmentCreatePageProps) {
   const { isAuthenticated, token } = useAuth();
   const { riskRecordId } = useParams();
   const navigate = useNavigate();
   const [matrix, setMatrix] = useState<RiskMatrixState>({ status: "loading" });
+  const [residualContext, setResidualContext] = useState<ResidualContextState>({
+    status: "not-needed",
+  });
   const [severityLevelId, setSeverityLevelId] = useState("");
   const [likelihoodLevelId, setLikelihoodLevelId] = useState("");
   const [rationale, setRationale] = useState("");
@@ -89,6 +106,50 @@ export function RiskAssessmentCreatePage() {
     };
   }, [riskRecordId, token]);
 
+  useEffect(() => {
+    let isCurrent = true;
+
+    if (assessmentType !== "RESIDUAL") {
+      setResidualContext({ status: "not-needed" });
+      return;
+    }
+
+    if (!token || !riskRecordId) {
+      return;
+    }
+
+    const tokenToUse = token;
+    const idToLoad = riskRecordId;
+    setResidualContext({ status: "loading" });
+
+    async function loadResidualContext() {
+      try {
+        const detail = await getRiskDetail(tokenToUse, idToLoad);
+        if (isCurrent) {
+          setResidualContext({ status: "success", detail });
+        }
+      } catch (error) {
+        if (!isCurrent) {
+          return;
+        }
+
+        setResidualContext({
+          status: "error",
+          message:
+            error instanceof ApiError
+              ? error.message
+              : "The backend will validate residual assessment eligibility.",
+        });
+      }
+    }
+
+    void loadResidualContext();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [assessmentType, riskRecordId, token]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -102,20 +163,25 @@ export function RiskAssessmentCreatePage() {
     try {
       await createRiskAssessment(token, {
         risk_record_id: riskRecordId,
-        assessment_type: "INITIAL",
+        assessment_type: assessmentType,
         severity_level_id: severityLevelId,
         likelihood_level_id: likelihoodLevelId,
         rationale: rationale.trim() || null,
       });
       navigate(`/risks/${riskRecordId}`, {
         replace: true,
-        state: { successMessage: "Initial assessment created successfully." },
+        state: {
+          successMessage:
+            assessmentType === "INITIAL"
+              ? "Initial assessment created successfully."
+              : "Residual assessment created successfully.",
+        },
       });
     } catch (error) {
       setErrorMessage(
         error instanceof ApiError
           ? error.message
-          : "Unable to create initial assessment.",
+          : `Unable to create ${assessmentType.toLowerCase()} assessment.`,
       );
     } finally {
       setIsSubmitting(false);
@@ -152,6 +218,40 @@ export function RiskAssessmentCreatePage() {
     );
   }
 
+  if (assessmentType === "RESIDUAL" && residualContext.status === "loading") {
+    return (
+      <p aria-live="polite" className="workspace-status" role="status">
+        Loading residual assessment context...
+      </p>
+    );
+  }
+
+  const residualDetail =
+    residualContext.status === "success" ? residualContext.detail : null;
+  const residualAssessmentExists = Boolean(
+    residualDetail?.assessments?.some(
+      (assessment) => assessment.assessment_type === "RESIDUAL",
+    ),
+  );
+  const residualActions = residualDetail?.actions ?? [];
+  const completedResidualActions = residualActions.filter(
+    (action) => action.status === "COMPLETED" || action.completed_at,
+  );
+  const copy = getAssessmentCopy(assessmentType);
+
+  if (residualAssessmentExists) {
+    return (
+      <section className="risk-assessment-page" aria-labelledby="assessment-heading">
+        <Link className="back-link" to={`/risks/${riskRecordId}`}>
+          Back to risk detail
+        </Link>
+        <p className="eyebrow">{copy.eyebrow}</p>
+        <h1 id="assessment-heading">{copy.heading}</h1>
+        <p className="residual-guidance">Residual assessment already recorded.</p>
+      </section>
+    );
+  }
+
   const preview = getMatrixPreview(
     matrix.cells,
     matrix.riskLevels,
@@ -164,12 +264,29 @@ export function RiskAssessmentCreatePage() {
       <Link className="back-link" to={`/risks/${riskRecordId}`}>
         Back to risk detail
       </Link>
-      <p className="eyebrow">Initial assessment</p>
-      <h1 id="assessment-heading">Assess draft risk</h1>
+      <p className="eyebrow">{copy.eyebrow}</p>
+      <h1 id="assessment-heading">{copy.heading}</h1>
       <p className="create-risk-description">
-        Choose the configured severity and likelihood levels. The backend
-        calculates the authoritative result when the assessment is created.
+        {copy.description}
       </p>
+
+      {assessmentType === "RESIDUAL" && residualActions.length === 0 && (
+        <p className="residual-guidance">
+          No mitigation actions are recorded yet. Residual assessment is normally
+          performed after mitigations or containment actions.
+        </p>
+      )}
+      {assessmentType === "RESIDUAL" &&
+        residualActions.length > 0 &&
+        completedResidualActions.length === 0 && (
+          <p className="residual-guidance">
+            No mitigation actions are completed yet. Confirm whether residual
+            assessment is appropriate.
+          </p>
+        )}
+      {assessmentType === "RESIDUAL" && residualContext.status === "error" && (
+        <p className="residual-guidance">{residualContext.message}</p>
+      )}
 
       <form className="assessment-form" onSubmit={handleSubmit}>
         <label htmlFor="severity-level">Severity level</label>
@@ -225,7 +342,7 @@ export function RiskAssessmentCreatePage() {
 
         <div className="form-actions">
           <button disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Creating assessment..." : "Create initial assessment"}
+            {isSubmitting ? copy.submittingLabel : copy.submitLabel}
           </button>
           <Link className="secondary-link" to={`/risks/${riskRecordId}`}>
             Cancel
@@ -298,4 +415,24 @@ function getMatrixPreview(
 
 function formatBoolean(value: boolean): string {
   return value ? "Yes" : "No";
+}
+
+function getAssessmentCopy(assessmentType: "INITIAL" | "RESIDUAL") {
+  return assessmentType === "INITIAL"
+    ? {
+        eyebrow: "Initial assessment",
+        heading: "Assess draft risk",
+        description:
+          "Choose the configured severity and likelihood levels. The backend calculates the authoritative result when the assessment is created.",
+        submitLabel: "Create initial assessment",
+        submittingLabel: "Creating assessment...",
+      }
+    : {
+        eyebrow: "Residual assessment",
+        heading: "Assess residual risk",
+        description:
+          "Choose the residual severity and likelihood after mitigation or containment actions. The backend calculates the authoritative residual risk result.",
+        submitLabel: "Create residual assessment",
+        submittingLabel: "Creating residual assessment...",
+      };
 }
