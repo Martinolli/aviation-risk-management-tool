@@ -838,6 +838,13 @@ button:disabled {
   font-weight: 400;
 }
 
+.field-help {
+  color: #627d98;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin: -0.15rem 0 0.25rem;
+}
+
 .action-form input,
 .action-form textarea {
   border: 1px solid #9fb3c8;

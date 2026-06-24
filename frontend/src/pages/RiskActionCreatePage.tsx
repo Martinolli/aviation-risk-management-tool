@@ -12,6 +12,9 @@ type RiskSummaryState =
   | { status: "success"; detail: RiskDetailResponse }
   | { status: "error"; message: string };
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export function RiskActionCreatePage() {
   const { isAuthenticated, token } = useAuth();
   const { riskRecordId } = useParams();
@@ -71,6 +74,15 @@ export function RiskActionCreatePage() {
       return;
     }
 
+    const ownerUserId = actionOwnerUserId.trim();
+
+    if (ownerUserId && !UUID_PATTERN.test(ownerUserId)) {
+      setErrorMessage(
+        "Action owner must be a valid user UUID, or leave it blank.",
+      );
+      return;
+    }
+
     setErrorMessage(null);
     setIsSubmitting(true);
 
@@ -80,7 +92,7 @@ export function RiskActionCreatePage() {
         title: title.trim(),
         description: description.trim() || null,
         due_date: dueDate || null,
-        action_owner_user_id: actionOwnerUserId.trim() || null,
+        action_owner_user_id: ownerUserId || null,
       });
       navigate(`/risks/${riskRecordId}`, {
         replace: true,
@@ -186,16 +198,23 @@ export function RiskActionCreatePage() {
         />
 
         <label htmlFor="action-owner-user-id">
-          Action owner user ID <span>(optional)</span>
+          Action owner user UUID <span>(optional)</span>
         </label>
         <input
+          aria-describedby="action-owner-user-id-help"
+          autoComplete="off"
           disabled={isSubmitting}
           id="action-owner-user-id"
           name="action_owner_user_id"
           onChange={(event) => setActionOwnerUserId(event.target.value)}
+          placeholder="Leave blank or enter a user UUID"
           type="text"
           value={actionOwnerUserId}
         />
+        <p className="field-help" id="action-owner-user-id-help">
+          Leave blank if no owner is assigned yet. Names or roles are not
+          accepted here.
+        </p>
 
         {errorMessage && (
           <p className="form-error" role="alert">
