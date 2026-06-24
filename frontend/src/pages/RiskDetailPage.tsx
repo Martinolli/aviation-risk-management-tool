@@ -134,6 +134,25 @@ export function RiskDetailPage() {
         <p className="muted-text">
           Created {formatDateTime(risk.created_at)} · Updated {formatDateTime(risk.updated_at)}
         </p>
+        <section className="workflow-action-card" aria-labelledby="workflow-action-heading">
+          <strong id="workflow-action-heading">Workflow action</strong>
+          {risk.workflow_status === "DRAFT" ? (
+            <Link className="button" to={`/risks/${risk.id}/submit`}>
+              Submit risk
+            </Link>
+          ) : (
+            <span className="detail-action-muted">Risk has already been submitted.</span>
+          )}
+          <span
+            className={
+              initialAssessmentExists ? "workflow-confirmed" : "workflow-warning-text"
+            }
+          >
+            {initialAssessmentExists
+              ? "Initial assessment recorded."
+              : "Initial assessment not recorded yet."}
+          </span>
+        </section>
       </header>
 
       <DetailSection title="Problem description">

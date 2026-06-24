@@ -9,6 +9,7 @@ import { RiskCreatePage } from "../pages/RiskCreatePage";
 import { RiskAssessmentCreatePage } from "../pages/RiskAssessmentCreatePage";
 import { RiskDetailPage } from "../pages/RiskDetailPage";
 import { RiskListPage } from "../pages/RiskListPage";
+import { RiskSubmitPage } from "../pages/RiskSubmitPage";
 
 export function AppRoutes() {
   const { isLoading } = useAuth();
@@ -32,6 +33,7 @@ export function AppRoutes() {
           path="/risks/:riskRecordId/assessments/new"
           element={<RiskAssessmentCreatePage />}
         />
+        <Route path="/risks/:riskRecordId/submit" element={<RiskSubmitPage />} />
         <Route path="/risks/:riskRecordId" element={<RiskDetailPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

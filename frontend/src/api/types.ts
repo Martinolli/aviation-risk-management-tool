@@ -50,6 +50,10 @@ export interface RiskCreateRequest {
   source_trigger?: string | null;
 }
 
+export interface RiskSubmitRequest {
+  reason?: string | null;
+}
+
 export interface RiskAssessmentRead {
   id: string;
   risk_record_id?: string | null;
