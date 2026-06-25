@@ -60,6 +60,7 @@ Copy-Item .env.example .env
 alembic upgrade head
 python -m app.cli bootstrap-admin --email admin@example.com --display-name "Admin User" --password "ChangeMe123!"
 python -m app.cli seed-default-risk-matrix
+python -m app.cli seed-test-access-profiles --password "ChangeMe123!"
 uvicorn app.main:app --reload
 ```
 
@@ -142,6 +143,15 @@ Management Committee. It is idempotent and intended for controlled
 backend/server-side initialization only; it is not a public API endpoint.
 The password option is optional for now but recommended. It is securely hashed
 before storage; plaintext passwords are never stored.
+
+To seed representative committee users for local access-control validation, run:
+
+```powershell
+python -m app.cli seed-test-access-profiles --password "ChangeMe123!"
+```
+
+This command creates or reuses the normalized test committee profiles and their
+committee memberships. Do not use default passwords in production.
 
 ## Authentication
 

@@ -10,6 +10,10 @@ from app.services.default_risk_matrix_seed_service import (
     DefaultRiskMatrixSeedError,
     seed_default_risk_matrix,
 )
+from app.services.test_access_seed_service import (
+    TestAccessSeedError,
+    seed_test_access_profiles,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -28,6 +32,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     matrix_parser.add_argument("--overwrite-existing", action="store_true")
     matrix_parser.add_argument("--changed-by-user-id", type=uuid.UUID)
+    access_parser = subparsers.add_parser(
+        "seed-test-access-profiles",
+        help="Seed representative test committee users and memberships.",
+    )
+    access_parser.add_argument("--password", default="ChangeMe123!")
+    access_parser.add_argument("--dry-run", action="store_true")
     return parser
 
 
@@ -35,6 +45,8 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     if args.command == "seed-default-risk-matrix":
         return _seed_default_risk_matrix(args)
+    if args.command == "seed-test-access-profiles":
+        return _seed_test_access_profiles(args)
     if args.command != "bootstrap-admin":
         return 2
 
@@ -110,6 +122,54 @@ def _seed_default_risk_matrix(args: argparse.Namespace) -> int:
     print(f"Risk levels created: {summary[4]}, updated: {summary[5]}")
     print(f"Matrix cells created: {summary[6]}, updated: {summary[7]}")
     print(f"Total matrix cells: {summary[8]}")
+    return 0
+
+
+def _seed_test_access_profiles(args: argparse.Namespace) -> int:
+    db = SessionLocal()
+    try:
+        result = seed_test_access_profiles(
+            db,
+            password=args.password,
+            dry_run=args.dry_run,
+        )
+        if args.dry_run:
+            db.rollback()
+        else:
+            db.commit()
+    except TestAccessSeedError as exc:
+        db.rollback()
+        print(f"Test access profile seed failed: {exc}")
+        return 1
+    except Exception as exc:
+        db.rollback()
+        print(f"Test access profile seed failed: {exc}")
+        return 1
+    finally:
+        db.close()
+
+    print("Test access profile seed completed")
+    print(
+        "Users created: "
+        f"{result['created_users']}, updated: {result['updated_users']}, "
+        f"existing: {result['existing_users']}"
+    )
+    print(
+        "Memberships created: "
+        f"{result['created_memberships']}, updated: {result['updated_memberships']}, "
+        f"existing: {result['existing_memberships']}"
+    )
+    for profile in result["profiles"]:
+        committee = profile["committee"] or "not applicable"
+        authority_level = profile["Authority Level"] or "not applicable"
+        print(
+            "- "
+            f"{profile['email']} | {profile['display_name']} | "
+            f"{committee} | Authority Level: {authority_level} | "
+            f"membership: {profile['membership_status']}"
+        )
+    if args.dry_run:
+        print("Dry run only; no database changes committed")
     return 0
 
 
