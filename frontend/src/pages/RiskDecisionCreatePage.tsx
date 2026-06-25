@@ -2,10 +2,12 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import { listCommitteeMembers } from "../api/committeeMembers";
 import { listCommittees } from "../api/committees";
 import { createRiskDecision } from "../api/riskDecisions";
 import { getRiskDetail } from "../api/risks";
 import type {
+  CommitteeMemberRead,
   CommitteeRead,
   RiskDecisionType,
   RiskAssessmentRead,
@@ -29,11 +31,12 @@ type DecisionPageState =
       status: "success";
       detail: RiskDetailResponse;
       committees: CommitteeRead[];
+      memberships: CommitteeMemberRead[];
     }
   | { status: "error"; message: string };
 
 export function RiskDecisionCreatePage() {
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated, token, user } = useAuth();
   const { riskRecordId } = useParams();
   const navigate = useNavigate();
   const [pageState, setPageState] = useState<DecisionPageState>({
@@ -48,21 +51,23 @@ export function RiskDecisionCreatePage() {
   useEffect(() => {
     let isCurrent = true;
 
-    if (!token || !riskRecordId) {
+    if (!token || !riskRecordId || !user?.id) {
       return;
     }
 
     const tokenToUse = token;
     const idToLoad = riskRecordId;
+    const currentUserId = user.id;
 
     async function loadDecisionContext() {
       try {
-        const [detail, committees] = await Promise.all([
+        const [detail, committees, memberships] = await Promise.all([
           getRiskDetail(tokenToUse, idToLoad),
           listCommittees(tokenToUse),
+          listCommitteeMembers(tokenToUse, { userId: currentUserId }),
         ]);
         if (isCurrent) {
-          setPageState({ status: "success", detail, committees });
+          setPageState({ status: "success", detail, committees, memberships });
         }
       } catch (error) {
         if (!isCurrent) {
@@ -84,16 +89,38 @@ export function RiskDecisionCreatePage() {
     return () => {
       isCurrent = false;
     };
-  }, [riskRecordId, token]);
+  }, [riskRecordId, token, user?.id]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!token || !riskRecordId || !decisionType) {
+    if (!token || !riskRecordId || pageState.status !== "success") {
       return;
     }
 
     setErrorMessage(null);
+
+    const selectableCommittees = getSelectableCommittees(
+      pageState.committees,
+      pageState.memberships,
+    );
+    const hasSelectedCommittee = selectableCommittees.some(
+      (committee) => committee.id === committeeId,
+    );
+
+    if (!committeeId || !hasSelectedCommittee) {
+      setErrorMessage("Select a committee where you are an active member.");
+      return;
+    }
+    if (!decisionType) {
+      setErrorMessage("Select a decision type.");
+      return;
+    }
+    if (!decisionText.trim()) {
+      setErrorMessage("Enter decision text.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -170,6 +197,11 @@ export function RiskDecisionCreatePage() {
   const residualAssessment = pageState.detail.assessments?.find(
     (assessment) => assessment.assessment_type === "RESIDUAL",
   );
+  const selectableCommittees = getSelectableCommittees(
+    pageState.committees,
+    pageState.memberships,
+  );
+  const hasSelectableCommittees = selectableCommittees.length > 0;
 
   return (
     <section className="risk-decision-page" aria-labelledby="decision-heading">
@@ -209,7 +241,7 @@ export function RiskDecisionCreatePage() {
       <form className="decision-form" onSubmit={handleSubmit}>
         <label htmlFor="committee-id">Committee</label>
         <select
-          disabled={isSubmitting || pageState.committees.length === 0}
+          disabled={isSubmitting || !hasSelectableCommittees}
           id="committee-id"
           name="committee_id"
           onChange={(event) => setCommitteeId(event.target.value)}
@@ -217,12 +249,25 @@ export function RiskDecisionCreatePage() {
           value={committeeId}
         >
           <option value="">Select committee</option>
-          {pageState.committees.map((committee) => (
+          {selectableCommittees.map((committee) => (
             <option key={committee.id} value={committee.id}>
-              {committee.name} ({committee.authority_level})
+              {getCommitteeOptionLabel(
+                committee,
+                findMembershipForCommittee(pageState.memberships, committee.id),
+              )}
             </option>
           ))}
         </select>
+        {hasSelectableCommittees ? (
+          <p className="decision-note">
+            Showing committees where you are an active member.
+          </p>
+        ) : (
+          <p className="decision-guidance">
+            You are not an active member of any decision committee. You cannot
+            record committee decisions.
+          </p>
+        )}
 
         <label htmlFor="decision-type">Decision type</label>
         <select
@@ -269,10 +314,6 @@ export function RiskDecisionCreatePage() {
           value={decisionText}
         />
 
-        {pageState.committees.length === 0 && (
-          <p className="decision-guidance">No active committees are available.</p>
-        )}
-
         {errorMessage && (
           <p className="form-error" role="alert">
             {errorMessage}
@@ -281,7 +322,7 @@ export function RiskDecisionCreatePage() {
 
         <div className="form-actions">
           <button
-            disabled={isSubmitting || pageState.committees.length === 0}
+            disabled={isSubmitting || !hasSelectableCommittees}
             type="submit"
           >
             {isSubmitting ? "Recording decision..." : "Record committee decision"}
@@ -309,4 +350,36 @@ function getAssessmentSummary(assessment: RiskAssessmentRead | undefined): strin
   }
 
   return `${assessment.risk_level || "Risk level not specified"} (${assessment.calculated_score ?? "no score"})`;
+}
+
+function getSelectableCommittees(
+  committees: CommitteeRead[],
+  memberships: CommitteeMemberRead[],
+): CommitteeRead[] {
+  const userCommitteeIds = new Set(
+    memberships
+      .filter((membership) => membership.is_active)
+      .map((membership) => membership.committee_id),
+  );
+
+  return committees.filter((committee) => userCommitteeIds.has(committee.id));
+}
+
+function findMembershipForCommittee(
+  memberships: CommitteeMemberRead[],
+  committeeId: string,
+): CommitteeMemberRead | undefined {
+  return memberships.find(
+    (membership) => membership.is_active && membership.committee_id === committeeId,
+  );
+}
+
+function getCommitteeOptionLabel(
+  committee: CommitteeRead,
+  membership: CommitteeMemberRead | undefined,
+): string {
+  const roleLabel = membership?.role_label?.trim();
+  return roleLabel
+    ? `${committee.name} - Authority Level: ${committee.authority_level} - ${roleLabel}`
+    : `${committee.name} - Authority Level: ${committee.authority_level}`;
 }

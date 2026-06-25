@@ -156,6 +156,16 @@ export interface CommitteeRead {
   updated_at?: string | null;
 }
 
+export interface CommitteeMemberRead {
+  id: string;
+  committee_id: string;
+  user_id: string;
+  role_label?: string | null;
+  is_active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export type RiskDecisionType =
   | "APPROVE"
   | "REJECT"
