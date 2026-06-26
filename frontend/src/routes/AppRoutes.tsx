@@ -4,6 +4,7 @@ import { AppLayout } from "../components/AppLayout";
 import { useAuth } from "../auth/AuthContext";
 import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
+import { MyDecisionQueuePage } from "../pages/MyDecisionQueuePage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { RiskCreatePage } from "../pages/RiskCreatePage";
 import { RiskAssessmentCreatePage } from "../pages/RiskAssessmentCreatePage";
@@ -31,6 +32,7 @@ export function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/risks" element={<RiskListPage />} />
+        <Route path="/my-decisions" element={<MyDecisionQueuePage />} />
         <Route path="/risks/new" element={<RiskCreatePage />} />
         <Route
           path="/risks/:riskRecordId/assessments/new"
