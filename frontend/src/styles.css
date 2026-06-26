@@ -1048,6 +1048,60 @@ button:disabled {
   margin: 0.35rem 0;
 }
 
+.decision-readiness {
+  background: #f0f4f8;
+  border-left: 4px solid #486581;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+
+.decision-readiness h3,
+.decision-unavailable-list h3 {
+  color: #243b53;
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.decision-readiness dl {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.decision-readiness dt {
+  color: #627d98;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.decision-readiness dd {
+  color: #243b53;
+  margin: 0.2rem 0 0;
+}
+
+.decision-unavailable-list {
+  background: #fff8e1;
+  border-left: 4px solid #d97706;
+  color: #7c2d12;
+  margin: 0.5rem 0;
+  padding: 0.8rem 1rem;
+}
+
+.decision-unavailable-list ul {
+  display: grid;
+  gap: 0.45rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.decision-unavailable-item {
+  line-height: 1.45;
+}
+
 .decision-form {
   display: grid;
   gap: 0.55rem;
@@ -1342,6 +1396,10 @@ button:disabled {
   .decision-summary,
   .decision-form {
     padding: 1.25rem;
+  }
+
+  .decision-readiness dl {
+    grid-template-columns: 1fr;
   }
 
   .matrix-preview dl {
