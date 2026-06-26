@@ -28,9 +28,7 @@ export function AppLayout() {
                 <span className="nav-placeholder" title="Coming soon">
                   Committees <small>Coming soon</small>
                 </span>
-                <span className="nav-placeholder" title="Coming soon">
-                  Reports <small>Coming soon</small>
-                </span>
+                <NavLink to="/reports">Reports</NavLink>
               </>
             )}
           </nav>

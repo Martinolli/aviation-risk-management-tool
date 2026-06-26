@@ -6,6 +6,7 @@ import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { MyDecisionQueuePage } from "../pages/MyDecisionQueuePage";
 import { NotFoundPage } from "../pages/NotFoundPage";
+import { ReportsPage } from "../pages/ReportsPage";
 import { RiskCreatePage } from "../pages/RiskCreatePage";
 import { RiskAssessmentCreatePage } from "../pages/RiskAssessmentCreatePage";
 import { RiskActionCreatePage } from "../pages/RiskActionCreatePage";
@@ -33,6 +34,7 @@ export function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/risks" element={<RiskListPage />} />
         <Route path="/my-decisions" element={<MyDecisionQueuePage />} />
+        <Route path="/reports" element={<ReportsPage />} />
         <Route path="/risks/new" element={<RiskCreatePage />} />
         <Route
           path="/risks/:riskRecordId/assessments/new"

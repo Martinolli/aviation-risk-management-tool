@@ -2,8 +2,15 @@ import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import {
+  downloadGeneratedReport,
+  generateRiskDossierReport,
+  listGeneratedReports,
+  saveBlobAsFile,
+} from "../api/reports";
 import { getRiskDetail } from "../api/risks";
 import type {
+  GeneratedReportRead,
   RiskActionRead,
   RiskAssessmentRead,
   RiskDecisionRead,
@@ -15,6 +22,11 @@ import { useAuth } from "../auth/AuthContext";
 type RiskDetailState =
   | { status: "loading" }
   | { status: "success"; detail: RiskDetailResponse }
+  | { status: "error"; message: string };
+
+type RiskReportsState =
+  | { status: "idle" | "loading" }
+  | { status: "success"; reports: GeneratedReportRead[] }
   | { status: "error"; message: string };
 
 interface NextAction {
@@ -33,6 +45,17 @@ export function RiskDetailPage() {
   const [riskDetail, setRiskDetail] = useState<RiskDetailState>({
     status: "loading",
   });
+  const [riskReports, setRiskReports] = useState<RiskReportsState>({
+    status: "idle",
+  });
+  const [reportMessage, setReportMessage] = useState<string | null>(null);
+  const [reportErrorMessage, setReportErrorMessage] = useState<string | null>(
+    null,
+  );
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [downloadingReportId, setDownloadingReportId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     let isCurrent = true;
@@ -46,9 +69,42 @@ export function RiskDetailPage() {
 
     async function loadRiskDetail() {
       try {
+        if (isCurrent) {
+          setRiskReports({ status: "loading" });
+          setReportMessage(null);
+          setReportErrorMessage(null);
+        }
+
         const detail = await getRiskDetail(tokenToUse, idToLoad);
         if (isCurrent) {
           setRiskDetail({ status: "success", detail });
+        }
+
+        const risk = getRiskRecord(detail);
+        if (!risk) {
+          if (isCurrent) {
+            setRiskReports({ status: "idle" });
+          }
+          return;
+        }
+
+        try {
+          const reports = await listGeneratedReports(tokenToUse, {
+            riskRecordId: risk.id,
+          });
+          if (isCurrent) {
+            setRiskReports({ status: "success", reports });
+          }
+        } catch (error) {
+          if (isCurrent) {
+            setRiskReports({
+              status: "error",
+              message:
+                error instanceof ApiError
+                  ? error.message
+                  : "Please try again shortly.",
+            });
+          }
         }
       } catch (error) {
         if (!isCurrent) {
@@ -62,6 +118,7 @@ export function RiskDetailPage() {
               ? error.message
               : "Please try again shortly.",
         });
+        setRiskReports({ status: "idle" });
       }
     }
 
@@ -134,6 +191,76 @@ export function RiskDetailPage() {
   const allActionsCompleted =
     actions.length > 0 && actions.every((action) => isActionCompleted(action));
   const successMessage = getSuccessMessage(location.state);
+
+  async function refreshRiskReports(riskId: string) {
+    if (!token) {
+      return;
+    }
+
+    setRiskReports({ status: "loading" });
+
+    try {
+      const reports = await listGeneratedReports(token, { riskRecordId: riskId });
+      setRiskReports({ status: "success", reports });
+    } catch (error) {
+      setRiskReports({
+        status: "error",
+        message:
+          error instanceof ApiError
+            ? error.message
+            : "Please try again shortly.",
+      });
+    }
+  }
+
+  async function handleGenerateReport() {
+    if (!token) {
+      return;
+    }
+
+    const riskToUse = risk;
+    if (!riskToUse) {
+      return;
+    }
+
+    setIsGeneratingReport(true);
+    setReportMessage(null);
+    setReportErrorMessage(null);
+
+    try {
+      await generateRiskDossierReport(token, riskToUse.id);
+      setReportMessage("Risk dossier report generated.");
+      await refreshRiskReports(riskToUse.id);
+    } catch (error) {
+      setReportErrorMessage(
+        error instanceof ApiError
+          ? error.message
+          : "Unable to generate risk dossier report.",
+      );
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  }
+
+  async function handleDownloadReport(report: GeneratedReportRead) {
+    if (!token) {
+      return;
+    }
+
+    setDownloadingReportId(report.id);
+    setReportErrorMessage(null);
+
+    try {
+      const { blob, filename } = await downloadGeneratedReport(token, report.id);
+      saveBlobAsFile(blob, filename);
+    } catch (error) {
+      setReportErrorMessage(
+        error instanceof ApiError ? error.message : "Unable to download report.",
+      );
+    } finally {
+      setDownloadingReportId(null);
+    }
+  }
 
   return (
     <section className="risk-detail-page" aria-labelledby="risk-detail-heading">
@@ -341,7 +468,99 @@ export function RiskDetailPage() {
           </ul>
         )}
       </DetailSection>
+
+      <DetailSection title="Reports">
+        <div className="report-panel">
+          <div>
+            <p>
+              Generate and download risk dossier reports for this risk record.
+            </p>
+          </div>
+          <button
+            disabled={isGeneratingReport}
+            onClick={handleGenerateReport}
+            type="button"
+          >
+            {isGeneratingReport ? "Generating report..." : "Generate risk dossier"}
+          </button>
+        </div>
+
+        {reportMessage && (
+          <p aria-live="polite" className="workspace-success" role="status">
+            {reportMessage}
+          </p>
+        )}
+
+        {reportErrorMessage && (
+          <p className="report-error" role="alert">
+            {reportErrorMessage}
+          </p>
+        )}
+
+        {riskReports.status === "loading" && (
+          <p aria-live="polite" className="workspace-status" role="status">
+            Loading generated reports...
+          </p>
+        )}
+
+        {riskReports.status === "error" && (
+          <div aria-live="polite" className="workspace-alert" role="alert">
+            <strong>Unable to load generated reports.</strong>
+            <span>{riskReports.message}</span>
+          </div>
+        )}
+
+        {riskReports.status === "success" && riskReports.reports.length === 0 && (
+          <p className="detail-empty">No reports generated for this risk yet.</p>
+        )}
+
+        {riskReports.status === "success" && riskReports.reports.length > 0 && (
+          <ReportList
+            downloadingReportId={downloadingReportId}
+            onDownload={handleDownloadReport}
+            reports={riskReports.reports}
+          />
+        )}
+      </DetailSection>
     </section>
+  );
+}
+
+function ReportList({
+  downloadingReportId,
+  onDownload,
+  reports,
+}: {
+  downloadingReportId: string | null;
+  onDownload: (report: GeneratedReportRead) => void;
+  reports: GeneratedReportRead[];
+}) {
+  return (
+    <ul className="report-list">
+      {reports.map((report) => (
+        <li className="report-item" key={report.id}>
+          <div>
+            <strong>{formatReportType(report.report_type)}</strong>
+            <div className="report-meta">
+              <span>Generated {formatDateTime(report.generated_at)}</span>
+              {report.generated_by_user_id && (
+                <span>Generated by {report.generated_by_user_id}</span>
+              )}
+            </div>
+          </div>
+          <div className="report-actions">
+            <button
+              className="report-download-button"
+              disabled={downloadingReportId === report.id}
+              onClick={() => onDownload(report)}
+              type="button"
+            >
+              {downloadingReportId === report.id ? "Downloading..." : "Download DOCX"}
+            </button>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -717,6 +936,10 @@ function formatOptionalBoolean(value: boolean | null | undefined): string {
   }
 
   return value ? "Yes" : "No";
+}
+
+function formatReportType(value: string): string {
+  return value.replace(/_/g, " ") || "Report";
 }
 
 function isActionCompleted(action: {

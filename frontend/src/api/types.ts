@@ -193,6 +193,21 @@ export interface RiskDecisionRead {
   updated_at?: string | null;
 }
 
+export interface GeneratedReportRead {
+  id: string;
+  risk_record_id?: string | null;
+  report_type: string;
+  file_path: string;
+  generated_by_user_id?: string | null;
+  generated_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GenerateRiskDossierReportRequest {
+  output_dir?: string | null;
+}
+
 export interface RiskAuditSummary {
   total_count?: number;
   create_count?: number;
