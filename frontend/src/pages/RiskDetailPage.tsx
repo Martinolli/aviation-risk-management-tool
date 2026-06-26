@@ -3,13 +3,28 @@ import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { getRiskDetail } from "../api/risks";
-import type { RiskDetailResponse, RiskRecordRead } from "../api/types";
+import type {
+  RiskActionRead,
+  RiskAssessmentRead,
+  RiskDecisionRead,
+  RiskDetailResponse,
+  RiskRecordRead,
+} from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 
 type RiskDetailState =
   | { status: "loading" }
   | { status: "success"; detail: RiskDetailResponse }
   | { status: "error"; message: string };
+
+interface NextAction {
+  title: string;
+  description: string;
+  linkLabel?: string;
+  linkTo?: string;
+  statusTone: "info" | "warning" | "success" | "blocked";
+  checklist: string[];
+}
 
 export function RiskDetailPage() {
   const { isAuthenticated, token } = useAuth();
@@ -115,6 +130,7 @@ export function RiskDetailPage() {
   const residualAssessment = assessments.find(
     (assessment) => assessment.assessment_type === "RESIDUAL",
   );
+  const nextAction = getNextAction({ risk, assessments, actions, decisions });
   const allActionsCompleted =
     actions.length > 0 && actions.every((action) => isActionCompleted(action));
   const successMessage = getSuccessMessage(location.state);
@@ -142,25 +158,7 @@ export function RiskDetailPage() {
         <p className="muted-text">
           Created {formatDateTime(risk.created_at)} · Updated {formatDateTime(risk.updated_at)}
         </p>
-        <section className="workflow-action-card" aria-labelledby="workflow-action-heading">
-          <strong id="workflow-action-heading">Workflow action</strong>
-          {risk.workflow_status === "DRAFT" ? (
-            <Link className="button" to={`/risks/${risk.id}/submit`}>
-              Submit risk
-            </Link>
-          ) : (
-            <span className="detail-action-muted">Risk has already been submitted.</span>
-          )}
-          <span
-            className={
-              initialAssessmentExists ? "workflow-confirmed" : "workflow-warning-text"
-            }
-          >
-            {initialAssessmentExists
-              ? "Initial assessment recorded."
-              : "Initial assessment not recorded yet."}
-          </span>
-        </section>
+        <NextActionPanel nextAction={nextAction} />
       </header>
 
       <DetailSection title="Problem description">
@@ -347,6 +345,33 @@ export function RiskDetailPage() {
   );
 }
 
+function NextActionPanel({ nextAction }: { nextAction: NextAction }) {
+  return (
+    <section
+      className={`next-action-panel next-action-${nextAction.statusTone}`}
+      aria-labelledby="next-action-heading"
+    >
+      <div className="next-action-content">
+        <div>
+          <p className="eyebrow">Recommended next step</p>
+          <h2 id="next-action-heading">{nextAction.title}</h2>
+          <p>{nextAction.description}</p>
+        </div>
+        {nextAction.linkTo && nextAction.linkLabel && (
+          <Link className="button" to={nextAction.linkTo}>
+            {nextAction.linkLabel}
+          </Link>
+        )}
+      </div>
+      <ul className="next-action-checklist">
+        {nextAction.checklist.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function DetailSection({
   children,
   title,
@@ -370,6 +395,313 @@ function getRiskDisplayId(risk: RiskRecordRead): string {
   return risk.risk_id || risk.id.slice(0, 8);
 }
 
+function getNextAction({
+  risk,
+  assessments,
+  actions,
+  decisions,
+}: {
+  risk: RiskRecordRead;
+  assessments: RiskAssessmentRead[];
+  actions: RiskActionRead[];
+  decisions: RiskDecisionRead[];
+}): NextAction {
+  const initialAssessment = assessments.find(
+    (assessment) => assessment.assessment_type === "INITIAL",
+  );
+  const residualAssessment = assessments.find(
+    (assessment) => assessment.assessment_type === "RESIDUAL",
+  );
+  const openActions = actions.filter(isActionOpen);
+  const completedActions = actions.filter(isActionCompleted);
+  const hasInitialAssessment = Boolean(initialAssessment);
+  const hasResidualAssessment = Boolean(residualAssessment);
+  const hasActions = actions.length > 0;
+  const hasOpenActions = openActions.length > 0;
+  const hasCompletedActions = completedActions.length > 0;
+  const lastDecision = getLatestDecision(decisions);
+
+  if (risk.workflow_status === "CLOSED" || risk.lifecycle_status === "CLOSED") {
+    return {
+      title: "Risk closed",
+      description: "This risk has completed the active workflow.",
+      statusTone: "success",
+      checklist: [
+        "Risk lifecycle is closed.",
+        "Review audit trail or reports if evidence is required.",
+      ],
+    };
+  }
+
+  if (risk.workflow_status === "ACCEPTED") {
+    return {
+      title: "Risk accepted",
+      description:
+        "Residual risk has been accepted. Confirm whether closure or monitoring is required by the committee.",
+      linkLabel: "Record committee decision",
+      linkTo: `/risks/${risk.id}/decisions/new`,
+      statusTone: "success",
+      checklist: [
+        "Residual risk accepted.",
+        "Closure or monitoring may be the next governance step.",
+      ],
+    };
+  }
+
+  if (risk.workflow_status === "REJECTED") {
+    return {
+      title: "Risk rejected",
+      description: "This risk was rejected by committee decision.",
+      statusTone: "blocked",
+      checklist: [
+        lastDecision
+          ? `Latest decision: ${lastDecision.decision_type || "Decision recorded"}.`
+          : "Review committee decision text.",
+        "Create a new risk record if the issue needs to be re-submitted.",
+      ],
+    };
+  }
+
+  if (risk.workflow_status === "RETURNED_FOR_REVISION") {
+    return {
+      title: "Risk returned for revision",
+      description:
+        "Review committee comments and update the risk package before re-submission.",
+      statusTone: "warning",
+      checklist: [
+        lastDecision
+          ? `Latest decision: ${lastDecision.decision_type || "Decision recorded"}.`
+          : "Review decision comments.",
+        "Update the risk package as required.",
+      ],
+    };
+  }
+
+  if (risk.workflow_status === "DRAFT" && !hasInitialAssessment) {
+    return {
+      title: "Complete initial assessment",
+      description:
+        "Record the initial risk assessment before submitting the risk to committee review.",
+      linkLabel: "Add initial assessment",
+      linkTo: `/risks/${risk.id}/assessments/new`,
+      statusTone: "warning",
+      checklist: [
+        "Problem description recorded.",
+        "Initial assessment missing.",
+        "Risk not yet submitted.",
+      ],
+    };
+  }
+
+  if (risk.workflow_status === "DRAFT" && hasInitialAssessment) {
+    return {
+      title: "Submit risk for committee review",
+      description:
+        "Initial assessment is recorded. Submit the risk to the operational board when the package is ready.",
+      linkLabel: "Submit risk",
+      linkTo: `/risks/${risk.id}/submit`,
+      statusTone: "info",
+      checklist: [
+        "Initial assessment recorded.",
+        "Risk still in draft.",
+        "Submission will start committee workflow.",
+      ],
+    };
+  }
+
+  if (isOperationalBoardReviewStatus(risk.workflow_status)) {
+    if (!hasInitialAssessment) {
+      return {
+        title: "Initial assessment missing",
+        description:
+          "The risk has been submitted but no initial assessment is recorded. Add the initial assessment before committee decision.",
+        linkLabel: "Add initial assessment",
+        linkTo: `/risks/${risk.id}/assessments/new`,
+        statusTone: "warning",
+        checklist: ["Risk submitted.", "Initial assessment missing."],
+      };
+    }
+
+    return {
+      title: "Awaiting operational board decision",
+      description:
+        "This risk is ready for operational board review. Active committee members can record a decision.",
+      linkLabel: "Record committee decision",
+      linkTo: `/risks/${risk.id}/decisions/new`,
+      statusTone: "info",
+      checklist: [
+        "Risk submitted.",
+        "Initial assessment recorded.",
+        "Committee decision pending.",
+      ],
+    };
+  }
+
+  if (initialAssessment?.requires_mitigation === true && actions.length === 0) {
+    return {
+      title: "Define mitigation action",
+      description:
+        "The initial assessment requires mitigation. Add at least one mitigation action.",
+      linkLabel: "Add mitigation action",
+      linkTo: `/risks/${risk.id}/actions/new`,
+      statusTone: "warning",
+      checklist: ["Mitigation required.", "No mitigation actions recorded."],
+    };
+  }
+
+  if (hasActions && hasOpenActions) {
+    const singleOpenAction = openActions.length === 1 ? openActions[0] : undefined;
+
+    return {
+      title: "Complete mitigation actions",
+      description:
+        "Mitigation actions are open. Complete or cancel them before residual acceptance or closure.",
+      linkLabel: singleOpenAction ? "Complete action" : undefined,
+      linkTo: singleOpenAction
+        ? `/risks/${risk.id}/actions/${singleOpenAction.id}/complete`
+        : undefined,
+      statusTone: "warning",
+      checklist: [
+        `${openActions.length} open mitigation action(s).`,
+        "Residual closure should wait until actions are completed or cancelled.",
+      ],
+    };
+  }
+
+  if (hasActions && !hasOpenActions && !hasResidualAssessment) {
+    return {
+      title: "Record residual risk assessment",
+      description:
+        "Mitigation actions are complete or closed. Record the residual risk assessment.",
+      linkLabel: "Add residual assessment",
+      linkTo: `/risks/${risk.id}/assessments/residual/new`,
+      statusTone: "info",
+      checklist: [
+        hasCompletedActions
+          ? "Mitigation actions complete or closed."
+          : "Mitigation actions are closed.",
+        "Residual assessment missing.",
+      ],
+    };
+  }
+
+  if (
+    initialAssessment?.requires_mitigation === false &&
+    !hasResidualAssessment &&
+    risk.workflow_status !== "DRAFT"
+  ) {
+    return {
+      title: "Consider residual risk assessment",
+      description:
+        "Mitigation may not be required, but residual risk review may be needed before acceptance or closure.",
+      linkLabel: "Add residual assessment",
+      linkTo: `/risks/${risk.id}/assessments/residual/new`,
+      statusTone: "info",
+      checklist: [
+        "Initial assessment does not require mitigation.",
+        "Residual assessment not recorded.",
+      ],
+    };
+  }
+
+  if (residualAssessment) {
+    if (residualAssessment.requires_escalation === true) {
+      return {
+        title: "Escalate residual risk",
+        description: "Residual risk requires escalation to the next authority level.",
+        linkLabel: "Record committee decision",
+        linkTo: `/risks/${risk.id}/decisions/new`,
+        statusTone: "warning",
+        checklist: [
+          "Residual assessment recorded.",
+          "Residual risk requires escalation.",
+          "Committee decision should escalate the risk.",
+        ],
+      };
+    }
+
+    if (residualAssessment.is_tolerable === true && !hasOpenActions) {
+      return {
+        title: "Accept or close residual risk",
+        description:
+          "Residual risk is tolerable and actions are complete. Committee may accept residual risk or close the risk if appropriate.",
+        linkLabel: "Record committee decision",
+        linkTo: `/risks/${risk.id}/decisions/new`,
+        statusTone: "success",
+        checklist: [
+          "Residual assessment recorded.",
+          "Residual risk tolerable.",
+          "No open mitigation actions.",
+        ],
+      };
+    }
+
+    if (residualAssessment.is_tolerable === false) {
+      return {
+        title: "Residual risk not tolerable",
+        description:
+          "Residual risk is not tolerable. Additional mitigation or escalation is required.",
+        linkLabel: "Record committee decision",
+        linkTo: `/risks/${risk.id}/decisions/new`,
+        statusTone: "warning",
+        checklist: [
+          "Residual assessment recorded.",
+          "Residual risk not tolerable.",
+          "Escalation or further mitigation may be required.",
+        ],
+      };
+    }
+  }
+
+  return {
+    title: "Review risk package",
+    description:
+      "Review the available assessments, actions, and committee decisions to determine the next workflow step.",
+    statusTone: "info",
+    checklist: [
+      `Workflow status: ${risk.workflow_status}`,
+      `Lifecycle status: ${risk.lifecycle_status}`,
+    ],
+  };
+}
+
+function isOperationalBoardReviewStatus(status: string): boolean {
+  return [
+    "SUBMITTED_TO_OPERATIONAL_BOARD",
+    "UNDER_OPERATIONAL_BOARD_REVIEW",
+  ].includes(status);
+}
+
+function isActionOpen(action: RiskActionRead): boolean {
+  if (action.status === "COMPLETED") {
+    return false;
+  }
+
+  if (action.completed_at) {
+    return false;
+  }
+
+  if (action.status === "CANCELLED") {
+    return false;
+  }
+
+  return true;
+}
+
+function getLatestDecision(
+  decisions: RiskDecisionRead[],
+): RiskDecisionRead | undefined {
+  return [...decisions].sort(
+    (first, second) => getDecisionTime(second) - getDecisionTime(first),
+  )[0];
+}
+
+function getDecisionTime(decision: RiskDecisionRead): number {
+  const date = new Date(decision.decided_at || decision.created_at || "");
+
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
 function formatDateTime(value: string | null | undefined): string {
   if (!value) {
     return "Not available";
@@ -387,10 +719,13 @@ function formatOptionalBoolean(value: boolean | null | undefined): string {
   return value ? "Yes" : "No";
 }
 
-function isActionCompleted(action: { status?: string | null; completed_at?: string | null }): boolean {
+function isActionCompleted(action: {
+  status?: string | null;
+  completed_at?: string | null;
+}): boolean {
   return (
     action.status === "COMPLETED" ||
-    (action.completed_at !== null && action.completed_at !== undefined)
+    Boolean(action.completed_at)
   );
 }
 

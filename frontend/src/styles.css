@@ -715,6 +715,76 @@ button:disabled {
   margin: 1rem 0;
 }
 
+.next-action-panel {
+  border: 1px solid #d9e2ec;
+  border-left-width: 4px;
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+}
+
+.next-action-info {
+  background: #eaf2f8;
+  border-left-color: #486581;
+}
+
+.next-action-warning {
+  background: #fff8e1;
+  border-left-color: #d97706;
+}
+
+.next-action-success {
+  background: #e3f9e5;
+  border-left-color: #2f855a;
+}
+
+.next-action-blocked {
+  background: #fff5f5;
+  border-left-color: #c53030;
+}
+
+.next-action-content {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.next-action-panel .eyebrow {
+  margin-bottom: 0.45rem;
+}
+
+.next-action-panel h2 {
+  color: #102a43;
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.next-action-panel p:not(.eyebrow) {
+  color: #334e68;
+  line-height: 1.55;
+  margin: 0.55rem 0 0;
+}
+
+.next-action-panel .button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.next-action-checklist {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.next-action-checklist li {
+  color: #243b53;
+  line-height: 1.45;
+}
+
 .workflow-action-card {
   align-items: center;
   background: #f0f4f8;
@@ -1373,6 +1443,14 @@ button:disabled {
   .risk-detail-header,
   .detail-section {
     padding: 1.25rem;
+  }
+
+  .next-action-content {
+    flex-direction: column;
+  }
+
+  .next-action-panel .button {
+    width: 100%;
   }
 
   .assessment-form {
