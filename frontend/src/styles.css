@@ -612,7 +612,9 @@ button:disabled {
 }
 
 .risk-create-page {
-  max-width: 680px;
+  margin: 0 auto;
+  max-width: 760px;
+  width: 100%;
 }
 
 .create-risk-description {
@@ -628,8 +630,11 @@ button:disabled {
   border-radius: 0.5rem;
   box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
   display: grid;
-  gap: 0.55rem;
+  gap: 0.7rem;
+  max-width: 100%;
+  overflow: hidden;
   padding: 1.5rem;
+  width: 100%;
 }
 
 .risk-create-form label {
@@ -651,7 +656,14 @@ button:disabled {
   border-radius: 0.25rem;
   color: #1b2636;
   font: inherit;
+  max-width: 100%;
+  min-width: 0;
   padding: 0.7rem;
+  width: 100%;
+}
+
+.risk-create-form option {
+  white-space: normal;
 }
 
 .risk-create-form textarea {
@@ -681,11 +693,22 @@ button:disabled {
   flex-wrap: wrap;
   gap: 1rem;
   margin-top: 1rem;
+  max-width: 100%;
 }
 
 .secondary-link {
   color: #075985;
   font-weight: 600;
+}
+
+.risk-create-form .form-actions .secondary-link {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 768px) {
+  .risk-create-form {
+    padding: 1.75rem;
+  }
 }
 
 .risk-detail-page {
@@ -1713,5 +1736,28 @@ button:disabled {
 
   .form-card {
     padding: 1.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .main-content {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .risk-create-form {
+    padding: 1rem;
+  }
+
+  .risk-create-form .form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .risk-create-form .form-actions button,
+  .risk-create-form .form-actions .secondary-link {
+    display: block;
+    text-align: center;
+    width: 100%;
   }
 }
