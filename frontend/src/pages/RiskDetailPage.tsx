@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 
+import { listAuditLogs } from "../api/auditLogs";
 import { ApiError } from "../api/client";
 import {
   downloadGeneratedReport,
@@ -10,6 +11,7 @@ import {
 } from "../api/reports";
 import { getRiskDetail } from "../api/risks";
 import type {
+  AuditLogRead,
   GeneratedReportRead,
   RiskActionRead,
   RiskAssessmentRead,
@@ -18,6 +20,7 @@ import type {
   RiskRecordRead,
 } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { AuditLogList } from "../components/AuditLogList";
 
 type RiskDetailState =
   | { status: "loading" }
@@ -28,6 +31,16 @@ type RiskReportsState =
   | { status: "idle" | "loading" }
   | { status: "success"; reports: GeneratedReportRead[] }
   | { status: "error"; message: string };
+
+type RiskAuditTrailState =
+  | { status: "idle" | "loading" }
+  | { status: "success"; auditLogs: AuditLogRead[] }
+  | { status: "error"; message: string };
+
+interface RiskAuditTrailResult {
+  auditLogs: AuditLogRead[];
+  failedScopeCount: number;
+}
 
 interface NextAction {
   title: string;
@@ -48,6 +61,10 @@ export function RiskDetailPage() {
   const [riskReports, setRiskReports] = useState<RiskReportsState>({
     status: "idle",
   });
+  const [riskAuditTrail, setRiskAuditTrail] = useState<RiskAuditTrailState>({
+    status: "idle",
+  });
+  const [riskAuditWarning, setRiskAuditWarning] = useState<string | null>(null);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const [reportErrorMessage, setReportErrorMessage] = useState<string | null>(
     null,
@@ -70,7 +87,10 @@ export function RiskDetailPage() {
     async function loadRiskDetail() {
       try {
         if (isCurrent) {
+          setRiskDetail({ status: "loading" });
           setRiskReports({ status: "loading" });
+          setRiskAuditTrail({ status: "loading" });
+          setRiskAuditWarning(null);
           setReportMessage(null);
           setReportErrorMessage(null);
         }
@@ -84,12 +104,14 @@ export function RiskDetailPage() {
         if (!risk) {
           if (isCurrent) {
             setRiskReports({ status: "idle" });
+            setRiskAuditTrail({ status: "idle" });
           }
           return;
         }
 
+        let reports: GeneratedReportRead[] = [];
         try {
-          const reports = await listGeneratedReports(tokenToUse, {
+          reports = await listGeneratedReports(tokenToUse, {
             riskRecordId: risk.id,
           });
           if (isCurrent) {
@@ -106,6 +128,39 @@ export function RiskDetailPage() {
             });
           }
         }
+
+        try {
+          const result = await loadRiskAuditTrail({
+            token: tokenToUse,
+            risk,
+            assessments: detail.assessments ?? [],
+            actions: detail.actions ?? [],
+            decisions: detail.decisions ?? [],
+            reports,
+          });
+          if (isCurrent) {
+            setRiskAuditTrail({
+              status: "success",
+              auditLogs: result.auditLogs,
+            });
+            setRiskAuditWarning(
+              result.failedScopeCount > 0
+                ? "Some related audit scopes could not be loaded. Showing the authorized records that are available."
+                : null,
+            );
+          }
+        } catch (error) {
+          if (isCurrent) {
+            setRiskAuditTrail({
+              status: "error",
+              message:
+                error instanceof ApiError
+                  ? error.message
+                  : "No related audit scopes could be loaded.",
+            });
+            setRiskAuditWarning(null);
+          }
+        }
       } catch (error) {
         if (!isCurrent) {
           return;
@@ -119,6 +174,8 @@ export function RiskDetailPage() {
               : "Please try again shortly.",
         });
         setRiskReports({ status: "idle" });
+        setRiskAuditTrail({ status: "idle" });
+        setRiskAuditWarning(null);
       }
     }
 
@@ -469,6 +526,39 @@ export function RiskDetailPage() {
         )}
       </DetailSection>
 
+      <DetailSection title="Audit trail">
+        {riskAuditTrail.status === "loading" && (
+          <p aria-live="polite" className="workspace-status" role="status">
+            Loading audit trail...
+          </p>
+        )}
+
+        {riskAuditTrail.status === "error" && (
+          <div aria-live="polite" className="workspace-alert" role="alert">
+            <strong>Unable to load audit trail.</strong>
+            <span>{riskAuditTrail.message}</span>
+          </div>
+        )}
+
+        {riskAuditWarning && (
+          <p className="audit-warning" role="status">
+            {riskAuditWarning}
+          </p>
+        )}
+
+        {riskAuditTrail.status === "success" &&
+          riskAuditTrail.auditLogs.length === 0 && (
+            <p className="audit-empty">
+              No audit records available for this risk package.
+            </p>
+          )}
+
+        {riskAuditTrail.status === "success" &&
+          riskAuditTrail.auditLogs.length > 0 && (
+            <AuditLogList auditLogs={riskAuditTrail.auditLogs} />
+          )}
+      </DetailSection>
+
       <DetailSection title="Reports">
         <div className="report-panel">
           <div>
@@ -608,6 +698,86 @@ function DetailSection({
 
 function getRiskRecord(detail: RiskDetailResponse): RiskRecordRead | null {
   return detail.risk || detail.risk_record || detail.record || null;
+}
+
+async function loadRiskAuditTrail({
+  token,
+  risk,
+  assessments,
+  actions,
+  decisions,
+  reports,
+}: {
+  token: string;
+  risk: RiskRecordRead;
+  assessments: RiskAssessmentRead[];
+  actions: RiskActionRead[];
+  decisions: RiskDecisionRead[];
+  reports: GeneratedReportRead[];
+}): Promise<RiskAuditTrailResult> {
+  const requests = [
+    listAuditLogs(token, {
+      entityType: "RiskRecord",
+      entityId: risk.id,
+      limit: 50,
+    }),
+    ...assessments.map((assessment) =>
+      listAuditLogs(token, {
+        entityType: "RiskAssessment",
+        entityId: assessment.id,
+        limit: 50,
+      }),
+    ),
+    ...actions.map((action) =>
+      listAuditLogs(token, {
+        entityType: "RiskAction",
+        entityId: action.id,
+        limit: 50,
+      }),
+    ),
+    ...decisions.map((decision) =>
+      listAuditLogs(token, {
+        entityType: "RiskDecision",
+        entityId: decision.id,
+        limit: 50,
+      }),
+    ),
+    ...reports.map((report) =>
+      listAuditLogs(token, {
+        entityType: "GeneratedReport",
+        entityId: report.id,
+        limit: 50,
+      }),
+    ),
+  ];
+  const results = await Promise.allSettled(requests);
+  const successfulResults = results.filter(
+    (result): result is PromiseFulfilledResult<AuditLogRead[]> =>
+      result.status === "fulfilled",
+  );
+
+  if (successfulResults.length === 0) {
+    throw new Error("Unable to load audit trail");
+  }
+
+  return {
+    auditLogs: uniqueAuditLogs(
+      successfulResults.flatMap((result) => result.value),
+    ),
+    failedScopeCount: results.length - successfulResults.length,
+  };
+}
+
+function uniqueAuditLogs(logs: AuditLogRead[]): AuditLogRead[] {
+  return Array.from(new Map(logs.map((log) => [log.id, log])).values()).sort(
+    (first, second) =>
+      getDateTimeValue(second.changed_at) - getDateTimeValue(first.changed_at),
+  );
+}
+
+function getDateTimeValue(value: string): number {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
 function getRiskDisplayId(risk: RiskRecordRead): string {

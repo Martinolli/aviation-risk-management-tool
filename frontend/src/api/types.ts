@@ -30,6 +30,30 @@ export interface LoginResponse {
   user: UserRead;
 }
 
+export type AuditAction =
+  | "CREATE"
+  | "UPDATE"
+  | "DELETE"
+  | "WORKFLOW"
+  | "LOGIN"
+  | "GENERATE_REPORT"
+  | string;
+
+export interface AuditLogRead {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  action: AuditAction;
+  field_name?: string | null;
+  old_value?: unknown;
+  new_value?: unknown;
+  changed_by_user_id?: string | null;
+  changed_at: string;
+  reason?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RiskRecordRead {
   id: string;
   risk_id: string | null;

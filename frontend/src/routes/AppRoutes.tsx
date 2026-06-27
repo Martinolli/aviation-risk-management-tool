@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 
 import { AppLayout } from "../components/AppLayout";
 import { useAuth } from "../auth/AuthContext";
+import { AuditTrailPage } from "../pages/AuditTrailPage";
 import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { MyDecisionQueuePage } from "../pages/MyDecisionQueuePage";
@@ -35,6 +36,7 @@ export function AppRoutes() {
         <Route path="/risks" element={<RiskListPage />} />
         <Route path="/my-decisions" element={<MyDecisionQueuePage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/audit-trail" element={<AuditTrailPage />} />
         <Route path="/risks/new" element={<RiskCreatePage />} />
         <Route
           path="/risks/:riskRecordId/assessments/new"

@@ -944,6 +944,129 @@ button:disabled {
   padding: 0.2rem 0.4rem;
 }
 
+.audit-trail-page {
+  max-width: 1080px;
+}
+
+.audit-log-list {
+  display: grid;
+  gap: 0.9rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.audit-log-item {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.audit-log-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.audit-action-badge {
+  background: #eaf2f8;
+  border-radius: 999px;
+  color: #334e68;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.55rem;
+  white-space: nowrap;
+}
+
+.audit-entity {
+  color: #102a43;
+  overflow-wrap: anywhere;
+}
+
+.audit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem 1.5rem;
+  margin: 0;
+}
+
+.audit-meta div {
+  min-width: 0;
+}
+
+.audit-meta dt {
+  color: #627d98;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.audit-meta dd {
+  color: #334e68;
+  font-size: 0.88rem;
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.audit-reason {
+  color: #334e68;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.audit-values {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.audit-value-block {
+  background: #f0f4f8;
+  border-radius: 0.35rem;
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.audit-value-block > strong {
+  color: #486581;
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+}
+
+.audit-value-block pre {
+  color: #243b53;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.audit-warning {
+  background: #fff8e1;
+  border-left: 4px solid #d97706;
+  color: #7c2d12;
+  line-height: 1.5;
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+}
+
+.audit-empty {
+  color: #627d98;
+  margin: 0;
+}
+
 .reports-page {
   max-width: 1080px;
 }
@@ -1560,6 +1683,10 @@ button:disabled {
 
   .report-item {
     flex-direction: column;
+  }
+
+  .audit-values {
+    grid-template-columns: 1fr;
   }
 
   .report-actions,

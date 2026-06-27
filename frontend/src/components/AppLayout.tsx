@@ -25,10 +25,11 @@ export function AppLayout() {
               <>
                 <NavLink to="/risks">Risks</NavLink>
                 <NavLink to="/my-decisions">My Queue</NavLink>
+                <NavLink to="/reports">Reports</NavLink>
+                <NavLink to="/audit-trail">Audit Trail</NavLink>
                 <span className="nav-placeholder" title="Coming soon">
                   Committees <small>Coming soon</small>
                 </span>
-                <NavLink to="/reports">Reports</NavLink>
               </>
             )}
           </nav>
