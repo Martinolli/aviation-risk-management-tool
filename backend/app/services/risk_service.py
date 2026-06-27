@@ -5,10 +5,21 @@ from sqlalchemy.orm import Session
 
 import app.services.audit_service as audit_service
 from app.models.committee import Committee
-from app.models.enums import AuditAction, RiskLifecycleStatus, RiskWorkflowStatus
+from app.models.enums import (
+    AuditAction,
+    AuthorityLevel,
+    CommitteeType,
+    RiskLifecycleStatus,
+    RiskWorkflowStatus,
+)
 from app.models.risk import RiskRecord
 from app.models.user import User
 from app.schemas.risk import RiskRecordCreate, RiskRecordUpdate
+from app.services.risk_access_service import (
+    RiskAccessBusinessRuleError,
+    filter_readable_risk_records,
+    validate_active_user,
+)
 from app.services.risk_numbering_service import generate_next_risk_id
 
 RISK_RECORD_ENTITY_TYPE = "RiskRecord"
@@ -60,6 +71,13 @@ def _validate_board_of_origin(db: Session, board_of_origin_id: uuid.UUID | None)
         raise RiskRecordBusinessRuleError("Board of origin does not exist")
     if not committee.is_active:
         raise RiskRecordBusinessRuleError("Board of origin is inactive")
+    if (
+        committee.authority_level != AuthorityLevel.LOW
+        or committee.committee_type != CommitteeType.OPERATIONAL_BOARD
+    ):
+        raise RiskRecordBusinessRuleError(
+            "Board of origin must be an active LOW operational board"
+        )
 
 
 def _validate_risk_actor(
@@ -190,6 +208,29 @@ def list_risk_records(
         statement = statement.where(RiskRecord.is_active.is_(True))
 
     return list(db.scalars(statement).all())
+
+
+def list_authorized_risk_records(
+    db: Session,
+    *,
+    requested_by_user_id: uuid.UUID | None,
+    include_archived: bool = False,
+) -> list[RiskRecord]:
+    try:
+        reader = validate_active_user(
+            db,
+            user_id=requested_by_user_id,
+            context="Risk list access",
+        )
+    except RiskAccessBusinessRuleError as exc:
+        raise RiskRecordBusinessRuleError(str(exc)) from exc
+
+    risk_records = list_risk_records(db, include_archived=include_archived)
+    return filter_readable_risk_records(
+        db,
+        risk_records=risk_records,
+        user_id=reader.id,
+    )
 
 
 def update_risk_record(

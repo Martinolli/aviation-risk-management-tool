@@ -23,7 +23,7 @@ from app.services.risk_service import (
     RiskRecordNotFoundError,
     create_risk_record,
     get_risk_record,
-    list_risk_records,
+    list_authorized_risk_records,
     submit_risk_record,
     update_risk_record,
 )
@@ -41,8 +41,19 @@ def _commit_and_refresh(db: Session, risk_record: RiskRecord) -> RiskRecord:
 def list_risk_records_endpoint(
     include_archived: bool = False,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
-    return list_risk_records(db, include_archived=include_archived)
+    try:
+        return list_authorized_risk_records(
+            db,
+            requested_by_user_id=get_optional_current_user_id(current_user),
+            include_archived=include_archived,
+        )
+    except RiskRecordBusinessRuleError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("/{risk_record_id}/detail", response_model=RiskRecordDetailRead)

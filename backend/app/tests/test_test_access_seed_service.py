@@ -82,9 +82,9 @@ def test_seed_test_access_profiles_creates_expected_users_and_memberships(
     result = seed_test_access_profiles(db_session, password=password)
 
     assert result["created_users"] == 6
-    assert result["created_memberships"] == 5
+    assert result["created_memberships"] == 6
     assert db_session.scalar(select(func.count()).select_from(User)) == 6
-    assert db_session.scalar(select(func.count()).select_from(CommitteeMember)) == 5
+    assert db_session.scalar(select(func.count()).select_from(CommitteeMember)) == 6
 
     for profile in TEST_ACCESS_PROFILES:
         user = db_session.scalar(
@@ -101,6 +101,10 @@ def test_seed_test_access_profiles_creates_expected_users_and_memberships(
     assert celso is not None
 
     expected_role_labels = {
+        "joao.bosco@calidus.ae": (
+            RISK_MANAGEMENT_COMMITTEE,
+            "Governance Administrator",
+        ),
         "kevin.rooney@calidus.ae": (AIRCRAFT_COMMITTEE, "Committee Chairman"),
         "gulzar.hussain@calidus.ae": (INDUSTRIAL_COMMITTEE, "Committee Member"),
         "joao.desouza@calidus.ae": (FLIGHT_TEST_COMMITTEE, "Committee Chairman"),
@@ -124,7 +128,9 @@ def test_seed_test_access_profiles_creates_expected_users_and_memberships(
     admin_summary = next(
         profile for profile in result["profiles"] if profile["email"] == "joao.bosco@calidus.ae"
     )
-    assert admin_summary["membership_status"] == "not_applicable"
+    assert admin_summary["membership_status"] == "created"
+    assert admin_summary["is_system_admin"] is True
+    assert result["admin_role_status"] == "profiled"
 
 
 def test_seed_test_access_profiles_is_idempotent(db_session: Session) -> None:
@@ -138,9 +144,9 @@ def test_seed_test_access_profiles_is_idempotent(db_session: Session) -> None:
     assert second_result["existing_users"] == 6
     assert second_result["created_memberships"] == 0
     assert second_result["updated_memberships"] == 0
-    assert second_result["existing_memberships"] == 5
+    assert second_result["existing_memberships"] == 6
     assert db_session.scalar(select(func.count()).select_from(User)) == 6
-    assert db_session.scalar(select(func.count()).select_from(CommitteeMember)) == 5
+    assert db_session.scalar(select(func.count()).select_from(CommitteeMember)) == 6
 
 
 def test_seed_test_access_profiles_raises_clear_error_if_committee_is_missing(

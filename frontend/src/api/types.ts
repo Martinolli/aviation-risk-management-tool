@@ -60,10 +60,20 @@ export interface RiskRecordRead {
   problem_description: string;
   source_trigger: string | null;
   domain: string;
+  board_of_origin_id?: string | null;
+  system_scope?: string | null;
+  central_event?: string | null;
+  hazard_statement?: string | null;
+  causes?: string[] | null;
+  consequences?: string[] | null;
+  existing_controls?: string[] | null;
   workflow_status: string;
   lifecycle_status: string;
   owner_user_id: string | null;
   created_by_user_id: string | null;
+  is_active?: boolean;
+  archived_at?: string | null;
+  archive_reason?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +82,7 @@ export interface RiskCreateRequest {
   problem_description: string;
   domain: string;
   source_trigger?: string | null;
+  board_of_origin_id?: string | null;
 }
 
 export interface RiskSubmitRequest {

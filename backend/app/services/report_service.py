@@ -9,6 +9,7 @@ from docx import Document
 from docx.document import Document as DocumentObject
 from sqlalchemy.orm import Session
 
+from app.models.committee import Committee
 from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
 from app.services.risk_detail_service import (
     _build_risk_record_detail,
@@ -151,6 +152,11 @@ def generate_risk_dossier_docx(
     actions: list[RiskAction] = detail["actions"]
     decisions: list[RiskDecision] = detail["decisions"]
     audit_summary: dict[str, Any] = detail["audit_summary"]
+    board_of_origin = (
+        db.get(Committee, risk_record.board_of_origin_id)
+        if risk_record.board_of_origin_id is not None
+        else None
+    )
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -186,8 +192,18 @@ def generate_risk_dossier_docx(
     _add_key_value_paragraph(document, "Lifecycle Status", risk_record.lifecycle_status)
     _add_key_value_paragraph(
         document,
+        "Board of Origin / Originating Committee",
+        board_of_origin.name if board_of_origin is not None else None,
+    )
+    _add_key_value_paragraph(
+        document,
         "Board of Origin ID",
         risk_record.board_of_origin_id,
+    )
+    _add_key_value_paragraph(
+        document,
+        "Board of Origin Authority Level",
+        board_of_origin.authority_level if board_of_origin is not None else None,
     )
     _add_key_value_paragraph(document, "Owner User ID", risk_record.owner_user_id)
     _add_key_value_paragraph(document, "Created At", risk_record.created_at)

@@ -2,13 +2,19 @@ import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import { listCommittees } from "../api/committees";
 import { listRisks } from "../api/risks";
-import type { RiskRecordRead } from "../api/types";
+import type { CommitteeRead, RiskRecordRead } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 
 type RiskListState =
   | { status: "loading" }
-  | { status: "success"; risks: RiskRecordRead[] }
+  | {
+      status: "success";
+      risks: RiskRecordRead[];
+      committees: CommitteeRead[];
+      committeeWarning: string | null;
+    }
   | { status: "error"; message: string };
 
 export function RiskListPage() {
@@ -27,24 +33,36 @@ export function RiskListPage() {
     const tokenToUse = token;
 
     async function loadRisks() {
-      try {
-        const risks = await listRisks(tokenToUse);
-        if (isCurrent) {
-          setRiskList({ status: "success", risks });
-        }
-      } catch (error) {
-        if (!isCurrent) {
-          return;
-        }
+      const [riskResult, committeeResult] = await Promise.allSettled([
+        listRisks(tokenToUse),
+        listCommittees(tokenToUse),
+      ]);
 
+      if (!isCurrent) {
+        return;
+      }
+
+      if (riskResult.status === "rejected") {
         setRiskList({
           status: "error",
           message:
-            error instanceof ApiError
-              ? error.message
+            riskResult.reason instanceof ApiError
+              ? riskResult.reason.message
               : "Please try again shortly.",
         });
+        return;
       }
+
+      setRiskList({
+        status: "success",
+        risks: riskResult.value,
+        committees:
+          committeeResult.status === "fulfilled" ? committeeResult.value : [],
+        committeeWarning:
+          committeeResult.status === "rejected"
+            ? "Committee names could not be loaded. Board of Origin IDs are shown instead."
+            : null,
+      });
     }
 
     void loadRisks();
@@ -65,8 +83,8 @@ export function RiskListPage() {
           <p className="eyebrow">Risk workspace</p>
           <h1 id="risk-list-heading">Risk records</h1>
           <p>
-            Review the risk records currently available in the safety management
-            system.
+            Review the risk records authorized for your account and their
+            originating committees.
           </p>
         </div>
         <Link className="button" to="/risks/new">
@@ -93,6 +111,12 @@ export function RiskListPage() {
         </div>
       )}
 
+      {riskList.status === "success" && riskList.committeeWarning && (
+        <p className="audit-warning" role="status">
+          {riskList.committeeWarning}
+        </p>
+      )}
+
       {riskList.status === "success" && riskList.risks.length === 0 && (
         <section className="workspace-empty" aria-labelledby="empty-risks-heading">
           <h2 id="empty-risks-heading">No risk records found yet.</h2>
@@ -108,6 +132,7 @@ export function RiskListPage() {
               <tr>
                 <th scope="col">Risk ID</th>
                 <th scope="col">Domain</th>
+                <th scope="col">Board of Origin</th>
                 <th scope="col">Status</th>
                 <th scope="col">Problem description</th>
                 <th scope="col">Updated</th>
@@ -122,6 +147,9 @@ export function RiskListPage() {
                     </Link>
                   </td>
                   <td>{risk.domain}</td>
+                  <td className="risk-board-origin">
+                    {getBoardOfOriginLabel(risk, riskList.committees)}
+                  </td>
                   <td>
                     <span className="status-badge">{getRiskStatus(risk)}</span>
                   </td>
@@ -145,6 +173,20 @@ export function getRiskDisplayId(risk: RiskRecordRead): string {
 
 export function getRiskStatus(risk: RiskRecordRead): string {
   return risk.workflow_status || risk.lifecycle_status || "Unknown";
+}
+
+function getBoardOfOriginLabel(
+  risk: RiskRecordRead,
+  committees: CommitteeRead[],
+): string {
+  if (!risk.board_of_origin_id) {
+    return "Not assigned";
+  }
+
+  return (
+    committees.find((committee) => committee.id === risk.board_of_origin_id)
+      ?.name ?? risk.board_of_origin_id
+  );
 }
 
 function getRiskDate(risk: RiskRecordRead): string {

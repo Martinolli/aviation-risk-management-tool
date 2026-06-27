@@ -63,12 +63,14 @@ def _create_risk_record(
     db_session: Session,
     *,
     risk_id: str | None = "RISK-2026-0001",
+    board_of_origin_id: uuid.UUID | None = None,
 ) -> RiskRecord:
     risk_record = RiskRecord(
         risk_id=risk_id,
         problem_description="Unexpected vibration observed during taxi test.",
         source_trigger="Pilot report",
         domain=RiskDomain.FLIGHT_TEST,
+        board_of_origin_id=board_of_origin_id,
         system_scope="Flight test aircraft",
         central_event="Vibration during ground movement",
         hazard_statement="Loss of component integrity could affect safety margin.",
@@ -210,6 +212,30 @@ def test_generated_report_contains_expected_content(
     path, _risk_record = _generate_report(db_session, tmp_path)
 
     assert expected_text in _docx_text(path)
+
+
+def test_generated_report_contains_board_of_origin_traceability(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    board = _create_committee(db_session)
+    risk_record = _create_risk_record(
+        db_session,
+        board_of_origin_id=board.id,
+    )
+    _seed_report_detail(db_session, risk_record)
+
+    path = generate_risk_dossier_docx(
+        db_session,
+        risk_record_id=risk_record.id,
+        output_dir=tmp_path / "reports",
+    )
+    report_text = _docx_text(path)
+
+    assert "Board of Origin / Originating Committee" in report_text
+    assert board.name in report_text
+    assert f"Board of Origin ID: {board.id}" in report_text
+    assert "Board of Origin Authority Level: LOW" in report_text
 
 
 def test_generating_report_for_unknown_risk_raises_not_found(

@@ -386,7 +386,7 @@ button:disabled {
 
 .risk-table {
   border-collapse: collapse;
-  min-width: 760px;
+  min-width: 980px;
   width: 100%;
 }
 
@@ -572,6 +572,15 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.risk-board-origin {
+  color: #334e68;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  max-width: 260px;
+  min-width: 180px;
+  overflow-wrap: anywhere;
 }
 
 .status-badge {

@@ -345,7 +345,7 @@ export function isRiskInCommitteeQueue(
   if (committee.authority_level === "LOW") {
     return (
       LOW_QUEUE_STATUSES.has(risk.workflow_status) &&
-      getDomainsForCommittee(committee).includes(risk.domain)
+      risk.board_of_origin_id === committee.id
     );
   }
 

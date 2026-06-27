@@ -319,6 +319,31 @@ def test_create_risk_with_inactive_board_of_origin_raises_business_rule_error(
         )
 
 
+def test_create_risk_rejects_governance_committee_as_board_of_origin(
+    db_session: Session,
+) -> None:
+    user = _create_user(db_session)
+    committee = Committee(
+        name="Risk Management Committee",
+        authority_level=AuthorityLevel.MIDDLE,
+        committee_type=CommitteeType.RISK_MANAGEMENT_COMMITTEE,
+        is_fixed=True,
+        is_active=True,
+    )
+    db_session.add(committee)
+    db_session.flush()
+
+    with pytest.raises(
+        RiskRecordBusinessRuleError,
+        match="LOW operational board",
+    ):
+        create_risk_record(
+            db_session,
+            data=_risk_data(board_of_origin_id=committee.id),
+            created_by_user_id=user.id,
+        )
+
+
 def test_create_risk_writes_create_audit_log(db_session: Session) -> None:
     user = _create_user(db_session)
     risk_record = create_risk_record(

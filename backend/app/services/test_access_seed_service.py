@@ -28,16 +28,23 @@ TEST_ACCESS_PROFILES: list[dict[str, Any]] = [
         "display_name": "Joao Bosco Martinolli",
         "email": "joao.bosco@calidus.ae",
         "password": "ChangeMe123!",
-        "committee_name": None,
-        "Authority Level": None,
-        "committee_role_label": None,
-        "role_function": "System administration, bootstrap, user / committee management",
+        "committee_name": "Risk Management Committee",
+        "Authority Level": "MIDDLE",
+        "committee_role_label": "Governance Administrator",
+        "role_function": (
+            "System administration, bootstrap, user / committee management; "
+            "risk governance administration"
+        ),
         "expected_permissions": [
             "System administration",
             "Bootstrap",
             "User / committee management",
+            "Full governance risk visibility",
+            "Review escalated risks",
         ],
-        "notes": [],
+        "notes": [
+            "System administration and governance administration remain distinct responsibilities",
+        ],
         "is_system_admin": True,
     },
     {
@@ -181,12 +188,16 @@ def seed_test_access_profiles(
             {
                 "email": profile["email"],
                 "display_name": profile["display_name"],
+                "is_system_admin": profile["is_system_admin"],
                 "committee": committee_name,
                 "Authority Level": profile["Authority Level"],
                 "membership_status": membership_status,
                 "user_status": user_status,
             }
         )
+
+        if profile["is_system_admin"]:
+            summary["admin_role_status"] = "profiled"
 
     summary["profiles"] = profile_summaries
     return summary

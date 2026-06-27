@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 
 import { listAuditLogs } from "../api/auditLogs";
 import { ApiError } from "../api/client";
+import { listCommittees } from "../api/committees";
 import {
   downloadGeneratedReport,
   generateRiskDossierReport,
@@ -12,6 +13,7 @@ import {
 import { getRiskDetail } from "../api/risks";
 import type {
   AuditLogRead,
+  CommitteeRead,
   GeneratedReportRead,
   RiskActionRead,
   RiskAssessmentRead,
@@ -42,6 +44,11 @@ interface RiskAuditTrailResult {
   failedScopeCount: number;
 }
 
+type RiskCommitteesState =
+  | { status: "loading" }
+  | { status: "success"; committees: CommitteeRead[] }
+  | { status: "error" };
+
 interface NextAction {
   title: string;
   description: string;
@@ -65,6 +72,9 @@ export function RiskDetailPage() {
     status: "idle",
   });
   const [riskAuditWarning, setRiskAuditWarning] = useState<string | null>(null);
+  const [riskCommittees, setRiskCommittees] = useState<RiskCommitteesState>({
+    status: "loading",
+  });
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const [reportErrorMessage, setReportErrorMessage] = useState<string | null>(
     null,
@@ -186,6 +196,36 @@ export function RiskDetailPage() {
     };
   }, [riskRecordId, token]);
 
+  useEffect(() => {
+    let isCurrent = true;
+
+    if (!token) {
+      return;
+    }
+
+    const tokenToUse = token;
+
+    async function loadCommitteeDetails() {
+      setRiskCommittees({ status: "loading" });
+      try {
+        const committees = await listCommittees(tokenToUse);
+        if (isCurrent) {
+          setRiskCommittees({ status: "success", committees });
+        }
+      } catch {
+        if (isCurrent) {
+          setRiskCommittees({ status: "error" });
+        }
+      }
+    }
+
+    void loadCommitteeDetails();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [token]);
+
   if (!isAuthenticated || !token) {
     return <Navigate replace to="/login" />;
   }
@@ -235,6 +275,12 @@ export function RiskDetailPage() {
   const assessments = riskDetail.detail.assessments ?? [];
   const actions = riskDetail.detail.actions ?? [];
   const decisions = riskDetail.detail.decisions ?? [];
+  const boardOfOrigin =
+    risk.board_of_origin_id && riskCommittees.status === "success"
+      ? riskCommittees.committees.find(
+          (committee) => committee.id === risk.board_of_origin_id,
+        )
+      : undefined;
   const initialAssessmentExists = assessments.some(
     (assessment) => assessment.assessment_type === "INITIAL",
   );
@@ -355,6 +401,23 @@ export function RiskDetailPage() {
 
       <DetailSection title="Ownership and metadata">
         <dl className="metadata-grid">
+          <div>
+            <dt>Board of Origin / Originating Committee</dt>
+            <dd>
+              {getBoardOfOriginDisplayName(
+                risk.board_of_origin_id,
+                boardOfOrigin,
+                riskCommittees.status,
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Board of Origin Authority Level</dt>
+            <dd>
+              {boardOfOrigin?.authority_level ||
+                (risk.board_of_origin_id ? "Not available." : "Not assigned.")}
+            </dd>
+          </div>
           <div>
             <dt>Owner</dt>
             <dd>{risk.owner_user_id || "Not assigned."}</dd>
@@ -782,6 +845,24 @@ function getDateTimeValue(value: string): number {
 
 function getRiskDisplayId(risk: RiskRecordRead): string {
   return risk.risk_id || risk.id.slice(0, 8);
+}
+
+function getBoardOfOriginDisplayName(
+  boardOfOriginId: string | null | undefined,
+  boardOfOrigin: CommitteeRead | undefined,
+  committeeStatus: RiskCommitteesState["status"],
+): string {
+  if (!boardOfOriginId) {
+    return "Not assigned.";
+  }
+
+  if (boardOfOrigin) {
+    return boardOfOrigin.name;
+  }
+
+  return committeeStatus === "loading"
+    ? `${boardOfOriginId} - Loading committee details...`
+    : `${boardOfOriginId} - Committee name not available.`;
 }
 
 function getNextAction({

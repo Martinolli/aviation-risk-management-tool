@@ -12,9 +12,18 @@ from app.core.database import get_db
 from app.main import app
 from app.models.audit import AuditLog
 from app.models.base import Base
-from app.models.enums import AuditAction, RiskDomain, RiskLifecycleStatus, RiskWorkflowStatus
+from app.models.committee import Committee, CommitteeMember
+from app.models.enums import (
+    AuditAction,
+    AuthorityLevel,
+    CommitteeType,
+    RiskDomain,
+    RiskLifecycleStatus,
+    RiskWorkflowStatus,
+)
 from app.models.risk import RiskRecord
 from app.models.user import User
+from app.services.auth_service import create_access_token
 
 
 @pytest.fixture()
@@ -57,10 +66,14 @@ def _create_risk_record(
     db_session: Session,
     *,
     problem_description: str = "Unexpected vibration observed during taxi test.",
+    board_of_origin_id: uuid.UUID | None = None,
+    created_by_user_id: uuid.UUID | None = None,
 ) -> RiskRecord:
     risk_record = RiskRecord(
         problem_description=problem_description,
         domain=RiskDomain.FLIGHT_TEST,
+        board_of_origin_id=board_of_origin_id,
+        created_by_user_id=created_by_user_id,
         workflow_status=RiskWorkflowStatus.DRAFT,
         lifecycle_status=RiskLifecycleStatus.OPEN,
         is_active=True,
@@ -83,17 +96,78 @@ def _create_user(db_session: Session, *, is_active: bool = True) -> User:
     return user
 
 
+def _auth_headers(user: User) -> dict[str, str]:
+    token = create_access_token(user_id=user.id)
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_get_risks_returns_list(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    _create_risk_record(db_session)
+    user = _create_user(db_session)
+    _create_risk_record(db_session, created_by_user_id=user.id)
 
-    response = client.get("/risks")
+    response = client.get("/risks", headers=_auth_headers(user))
 
     assert response.status_code == 200
     assert isinstance(response.json(), list)
     assert len(response.json()) == 1
+
+
+def test_get_risks_requires_authenticated_user(client: TestClient) -> None:
+    response = client.get("/risks")
+
+    assert response.status_code == 400
+    assert "authenticated active user" in response.json()["error"]["message"]
+
+
+def test_get_risks_only_returns_records_the_user_can_open(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    reader = _create_user(db_session)
+    other_user = _create_user(db_session)
+    board = Committee(
+        name="Authorized API Board",
+        authority_level=AuthorityLevel.LOW,
+        committee_type=CommitteeType.OPERATIONAL_BOARD,
+        is_fixed=False,
+        is_active=True,
+    )
+    other_board = Committee(
+        name="Other API Board",
+        authority_level=AuthorityLevel.LOW,
+        committee_type=CommitteeType.OPERATIONAL_BOARD,
+        is_fixed=False,
+        is_active=True,
+    )
+    db_session.add_all([board, other_board])
+    db_session.flush()
+    db_session.add(
+        CommitteeMember(
+            committee_id=board.id,
+            user_id=reader.id,
+            role_label="Committee Member",
+            is_active=True,
+        )
+    )
+    authorized_risk = _create_risk_record(
+        db_session,
+        problem_description="Authorized board risk",
+        board_of_origin_id=board.id,
+    )
+    _create_risk_record(
+        db_session,
+        problem_description="Unauthorized board risk",
+        board_of_origin_id=other_board.id,
+        created_by_user_id=other_user.id,
+    )
+
+    response = client.get("/risks", headers=_auth_headers(reader))
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [str(authorized_risk.id)]
 
 
 def test_post_risks_creates_draft_open_risk(
