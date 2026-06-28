@@ -27,9 +27,11 @@ from app.services.report_tracking_service import (
     RISK_DOSSIER_REPORT_TYPE,
     ReportTrackingBusinessRuleError,
     generate_and_track_risk_dossier_report,
+    get_authorized_generated_report,
     get_authorized_generated_report_file_path,
     get_generated_report,
     get_generated_report_file_path,
+    list_authorized_generated_reports,
     list_generated_reports,
 )
 
@@ -607,3 +609,60 @@ def test_list_generated_reports_filters_by_report_type(
     reports = list_generated_reports(db_session, report_type=RISK_DOSSIER_REPORT_TYPE)
 
     assert reports == [generated_report]
+
+
+def test_authorized_report_list_and_get_follow_linked_risk_scope(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    first_creator = _create_user(db_session)
+    second_creator = _create_user(db_session)
+    first_board = _create_committee(db_session)
+    second_board = _create_committee(db_session)
+    first_member = _create_user(db_session)
+    _create_membership(db_session, committee=first_board, user=first_member)
+    first_risk = _create_risk_record(
+        db_session,
+        risk_id="RISK-2026-2001",
+        creator=first_creator,
+        board_of_origin_id=first_board.id,
+    )
+    second_risk = _create_risk_record(
+        db_session,
+        risk_id="RISK-2026-2002",
+        creator=second_creator,
+        board_of_origin_id=second_board.id,
+    )
+    first_report = _generate_report(db_session, tmp_path, risk_record=first_risk)
+    second_report = _generate_report(db_session, tmp_path, risk_record=second_risk)
+
+    assert list_authorized_generated_reports(
+        db_session, requested_by_user_id=first_member.id
+    ) == [first_report]
+    assert get_authorized_generated_report(
+        db_session,
+        generated_report_id=first_report.id,
+        requested_by_user_id=first_member.id,
+    ) is first_report
+    with pytest.raises(ReportTrackingBusinessRuleError, match="not authorized"):
+        get_authorized_generated_report(
+            db_session,
+            generated_report_id=second_report.id,
+            requested_by_user_id=first_member.id,
+        )
+
+
+def test_authorized_report_list_and_get_require_active_user(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    report = _generate_report(db_session, tmp_path)
+
+    with pytest.raises(ReportTrackingBusinessRuleError, match="authenticated active user"):
+        list_authorized_generated_reports(db_session, requested_by_user_id=None)
+    with pytest.raises(ReportTrackingBusinessRuleError, match="authenticated active user"):
+        get_authorized_generated_report(
+            db_session,
+            generated_report_id=report.id,
+            requested_by_user_id=None,
+        )

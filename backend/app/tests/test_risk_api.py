@@ -68,12 +68,15 @@ def _create_risk_record(
     problem_description: str = "Unexpected vibration observed during taxi test.",
     board_of_origin_id: uuid.UUID | None = None,
     created_by_user_id: uuid.UUID | None = None,
+    owner_user_id: uuid.UUID | None = None,
+    domain: RiskDomain = RiskDomain.FLIGHT_TEST,
 ) -> RiskRecord:
     risk_record = RiskRecord(
         problem_description=problem_description,
-        domain=RiskDomain.FLIGHT_TEST,
+        domain=domain,
         board_of_origin_id=board_of_origin_id,
         created_by_user_id=created_by_user_id,
+        owner_user_id=owner_user_id,
         workflow_status=RiskWorkflowStatus.DRAFT,
         lifecycle_status=RiskLifecycleStatus.OPEN,
         is_active=True,
@@ -99,6 +102,48 @@ def _create_user(db_session: Session, *, is_active: bool = True) -> User:
 def _auth_headers(user: User) -> dict[str, str]:
     token = create_access_token(user_id=user.id)
     return {"Authorization": f"Bearer {token}"}
+
+
+def _create_committee(
+    db_session: Session,
+    *,
+    name: str,
+    authority_level: AuthorityLevel = AuthorityLevel.LOW,
+    is_fixed: bool = False,
+) -> Committee:
+    committee_type = {
+        AuthorityLevel.LOW: CommitteeType.OPERATIONAL_BOARD,
+        AuthorityLevel.MIDDLE: CommitteeType.RISK_MANAGEMENT_COMMITTEE,
+        AuthorityLevel.HIGH: CommitteeType.EXECUTIVE_SAFETY_MANAGEMENT_COMMITTEE,
+    }[authority_level]
+    committee = Committee(
+        name=name,
+        authority_level=authority_level,
+        committee_type=committee_type,
+        is_fixed=is_fixed,
+        is_active=True,
+    )
+    db_session.add(committee)
+    db_session.commit()
+    return committee
+
+
+def _add_membership(
+    db_session: Session,
+    *,
+    committee: Committee,
+    user: User,
+    role_label: str = "Committee Member",
+) -> None:
+    db_session.add(
+        CommitteeMember(
+            committee_id=committee.id,
+            user_id=user.id,
+            role_label=role_label,
+            is_active=True,
+        )
+    )
+    db_session.commit()
 
 
 def test_get_risks_returns_list(
@@ -398,3 +443,149 @@ def test_risk_creator_and_owner_authorize_update_and_submit(
     assert update_audit_log.changed_by_user_id == creator.id
     assert submit_audit_log is not None
     assert submit_audit_log.changed_by_user_id == owner.id
+
+
+@pytest.mark.parametrize(
+    ("member_board", "visible_description", "hidden_descriptions"),
+    [
+        ("Industrial", "Quality/Industrial risk", {"Flight Test risk", "Engineering risk"}),
+        ("Flight Test", "Flight Test risk", {"Quality/Industrial risk", "Engineering risk"}),
+        ("Aircraft", "Engineering risk", {"Quality/Industrial risk", "Flight Test risk"}),
+    ],
+)
+def test_low_board_api_list_and_detail_are_scoped_to_board_of_origin(
+    client: TestClient,
+    db_session: Session,
+    member_board: str,
+    visible_description: str,
+    hidden_descriptions: set[str],
+) -> None:
+    creator = _create_user(db_session)
+    member = _create_user(db_session)
+    boards = {
+        name: _create_committee(db_session, name=f"{name} API Board")
+        for name in ("Industrial", "Flight Test", "Aircraft")
+    }
+    _add_membership(db_session, committee=boards[member_board], user=member)
+    risks = {
+        "Quality/Industrial risk": _create_risk_record(
+            db_session,
+            problem_description="Quality/Industrial risk",
+            board_of_origin_id=boards["Industrial"].id,
+            created_by_user_id=creator.id,
+            domain=RiskDomain.QUALITY,
+        ),
+        "Flight Test risk": _create_risk_record(
+            db_session,
+            problem_description="Flight Test risk",
+            board_of_origin_id=boards["Flight Test"].id,
+            created_by_user_id=creator.id,
+            domain=RiskDomain.FLIGHT_TEST,
+        ),
+        "Engineering risk": _create_risk_record(
+            db_session,
+            problem_description="Engineering risk",
+            board_of_origin_id=boards["Aircraft"].id,
+            created_by_user_id=creator.id,
+            domain=RiskDomain.ENGINEERING,
+        ),
+    }
+    headers = _auth_headers(member)
+
+    list_response = client.get("/risks", headers=headers)
+
+    assert list_response.status_code == 200
+    assert {item["problem_description"] for item in list_response.json()} == {
+        visible_description
+    }
+    assert client.get(
+        f"/risks/{risks[visible_description].id}/detail", headers=headers
+    ).status_code == 200
+    for description in hidden_descriptions:
+        response = client.get(f"/risks/{risks[description].id}/detail", headers=headers)
+        assert response.status_code == 400
+        assert "not authorized" in response.json()["error"]["message"]
+
+
+def test_fixed_rmc_governance_member_can_list_and_open_all_active_risks(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    creator = _create_user(db_session)
+    governance_admin = _create_user(db_session)
+    rmc = _create_committee(
+        db_session,
+        name="Risk Management Committee API",
+        authority_level=AuthorityLevel.MIDDLE,
+        is_fixed=True,
+    )
+    _add_membership(
+        db_session,
+        committee=rmc,
+        user=governance_admin,
+        role_label="Governance Administrator",
+    )
+    boards = [
+        _create_committee(db_session, name=f"Governance Source Board {index}")
+        for index in range(3)
+    ]
+    risks = [
+        _create_risk_record(
+            db_session,
+            problem_description=f"Governance risk {index}",
+            board_of_origin_id=board.id,
+            created_by_user_id=creator.id,
+        )
+        for index, board in enumerate(boards)
+    ]
+    headers = _auth_headers(governance_admin)
+
+    response = client.get("/risks", headers=headers)
+
+    assert response.status_code == 200
+    assert {item["id"] for item in response.json()} == {str(risk.id) for risk in risks}
+    for risk in risks:
+        assert client.get(f"/risks/{risk.id}/detail", headers=headers).status_code == 200
+
+
+def test_system_admin_profile_without_governance_membership_has_no_global_access(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    system_admin = _create_user(db_session)
+    system_admin.email = "system.admin@example.com"
+    creator = _create_user(db_session)
+    board = _create_committee(db_session, name="System Admin Isolation Board")
+    unrelated_risk = _create_risk_record(
+        db_session,
+        problem_description="Unrelated governance risk",
+        board_of_origin_id=board.id,
+        created_by_user_id=creator.id,
+    )
+    own_risk = _create_risk_record(
+        db_session,
+        problem_description="System admin own risk",
+        board_of_origin_id=board.id,
+        created_by_user_id=system_admin.id,
+    )
+    db_session.commit()
+    headers = _auth_headers(system_admin)
+
+    response = client.get("/risks", headers=headers)
+
+    assert [item["id"] for item in response.json()] == [str(own_risk.id)]
+    assert client.get(
+        f"/risks/{unrelated_risk.id}/detail", headers=headers
+    ).status_code == 400
+
+
+def test_risk_detail_requires_authentication(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    risk = _create_risk_record(db_session)
+
+    response = client.get(f"/risks/{risk.id}/detail")
+
+    assert response.status_code == 400
+    assert "authenticated active user" in response.json()["error"]["message"]

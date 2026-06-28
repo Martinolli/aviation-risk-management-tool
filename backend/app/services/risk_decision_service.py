@@ -102,6 +102,36 @@ def _validate_decision_authority(
         )
 
 
+def _validate_committee_risk_scope(
+    *,
+    risk_record: RiskRecord,
+    committee: Committee,
+) -> None:
+    if committee.authority_level == AuthorityLevel.LOW:
+        if risk_record.board_of_origin_id != committee.id:
+            raise RiskDecisionBusinessRuleError(
+                "LOW decision committee must be the risk Board of Origin"
+            )
+        return
+
+    if not committee.is_fixed:
+        raise RiskDecisionBusinessRuleError(
+            "MIDDLE/HIGH decisions require a fixed governance committee"
+        )
+
+    required_status = {
+        AuthorityLevel.MIDDLE: (
+            RiskWorkflowStatus.ESCALATED_TO_RISK_MANAGEMENT_COMMITTEE
+        ),
+        AuthorityLevel.HIGH: RiskWorkflowStatus.ESCALATED_TO_EXECUTIVE_COMMITTEE,
+    }[committee.authority_level]
+    if risk_record.workflow_status != required_status:
+        raise RiskDecisionBusinessRuleError(
+            f"{committee.authority_level.value} committee cannot decide a risk "
+            f"in {risk_record.workflow_status.value} status"
+        )
+
+
 def _get_residual_assessment_for_risk(
     db: Session,
     risk_record_id: uuid.UUID,
@@ -307,6 +337,7 @@ def create_risk_decision(
         committee=committee,
         decided_by_user_id=decided_by_user_id,
     )
+    _validate_committee_risk_scope(risk_record=risk_record, committee=committee)
     _decision_effect(committee, data.decision_type)
 
     decision = RiskDecision(

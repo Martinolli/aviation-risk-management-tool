@@ -124,9 +124,15 @@ def test_valid_header_attributes_workflow_operations(
     tmp_path,
 ) -> None:
     user = _create_user(db_session)
+    committee = _create_committee(db_session)
+    _create_membership(db_session, committee=committee, user=user)
     headers = {"X-User-Id": str(user.id)}
 
-    risk_response = client.post("/risks", json=_risk_payload(), headers=headers)
+    risk_response = client.post(
+        "/risks",
+        json={**_risk_payload(), "board_of_origin_id": str(committee.id)},
+        headers=headers,
+    )
     risk_id = uuid.UUID(risk_response.json()["id"])
     assert risk_response.status_code == 201
     assert risk_response.json()["created_by_user_id"] == str(user.id)
@@ -183,8 +189,6 @@ def test_valid_header_attributes_workflow_operations(
         field_name="status",
     ).changed_by_user_id == user.id
 
-    committee = _create_committee(db_session)
-    _create_membership(db_session, committee=committee, user=user)
     decision_response = client.post(
         "/risk-decisions",
         json={

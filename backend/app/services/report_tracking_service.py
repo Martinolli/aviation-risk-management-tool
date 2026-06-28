@@ -6,8 +6,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import app.services.audit_service as audit_service
-from app.models.committee import Committee, CommitteeMember
-from app.models.enums import AuthorityLevel
 from app.models.report import GeneratedReport
 from app.models.risk import RiskRecord
 from app.models.user import User
@@ -15,6 +13,7 @@ from app.services.report_service import (
     ReportRiskNotFoundError,
     generate_risk_dossier_docx,
 )
+from app.services.risk_access_service import can_read_risk_record, validate_active_user
 
 DEFAULT_REPORT_OUTPUT_DIR = Path("generated_reports")
 RISK_DOSSIER_REPORT_TYPE = "RISK_DOSSIER_DOCX"
@@ -35,25 +34,16 @@ def _validate_report_actor(
     user_id: uuid.UUID | None,
     operation: str,
 ) -> User:
-    if user_id is None:
-        if operation == "download":
-            raise ReportTrackingBusinessRuleError(
-                "Report download requires an authenticated active user"
-            )
-        raise ReportTrackingBusinessRuleError(
-            "Report generation requires an authenticated active user"
-        )
-
-    user = db.get(User, user_id)
-    if user is None:
-        if operation == "download":
-            raise ReportTrackingBusinessRuleError("Report download user does not exist")
-        raise ReportTrackingBusinessRuleError("Report generation user does not exist")
-    if not user.is_active:
-        if operation == "download":
-            raise ReportTrackingBusinessRuleError("Report download user is inactive")
-        raise ReportTrackingBusinessRuleError("Report generation user is inactive")
-    return user
+    context = {
+        "generation": "Report generation",
+        "download": "Report download",
+        "list": "Report list access",
+        "get": "Report detail access",
+    }[operation]
+    try:
+        return validate_active_user(db, user_id=user_id, context=context)
+    except ValueError as exc:
+        raise ReportTrackingBusinessRuleError(str(exc)) from exc
 
 
 def _validate_report_risk_access_authority(
@@ -63,40 +53,16 @@ def _validate_report_risk_access_authority(
     actor_user_id: uuid.UUID,
     operation: str,
 ) -> None:
-    if actor_user_id in {risk_record.owner_user_id, risk_record.created_by_user_id}:
-        return
-
-    if risk_record.board_of_origin_id is not None:
-        board_membership = db.scalar(
-            select(CommitteeMember.id)
-            .join(Committee, CommitteeMember.committee_id == Committee.id)
-            .where(
-                CommitteeMember.committee_id == risk_record.board_of_origin_id,
-                CommitteeMember.user_id == actor_user_id,
-                CommitteeMember.is_active.is_(True),
-                Committee.is_active.is_(True),
-            )
-        )
-        if board_membership is not None:
-            return
-
-    governance_membership = db.scalar(
-        select(CommitteeMember.id)
-        .join(Committee, CommitteeMember.committee_id == Committee.id)
-        .where(
-            CommitteeMember.user_id == actor_user_id,
-            CommitteeMember.is_active.is_(True),
-            Committee.is_active.is_(True),
-            Committee.is_fixed.is_(True),
-            Committee.authority_level.in_([AuthorityLevel.MIDDLE, AuthorityLevel.HIGH]),
-        )
-    )
-    if governance_membership is not None:
+    if can_read_risk_record(db, risk_record=risk_record, user_id=actor_user_id):
         return
 
     if operation == "download":
         raise ReportTrackingBusinessRuleError(
             "User is not authorized to download this risk report"
+        )
+    if operation == "get":
+        raise ReportTrackingBusinessRuleError(
+            "User is not authorized to read this generated report"
         )
     raise ReportTrackingBusinessRuleError("User is not authorized to generate this risk report")
 
@@ -164,6 +130,32 @@ def get_generated_report(
     generated_report_id: uuid.UUID,
 ) -> GeneratedReport | None:
     return db.get(GeneratedReport, generated_report_id)
+
+
+def get_authorized_generated_report(
+    db: Session,
+    *,
+    generated_report_id: uuid.UUID,
+    requested_by_user_id: uuid.UUID | None,
+) -> GeneratedReport | None:
+    _validate_report_actor(db, user_id=requested_by_user_id, operation="get")
+    generated_report = db.get(GeneratedReport, generated_report_id)
+    if generated_report is None:
+        return None
+    if generated_report.risk_record_id is None:
+        raise ReportTrackingBusinessRuleError(
+            "Generated report is not linked to a risk record"
+        )
+    risk_record = db.get(RiskRecord, generated_report.risk_record_id)
+    if risk_record is None:
+        raise ReportTrackingBusinessRuleError("Linked risk record does not exist")
+    _validate_report_risk_access_authority(
+        db,
+        risk_record=risk_record,
+        actor_user_id=requested_by_user_id,
+        operation="get",
+    )
+    return generated_report
 
 
 def get_generated_report_file_path(
@@ -241,3 +233,30 @@ def list_generated_reports(
         statement = statement.where(GeneratedReport.report_type == report_type)
 
     return list(db.scalars(statement).all())
+
+
+def list_authorized_generated_reports(
+    db: Session,
+    *,
+    requested_by_user_id: uuid.UUID | None,
+    risk_record_id: uuid.UUID | None = None,
+    report_type: str | None = None,
+) -> list[GeneratedReport]:
+    _validate_report_actor(db, user_id=requested_by_user_id, operation="list")
+    reports = list_generated_reports(
+        db,
+        risk_record_id=risk_record_id,
+        report_type=report_type,
+    )
+    authorized_reports: list[GeneratedReport] = []
+    for report in reports:
+        if report.risk_record_id is None:
+            continue
+        risk_record = db.get(RiskRecord, report.risk_record_id)
+        if risk_record is not None and can_read_risk_record(
+            db,
+            risk_record=risk_record,
+            user_id=requested_by_user_id,
+        ):
+            authorized_reports.append(report)
+    return authorized_reports

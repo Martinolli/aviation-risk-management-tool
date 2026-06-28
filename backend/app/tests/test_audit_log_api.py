@@ -14,8 +14,19 @@ from app.main import app
 from app.models.audit import AuditLog
 from app.models.base import Base
 from app.models.committee import Committee, CommitteeMember
-from app.models.enums import AuditAction, AuthorityLevel, CommitteeType, RiskDomain, RiskLifecycleStatus, RiskWorkflowStatus
-from app.models.risk import RiskRecord
+from app.models.enums import (
+    AuditAction,
+    AuthorityLevel,
+    CommitteeType,
+    RiskActionStatus,
+    RiskAssessmentType,
+    RiskDecisionType,
+    RiskDomain,
+    RiskLifecycleStatus,
+    RiskWorkflowStatus,
+)
+from app.models.report import GeneratedReport
+from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
 from app.models.user import User
 
 
@@ -83,19 +94,49 @@ def _create_user(db_session: Session, *, is_active: bool = True) -> User:
     return user
 
 
-def _create_risk_record(db_session: Session, *, creator: User) -> RiskRecord:
+def _create_risk_record(
+    db_session: Session,
+    *,
+    creator: User,
+    board_of_origin_id: uuid.UUID | None = None,
+) -> RiskRecord:
     risk_record = RiskRecord(
         problem_description=f"Risk record {uuid.uuid4()}",
         domain=RiskDomain.FLIGHT_TEST,
         workflow_status=RiskWorkflowStatus.DRAFT,
         lifecycle_status=RiskLifecycleStatus.OPEN,
         created_by_user_id=creator.id,
+        board_of_origin_id=board_of_origin_id,
         is_active=True,
     )
     db_session.add(risk_record)
     db_session.commit()
     db_session.refresh(risk_record)
     return risk_record
+
+
+def _create_low_board(db_session: Session, name: str) -> Committee:
+    committee = Committee(
+        name=name,
+        authority_level=AuthorityLevel.LOW,
+        committee_type=CommitteeType.OPERATIONAL_BOARD,
+        is_fixed=False,
+        is_active=True,
+    )
+    db_session.add(committee)
+    db_session.commit()
+    return committee
+
+
+def _add_membership(db_session: Session, committee: Committee, user: User) -> None:
+    db_session.add(
+        CommitteeMember(
+            committee_id=committee.id,
+            user_id=user.id,
+            is_active=True,
+        )
+    )
+    db_session.commit()
 
 
 @pytest.fixture()
@@ -314,3 +355,129 @@ def test_risk_audit_api_access_filters_unrelated_users(
         f"/audit-logs/{audit_log.id}",
         headers={"X-User-Id": str(governance_reader.id)},
     ).status_code == 200
+
+
+def test_board_audit_scope_and_filters_cannot_cross_board_boundaries(
+    client: TestClient,
+    db_session: Session,
+    governance_reader: User,
+) -> None:
+    creator = _create_user(db_session)
+    industrial_member = _create_user(db_session)
+    flight_member = _create_user(db_session)
+    system_admin_only = _create_user(db_session)
+    system_admin_only.email = "system.admin@example.com"
+    industrial = _create_low_board(db_session, "Industrial Audit Board")
+    flight = _create_low_board(db_session, "Flight Test Audit Board")
+    _add_membership(db_session, industrial, industrial_member)
+    _add_membership(db_session, flight, flight_member)
+    industrial_risk = _create_risk_record(
+        db_session, creator=creator, board_of_origin_id=industrial.id
+    )
+    flight_risk = _create_risk_record(
+        db_session, creator=creator, board_of_origin_id=flight.id
+    )
+    industrial_log = _create_audit_log(
+        db_session, entity_type="RiskRecord", entity_id=industrial_risk.id
+    )
+    flight_log = _create_audit_log(
+        db_session, entity_type="RiskRecord", entity_id=flight_risk.id
+    )
+    db_session.commit()
+    industrial_headers = {"X-User-Id": str(industrial_member.id)}
+
+    response = client.get(
+        "/audit-logs?entity_type=RiskRecord", headers=industrial_headers
+    )
+
+    assert [item["id"] for item in response.json()] == [str(industrial_log.id)]
+    assert client.get(
+        f"/audit-logs?entity_type=RiskRecord&entity_id={flight_risk.id}",
+        headers=industrial_headers,
+    ).json() == []
+    assert client.get(
+        f"/audit-logs/{flight_log.id}", headers=industrial_headers
+    ).status_code == 400
+    assert client.get(
+        f"/audit-logs/{flight_log.id}",
+        headers={"X-User-Id": str(flight_member.id)},
+    ).status_code == 200
+    governance_response = client.get(
+        "/audit-logs?entity_type=RiskRecord",
+        headers={"X-User-Id": str(governance_reader.id)},
+    )
+    assert {item["id"] for item in governance_response.json()} == {
+        str(industrial_log.id),
+        str(flight_log.id),
+    }
+    assert client.get(
+        "/audit-logs?entity_type=RiskRecord",
+        headers={"X-User-Id": str(system_admin_only.id)},
+    ).json() == []
+
+
+def test_child_entity_audit_api_follows_linked_risk_scope(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    creator = _create_user(db_session)
+    board_member = _create_user(db_session)
+    unrelated = _create_user(db_session)
+    board = _create_low_board(db_session, "Child Entity Audit Board")
+    _add_membership(db_session, board, board_member)
+    risk = _create_risk_record(
+        db_session, creator=creator, board_of_origin_id=board.id
+    )
+    assessment = RiskAssessment(
+        risk_record_id=risk.id,
+        assessment_type=RiskAssessmentType.INITIAL,
+        severity="Major",
+        likelihood="Remote",
+        risk_level="Medium",
+        assessed_at=datetime.now(timezone.utc),
+    )
+    action = RiskAction(
+        risk_record_id=risk.id,
+        title="Mitigation",
+        status=RiskActionStatus.OPEN,
+    )
+    decision = RiskDecision(
+        risk_record_id=risk.id,
+        committee_id=board.id,
+        decision_type=RiskDecisionType.APPROVE,
+        decision_text="Approved",
+        decided_at=datetime.now(timezone.utc),
+    )
+    report = GeneratedReport(
+        risk_record_id=risk.id,
+        report_type="RISK_DOSSIER_DOCX",
+        file_path="report.docx",
+        generated_at=datetime.now(timezone.utc),
+        template_version="1.0",
+    )
+    db_session.add_all([assessment, action, decision, report])
+    db_session.flush()
+    logs = [
+        _create_audit_log(db_session, entity_type=entity_type, entity_id=entity.id)
+        for entity_type, entity in (
+            ("RiskAssessment", assessment),
+            ("RiskAction", action),
+            ("RiskDecision", decision),
+            ("GeneratedReport", report),
+        )
+    ]
+    member_headers = {"X-User-Id": str(board_member.id)}
+    unrelated_headers = {"X-User-Id": str(unrelated.id)}
+
+    for audit_log in logs:
+        assert client.get(
+            f"/audit-logs?entity_type={audit_log.entity_type}&entity_id={audit_log.entity_id}",
+            headers=member_headers,
+        ).json()[0]["id"] == str(audit_log.id)
+        assert client.get(
+            f"/audit-logs?entity_type={audit_log.entity_type}&entity_id={audit_log.entity_id}",
+            headers=unrelated_headers,
+        ).json() == []
+        assert client.get(
+            f"/audit-logs/{audit_log.id}", headers=unrelated_headers
+        ).status_code == 400

@@ -1,4 +1,5 @@
 from collections.abc import Generator
+import uuid
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -9,7 +10,7 @@ import app.models  # noqa: F401
 from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
-from app.models.committee import Committee
+from app.models.committee import Committee, CommitteeMember
 from app.models.risk_matrix import RiskLevel, RiskLikelihoodLevel, RiskSeverityLevel
 from app.services.bootstrap_service import bootstrap_governance_admin
 from app.services.default_risk_matrix_seed_service import seed_default_risk_matrix
@@ -56,9 +57,26 @@ def test_end_to_end_bootstrap_seed_login_risk_assessment_decision_report_workflo
         assert "password" not in me_response.json()
         assert "password_hash" not in me_response.json()
 
+        flight_test_committee = db.scalar(
+            select(Committee).where(
+                Committee.name == "Flight Test Safety Committee - Operation"
+            )
+        )
+        assert flight_test_committee is not None
+        db.add(
+            CommitteeMember(
+                committee_id=flight_test_committee.id,
+                user_id=uuid.UUID(str(user["id"])),
+                role_label="Test Operational Board Member",
+                is_active=True,
+            )
+        )
+        db.commit()
+
         risk_response = client.post("/risks", json={
             "problem_description": "Landing gear indication instability observed after maintenance.",
             "domain": "FLIGHT_TEST",
+            "board_of_origin_id": str(flight_test_committee.id),
             "source_trigger": "Flight test preparation observation",
             "hazard_statement": "Unreliable indication may reduce crew status awareness.",
             "causes": ["Wiring disturbance", "Sensor misalignment"],
@@ -122,6 +140,13 @@ def test_end_to_end_bootstrap_seed_login_risk_assessment_decision_report_workflo
         assert residual["is_tolerable"] is True
         assert residual["requires_mitigation"] is True
         assert residual["requires_escalation"] is False
+
+        escalation_response = client.post("/risk-decisions", json={
+            "risk_record_id": risk["id"], "committee_id": str(flight_test_committee.id),
+            "decision_type": "ESCALATE",
+            "decision_text": "Escalated to the Risk Management Committee for acceptance.",
+        }, headers=headers)
+        assert escalation_response.status_code == 201
 
         risk_management_committee = db.scalar(select(Committee).where(Committee.name == "Risk Management Committee"))
         assert risk_management_committee is not None

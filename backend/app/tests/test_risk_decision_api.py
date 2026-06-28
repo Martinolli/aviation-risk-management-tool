@@ -231,6 +231,8 @@ def test_post_risk_decisions_creates_decision(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     committee = _create_committee(db_session)
+    risk_record.board_of_origin_id = committee.id
+    db_session.commit()
     user = _create_user(db_session)
     _create_membership(db_session, committee=committee, user=user)
 
@@ -269,6 +271,8 @@ def test_post_with_high_escalate_returns_http_400(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     committee = _create_committee(db_session, authority_level=AuthorityLevel.HIGH)
+    risk_record.workflow_status = RiskWorkflowStatus.ESCALATED_TO_EXECUTIVE_COMMITTEE
+    db_session.commit()
     user = _create_user(db_session)
     _create_membership(db_session, committee=committee, user=user)
 
@@ -292,6 +296,8 @@ def test_low_committee_can_accept_tolerable_residual_risk(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     committee, user = _create_active_low_member(db_session)
+    risk_record.board_of_origin_id = committee.id
+    db_session.commit()
     _create_residual_assessment(
         db_session,
         risk_record=risk_record,
@@ -396,6 +402,8 @@ def test_low_committee_can_close_tolerable_residual_risk_with_completed_actions(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     committee, user = _create_active_low_member(db_session)
+    risk_record.board_of_origin_id = committee.id
+    db_session.commit()
     _create_residual_assessment(
         db_session,
         risk_record=risk_record,
@@ -518,6 +526,8 @@ def test_low_committee_can_escalate_when_needed(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     committee, user = _create_active_low_member(db_session)
+    risk_record.board_of_origin_id = committee.id
+    db_session.commit()
 
     response = client.post(
         "/risk-decisions",
@@ -616,6 +626,8 @@ def test_post_decision_with_active_member_attributes_workflow_audit(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     committee = _create_committee(db_session)
+    risk_record.board_of_origin_id = committee.id
+    db_session.commit()
     user = _create_user(db_session)
     _create_membership(db_session, committee=committee, user=user)
 
@@ -692,3 +704,46 @@ def test_get_risk_decisions_filtered_by_committee_id(
     body = response.json()
     assert len(body) == 1
     assert body[0]["id"] == str(first_decision.id)
+
+
+def test_low_member_cannot_post_decision_for_another_board_risk(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    board_of_origin = _create_committee(db_session)
+    other_board = _create_committee(db_session)
+    other_member = _create_user(db_session)
+    _create_membership(db_session, committee=other_board, user=other_member)
+    risk = _create_risk_record(db_session)
+    risk.board_of_origin_id = board_of_origin.id
+    db_session.commit()
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(risk.id, other_board.id),
+        headers={"X-User-Id": str(other_member.id)},
+    )
+
+    assert response.status_code == 400
+    assert "Board of Origin" in response.json()["error"]["message"]
+
+
+def test_rmc_member_can_post_decision_for_risk_escalated_to_rmc(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    rmc = _create_committee(db_session, authority_level=AuthorityLevel.MIDDLE)
+    member = _create_user(db_session)
+    _create_membership(db_session, committee=rmc, user=member)
+    risk = _create_risk_record(db_session)
+    risk.workflow_status = RiskWorkflowStatus.ESCALATED_TO_RISK_MANAGEMENT_COMMITTEE
+    db_session.commit()
+
+    response = client.post(
+        "/risk-decisions",
+        json=_decision_payload(risk.id, rmc.id),
+        headers={"X-User-Id": str(member.id)},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["committee_id"] == str(rmc.id)

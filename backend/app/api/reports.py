@@ -17,8 +17,8 @@ from app.services.report_tracking_service import (
     ReportTrackingBusinessRuleError,
     generate_and_track_risk_dossier_report,
     get_authorized_generated_report_file_path,
-    get_generated_report,
-    list_generated_reports,
+    get_authorized_generated_report,
+    list_authorized_generated_reports,
 )
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -65,12 +65,20 @@ def list_generated_reports_endpoint(
     risk_record_id: uuid.UUID | None = None,
     report_type: str | None = None,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
-    return list_generated_reports(
-        db,
-        risk_record_id=risk_record_id,
-        report_type=report_type,
-    )
+    try:
+        return list_authorized_generated_reports(
+            db,
+            requested_by_user_id=get_optional_current_user_id(current_user),
+            risk_record_id=risk_record_id,
+            report_type=report_type,
+        )
+    except ReportTrackingBusinessRuleError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("/{generated_report_id}/download")
@@ -107,14 +115,22 @@ def download_generated_report_endpoint(
 def get_generated_report_endpoint(
     generated_report_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
-    generated_report = get_generated_report(
-        db,
-        generated_report_id=generated_report_id,
-    )
-    if generated_report is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Generated report not found",
+    try:
+        generated_report = get_authorized_generated_report(
+            db,
+            generated_report_id=generated_report_id,
+            requested_by_user_id=get_optional_current_user_id(current_user),
         )
-    return generated_report
+        if generated_report is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Generated report not found",
+            )
+        return generated_report
+    except ReportTrackingBusinessRuleError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc

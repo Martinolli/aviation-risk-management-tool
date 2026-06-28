@@ -5,10 +5,15 @@ from sqlalchemy.orm import Session
 
 from app.models.audit import AuditLog
 from app.models.committee import Committee, CommitteeMember
-from app.models.enums import AuditAction, AuthorityLevel
+from app.models.enums import AuditAction
 from app.models.report import GeneratedReport
 from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
 from app.models.user import User
+from app.services.risk_access_service import (
+    can_read_risk_record,
+    is_active_fixed_governance_member,
+    validate_active_user,
+)
 
 MAX_AUDIT_LOG_LIMIT = 500
 
@@ -22,34 +27,10 @@ def _validate_audit_reader(
     *,
     user_id: uuid.UUID | None,
 ) -> User:
-    if user_id is None:
-        raise AuditQueryBusinessRuleError(
-            "Audit log access requires an authenticated active user"
-        )
-    user = db.get(User, user_id)
-    if user is None:
-        raise AuditQueryBusinessRuleError("Audit log user does not exist")
-    if not user.is_active:
-        raise AuditQueryBusinessRuleError("Audit log user is inactive")
-    return user
-
-
-def _is_active_fixed_governance_member(
-    db: Session,
-    *,
-    user_id: uuid.UUID,
-) -> bool:
-    return db.scalar(
-        select(CommitteeMember.id)
-        .join(Committee, CommitteeMember.committee_id == Committee.id)
-        .where(
-            CommitteeMember.user_id == user_id,
-            CommitteeMember.is_active.is_(True),
-            Committee.is_active.is_(True),
-            Committee.is_fixed.is_(True),
-            Committee.authority_level.in_([AuthorityLevel.MIDDLE, AuthorityLevel.HIGH]),
-        )
-    ) is not None
+    try:
+        return validate_active_user(db, user_id=user_id, context="Audit log access")
+    except ValueError as exc:
+        raise AuditQueryBusinessRuleError(str(exc)) from exc
 
 
 def _is_active_committee_member(
@@ -79,18 +60,12 @@ def _can_read_risk_record_scope(
     user_id: uuid.UUID,
 ) -> bool:
     if risk_record_id is None:
-        return _is_active_fixed_governance_member(db, user_id=user_id)
+        return is_active_fixed_governance_member(db, user_id=user_id)
 
     risk_record = db.get(RiskRecord, risk_record_id)
     if risk_record is None:
-        return _is_active_fixed_governance_member(db, user_id=user_id)
-    if user_id in {risk_record.owner_user_id, risk_record.created_by_user_id}:
-        return True
-    return _is_active_committee_member(
-        db,
-        committee_id=risk_record.board_of_origin_id,
-        user_id=user_id,
-    ) or _is_active_fixed_governance_member(db, user_id=user_id)
+        return is_active_fixed_governance_member(db, user_id=user_id)
+    return can_read_risk_record(db, risk_record=risk_record, user_id=user_id)
 
 
 def _can_read_audit_log(
@@ -109,7 +84,7 @@ def _can_read_audit_log(
     if audit_log.entity_type == "RiskAssessment":
         assessment = db.get(RiskAssessment, audit_log.entity_id)
         if assessment is None:
-            return _is_active_fixed_governance_member(db, user_id=user_id)
+            return is_active_fixed_governance_member(db, user_id=user_id)
         return (
             user_id == assessment.assessed_by_user_id
             or _can_read_risk_record_scope(
@@ -122,7 +97,7 @@ def _can_read_audit_log(
     if audit_log.entity_type == "RiskAction":
         action = db.get(RiskAction, audit_log.entity_id)
         if action is None:
-            return _is_active_fixed_governance_member(db, user_id=user_id)
+            return is_active_fixed_governance_member(db, user_id=user_id)
         return (
             user_id == action.action_owner_user_id
             or _can_read_risk_record_scope(
@@ -135,7 +110,7 @@ def _can_read_audit_log(
     if audit_log.entity_type == "RiskDecision":
         decision = db.get(RiskDecision, audit_log.entity_id)
         if decision is None:
-            return _is_active_fixed_governance_member(db, user_id=user_id)
+            return is_active_fixed_governance_member(db, user_id=user_id)
         return (
             user_id == decision.decided_by_user_id
             or _is_active_committee_member(
@@ -153,7 +128,7 @@ def _can_read_audit_log(
     if audit_log.entity_type == "GeneratedReport":
         report = db.get(GeneratedReport, audit_log.entity_id)
         if report is None or report.risk_record_id is None:
-            return _is_active_fixed_governance_member(db, user_id=user_id)
+            return is_active_fixed_governance_member(db, user_id=user_id)
         return (
             user_id == report.generated_by_user_id
             or _can_read_risk_record_scope(
@@ -170,7 +145,7 @@ def _can_read_audit_log(
         if member is not None and member.user_id == user_id:
             return True
 
-    return _is_active_fixed_governance_member(db, user_id=user_id)
+    return is_active_fixed_governance_member(db, user_id=user_id)
 
 
 def get_audit_log(

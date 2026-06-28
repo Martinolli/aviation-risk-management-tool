@@ -323,7 +323,10 @@ def test_get_reports_returns_list(
         headers={"X-User-Id": str(risk_record.created_by_user_id)},
     )
 
-    response = client.get("/reports")
+    response = client.get(
+        "/reports",
+        headers={"X-User-Id": str(risk_record.created_by_user_id)},
+    )
 
     assert response.status_code == 200
     assert len(response.json()) == 1
@@ -349,7 +352,10 @@ def test_get_reports_filters_by_risk_record_id(
         headers={"X-User-Id": str(second_risk.created_by_user_id)},
     )
 
-    response = client.get(f"/reports?risk_record_id={first_risk.id}")
+    response = client.get(
+        f"/reports?risk_record_id={first_risk.id}",
+        headers={"X-User-Id": str(first_risk.created_by_user_id)},
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -370,7 +376,10 @@ def test_get_reports_filters_by_report_type(
         headers={"X-User-Id": str(risk_record.created_by_user_id)},
     )
 
-    response = client.get("/reports?report_type=RISK_DOSSIER_DOCX")
+    response = client.get(
+        "/reports?report_type=RISK_DOSSIER_DOCX",
+        headers={"X-User-Id": str(risk_record.created_by_user_id)},
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -391,7 +400,10 @@ def test_get_report_returns_report(
         headers={"X-User-Id": str(risk_record.created_by_user_id)},
     )
 
-    response = client.get(f"/reports/{report_response.json()['id']}")
+    response = client.get(
+        f"/reports/{report_response.json()['id']}",
+        headers={"X-User-Id": str(risk_record.created_by_user_id)},
+    )
 
     assert response.status_code == 200
     assert response.json()["id"] == report_response.json()["id"]
@@ -546,7 +558,93 @@ def test_download_report_with_missing_file_returns_http_400(
     assert response.status_code == 400
 
 
-def test_get_unknown_report_returns_http_404(client: TestClient) -> None:
-    response = client.get(f"/reports/{uuid.uuid4()}")
+def test_get_unknown_report_returns_http_404(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    user = _create_user(db_session)
+    response = client.get(
+        f"/reports/{uuid.uuid4()}",
+        headers={"X-User-Id": str(user.id)},
+    )
 
     assert response.status_code == 404
+
+
+def test_report_list_and_detail_do_not_leak_other_board_reports(
+    client: TestClient,
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    first_creator = _create_user(db_session)
+    second_creator = _create_user(db_session)
+    first_member = _create_user(db_session)
+    second_member = _create_user(db_session)
+    first_board = _create_committee(db_session)
+    second_board = _create_committee(db_session)
+    _create_membership(db_session, committee=first_board, user=first_member)
+    _create_membership(db_session, committee=second_board, user=second_member)
+    first_risk = _create_risk_record(
+        db_session,
+        risk_id="RISK-2026-1001",
+        creator=first_creator,
+        board_of_origin_id=first_board.id,
+    )
+    second_risk = _create_risk_record(
+        db_session,
+        risk_id="RISK-2026-1002",
+        creator=second_creator,
+        board_of_origin_id=second_board.id,
+    )
+    first_report = _post_report(
+        client,
+        first_risk.id,
+        tmp_path,
+        headers={"X-User-Id": str(first_creator.id)},
+    ).json()
+    second_report = _post_report(
+        client,
+        second_risk.id,
+        tmp_path,
+        headers={"X-User-Id": str(second_creator.id)},
+    ).json()
+    first_headers = {"X-User-Id": str(first_member.id)}
+
+    unfiltered = client.get("/reports", headers=first_headers)
+    authorized_filter = client.get(
+        f"/reports?risk_record_id={first_risk.id}", headers=first_headers
+    )
+    unauthorized_filter = client.get(
+        f"/reports?risk_record_id={second_risk.id}", headers=first_headers
+    )
+
+    assert [item["id"] for item in unfiltered.json()] == [first_report["id"]]
+    assert [item["id"] for item in authorized_filter.json()] == [first_report["id"]]
+    assert unauthorized_filter.json() == []
+    assert client.get(
+        f"/reports/{first_report['id']}", headers=first_headers
+    ).status_code == 200
+    assert client.get(
+        f"/reports/{second_report['id']}", headers=first_headers
+    ).status_code == 400
+    assert client.get(
+        f"/reports/{second_report['id']}/download", headers=first_headers
+    ).status_code == 400
+
+
+def test_report_read_endpoints_require_authentication(
+    client: TestClient,
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    risk = _create_risk_record(db_session)
+    report = _post_report(
+        client,
+        risk.id,
+        tmp_path,
+        headers={"X-User-Id": str(risk.created_by_user_id)},
+    ).json()
+
+    assert client.get("/reports").status_code == 400
+    assert client.get(f"/reports/{report['id']}").status_code == 400
+    assert client.get(f"/reports/{report['id']}/download").status_code == 400
