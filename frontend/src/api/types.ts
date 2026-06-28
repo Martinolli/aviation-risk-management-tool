@@ -85,6 +85,19 @@ export interface RiskCreateRequest {
   board_of_origin_id?: string | null;
 }
 
+export interface RiskUpdateRequest {
+  source_trigger?: string | null;
+  domain?: string | null;
+  board_of_origin_id?: string | null;
+  system_scope?: string | null;
+  central_event?: string | null;
+  hazard_statement?: string | null;
+  causes?: string[] | null;
+  consequences?: string[] | null;
+  existing_controls?: string[] | null;
+  owner_user_id?: string | null;
+}
+
 export interface RiskSubmitRequest {
   reason?: string | null;
 }

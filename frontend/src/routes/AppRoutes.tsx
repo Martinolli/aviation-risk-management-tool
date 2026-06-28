@@ -15,6 +15,7 @@ import { RiskActionCompletePage } from "../pages/RiskActionCompletePage";
 import { RiskDetailPage } from "../pages/RiskDetailPage";
 import { RiskDecisionCreatePage } from "../pages/RiskDecisionCreatePage";
 import { RiskListPage } from "../pages/RiskListPage";
+import { RiskPackageEditPage } from "../pages/RiskPackageEditPage";
 import { RiskSubmitPage } from "../pages/RiskSubmitPage";
 
 export function AppRoutes() {
@@ -59,6 +60,10 @@ export function AppRoutes() {
           element={<RiskDecisionCreatePage />}
         />
         <Route path="/risks/:riskRecordId/submit" element={<RiskSubmitPage />} />
+        <Route
+          path="/risks/:riskRecordId/package/edit"
+          element={<RiskPackageEditPage />}
+        />
         <Route path="/risks/:riskRecordId" element={<RiskDetailPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

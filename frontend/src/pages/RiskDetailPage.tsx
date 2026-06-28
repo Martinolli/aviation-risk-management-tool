@@ -59,7 +59,7 @@ interface NextAction {
 }
 
 export function RiskDetailPage() {
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated, token, user } = useAuth();
   const { riskRecordId } = useParams();
   const location = useLocation();
   const [riskDetail, setRiskDetail] = useState<RiskDetailState>({
@@ -290,7 +290,15 @@ export function RiskDetailPage() {
   const residualAssessment = assessments.find(
     (assessment) => assessment.assessment_type === "RESIDUAL",
   );
-  const nextAction = getNextAction({ risk, assessments, actions, decisions });
+  const canEditRiskPackage = canUserUpdateRiskPackage(risk, user?.id);
+  const hasRiskPackageContent = hasAnyRiskPackageContent(risk);
+  const nextAction = getNextAction({
+    risk,
+    assessments,
+    actions,
+    decisions,
+    canEditRiskPackage,
+  });
   const allActionsCompleted =
     actions.length > 0 && actions.every((action) => isActionCompleted(action));
   const successMessage = getSuccessMessage(location.state);
@@ -397,6 +405,50 @@ export function RiskDetailPage() {
 
       <DetailSection title="Source trigger">
         <p className="detail-copy">{risk.source_trigger || "Not specified."}</p>
+      </DetailSection>
+
+      <DetailSection title="Risk package">
+        {canEditRiskPackage && (
+          <div className="detail-section-action">
+            <Link className="button" to={`/risks/${risk.id}/package/edit`}>
+              {hasRiskPackageContent
+                ? "Edit risk package"
+                : "Complete risk package"}
+            </Link>
+          </div>
+        )}
+        <dl className="metadata-grid risk-package-metadata">
+          <div>
+            <dt>System Scope</dt>
+            <dd>{formatRecordedText(risk.system_scope)}</dd>
+          </div>
+          <div>
+            <dt>Central Event</dt>
+            <dd>{formatRecordedText(risk.central_event)}</dd>
+          </div>
+          <div>
+            <dt>Hazard Statement</dt>
+            <dd>{formatRecordedText(risk.hazard_statement)}</dd>
+          </div>
+          <div>
+            <dt>Causes</dt>
+            <dd>
+              <RiskPackageList values={risk.causes} />
+            </dd>
+          </div>
+          <div>
+            <dt>Consequences</dt>
+            <dd>
+              <RiskPackageList values={risk.consequences} />
+            </dd>
+          </div>
+          <div>
+            <dt>Existing Controls</dt>
+            <dd>
+              <RiskPackageList values={risk.existing_controls} />
+            </dd>
+          </div>
+        </dl>
       </DetailSection>
 
       <DetailSection title="Ownership and metadata">
@@ -759,8 +811,66 @@ function DetailSection({
   );
 }
 
+function RiskPackageList({ values }: { values: string[] | null | undefined }) {
+  const recordedValues = Array.from(
+    new Set((values ?? []).map((value) => value.trim()).filter(Boolean)),
+  );
+  if (recordedValues.length === 0) {
+    return <>Not recorded</>;
+  }
+
+  return (
+    <ul className="risk-package-detail-list">
+      {recordedValues.map((value) => (
+        <li key={value}>{value}</li>
+      ))}
+    </ul>
+  );
+}
+
 function getRiskRecord(detail: RiskDetailResponse): RiskRecordRead | null {
   return detail.risk || detail.risk_record || detail.record || null;
+}
+
+function formatRecordedText(value: string | null | undefined): string {
+  return value?.trim() || "Not recorded";
+}
+
+function hasAnyRiskPackageContent(risk: RiskRecordRead): boolean {
+  return (
+    Boolean(risk.system_scope?.trim()) ||
+    Boolean(risk.central_event?.trim()) ||
+    Boolean(risk.hazard_statement?.trim()) ||
+    Boolean(risk.causes?.some((value) => value.trim())) ||
+    Boolean(risk.consequences?.some((value) => value.trim())) ||
+    Boolean(risk.existing_controls?.some((value) => value.trim()))
+  );
+}
+
+function isMinimumRiskPackageComplete(risk: RiskRecordRead): boolean {
+  return getMissingRequiredPackageFields(risk).length === 0;
+}
+
+function getMissingRequiredPackageFields(risk: RiskRecordRead): string[] {
+  const fields: Array<[string, string | null | undefined]> = [
+    ["System Scope", risk.system_scope],
+    ["Central Event", risk.central_event],
+    ["Hazard Statement", risk.hazard_statement],
+  ];
+  return fields.filter(([, value]) => !value?.trim()).map(([label]) => label);
+}
+
+function canUserUpdateRiskPackage(
+  risk: RiskRecordRead,
+  userId: string | undefined,
+): boolean {
+  if (!userId) {
+    return false;
+  }
+  if (risk.owner_user_id) {
+    return risk.owner_user_id === userId;
+  }
+  return Boolean(risk.created_by_user_id && risk.created_by_user_id === userId);
 }
 
 async function loadRiskAuditTrail({
@@ -870,11 +980,13 @@ function getNextAction({
   assessments,
   actions,
   decisions,
+  canEditRiskPackage,
 }: {
   risk: RiskRecordRead;
   assessments: RiskAssessmentRead[];
   actions: RiskActionRead[];
   decisions: RiskDecisionRead[];
+  canEditRiskPackage: boolean;
 }): NextAction {
   const initialAssessment = assessments.find(
     (assessment) => assessment.assessment_type === "INITIAL",
@@ -943,6 +1055,23 @@ function getNextAction({
           ? `Latest decision: ${lastDecision.decision_type || "Decision recorded"}.`
           : "Review decision comments.",
         "Update the risk package as required.",
+      ],
+    };
+  }
+
+  if (risk.workflow_status === "DRAFT" && !isMinimumRiskPackageComplete(risk)) {
+    return {
+      title: "Complete risk package",
+      description:
+        "Add system scope, central event, hazard statement, causes, consequences, and existing controls before initial assessment.",
+      linkLabel: canEditRiskPackage ? "Complete risk package" : undefined,
+      linkTo: canEditRiskPackage ? `/risks/${risk.id}/package/edit` : undefined,
+      statusTone: "warning",
+      checklist: [
+        ...getMissingRequiredPackageFields(risk).map(
+          (field) => `${field} is not recorded.`,
+        ),
+        "Causes, consequences, and existing controls are recommended.",
       ],
     };
   }

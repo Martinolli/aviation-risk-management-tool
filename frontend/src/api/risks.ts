@@ -4,6 +4,7 @@ import type {
   RiskDetailResponse,
   RiskRecordRead,
   RiskSubmitRequest,
+  RiskUpdateRequest,
 } from "./types";
 
 type RiskListResponse = RiskRecordRead[] | { items?: RiskRecordRead[] };
@@ -36,6 +37,21 @@ export function getRiskDetail(
   return apiRequest<RiskDetailResponse>(
     `/risks/${encodeURIComponent(riskRecordId)}/detail`,
     { token },
+  );
+}
+
+export function updateRisk(
+  token: string,
+  riskRecordId: string,
+  request: RiskUpdateRequest,
+): Promise<RiskRecordRead> {
+  return apiRequest<RiskRecordRead>(
+    `/risks/${encodeURIComponent(riskRecordId)}`,
+    {
+      method: "PATCH",
+      body: request,
+      token,
+    },
   );
 }
 
