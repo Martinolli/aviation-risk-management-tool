@@ -23,6 +23,10 @@ from app.services.default_risk_matrix_seed_service import (
     DefaultRiskMatrixSeedError,
     seed_default_risk_matrix,
 )
+from app.services.decision_queue_service import (
+    DecisionQueueBusinessRuleError,
+    get_my_decision_queue,
+)
 from app.services.committee_service import (
     CommitteeBusinessRuleError,
     CommitteeNotFoundError,
@@ -157,6 +161,7 @@ __all__ = [
     "AdminAuthorizationBusinessRuleError",
     "BootstrapBusinessRuleError",
     "DefaultRiskMatrixSeedError",
+    "DecisionQueueBusinessRuleError",
     "CommitteeBusinessRuleError",
     "CommitteeMemberBusinessRuleError",
     "CommitteeMemberNotFoundError",
@@ -212,6 +217,7 @@ __all__ = [
     "create_user",
     "get_committee",
     "get_committee_member",
+    "get_my_decision_queue",
     "get_audit_log",
     "is_active_fixed_governance_member",
     "get_default_committee_names",

@@ -10,6 +10,7 @@ from app.api.audit_logs import router as audit_log_router
 from app.api.auth import router as auth_router
 from app.api.committees import router as committee_router
 from app.api.committee_members import router as committee_member_router
+from app.api.decision_queue import router as decision_queue_router
 from app.api.health import router as health_router
 from app.api.risk_actions import router as risk_action_router
 from app.api.risk_assessments import router as risk_assessment_router
@@ -85,6 +86,7 @@ def create_app() -> FastAPI:
     app.include_router(audit_log_router)
     app.include_router(committee_router)
     app.include_router(committee_member_router)
+    app.include_router(decision_queue_router)
     app.include_router(risk_router)
     app.include_router(risk_assessment_router)
     app.include_router(risk_action_router)

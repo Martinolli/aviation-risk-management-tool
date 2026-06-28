@@ -11,6 +11,11 @@ from app.schemas.committee_member import (
     CommitteeMemberRead,
     CommitteeMemberUpdate,
 )
+from app.schemas.decision_queue import (
+    MyDecisionQueueCommitteeRead,
+    MyDecisionQueueItemRead,
+    MyDecisionQueueRead,
+)
 from app.schemas.risk import (
     RiskRecordCreate,
     RiskRecordRead,
@@ -61,6 +66,9 @@ __all__ = [
     "CommitteeMemberCreate",
     "CommitteeMemberRead",
     "CommitteeMemberUpdate",
+    "MyDecisionQueueCommitteeRead",
+    "MyDecisionQueueItemRead",
+    "MyDecisionQueueRead",
     "GenerateRiskDossierReportRequest",
     "GeneratedReportRead",
     "RiskActionComplete",

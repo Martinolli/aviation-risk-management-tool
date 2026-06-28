@@ -201,6 +201,31 @@ export interface CommitteeMemberRead {
   updated_at?: string | null;
 }
 
+export interface MyDecisionQueueCommitteeRead {
+  committee_id: string;
+  committee_name: string;
+  authority_level: string;
+  committee_type: string;
+  role_label?: string | null;
+  queue_scope: string | string[];
+  is_active: boolean;
+}
+
+export interface MyDecisionQueueItemRead {
+  risk_record: RiskRecordRead;
+  committee_id: string;
+  committee_name: string;
+  authority_level: string;
+  role_label?: string | null;
+  queue_reason: string;
+}
+
+export interface MyDecisionQueueRead {
+  user_id: string;
+  committees: MyDecisionQueueCommitteeRead[];
+  queue_items: MyDecisionQueueItemRead[];
+}
+
 export type RiskDecisionType =
   | "APPROVE"
   | "REJECT"
