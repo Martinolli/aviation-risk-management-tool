@@ -44,6 +44,10 @@ export function AppRoutes() {
           element={<RiskAssessmentCreatePage assessmentType="INITIAL" />}
         />
         <Route
+          path="/risks/:riskRecordId/assessments/initial/new"
+          element={<RiskAssessmentCreatePage assessmentType="INITIAL" />}
+        />
+        <Route
           path="/risks/:riskRecordId/assessments/residual/new"
           element={<RiskAssessmentCreatePage assessmentType="RESIDUAL" />}
         />

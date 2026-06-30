@@ -6,6 +6,10 @@ import { listCommittees } from "../api/committees";
 import { listRisks } from "../api/risks";
 import type { CommitteeRead, RiskRecordRead } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import {
+  getRiskPackageStatusLabel,
+  getRiskPackageStatusTone,
+} from "../utils/riskReadiness";
 
 type RiskListState =
   | { status: "loading" }
@@ -134,31 +138,54 @@ export function RiskListPage() {
                 <th scope="col">Domain</th>
                 <th scope="col">Board of Origin</th>
                 <th scope="col">Status</th>
+                <th scope="col">Readiness</th>
                 <th scope="col">Problem description</th>
                 <th scope="col">Updated</th>
               </tr>
             </thead>
             <tbody>
-              {riskList.risks.map((risk) => (
-                <tr key={risk.id}>
-                  <td className="risk-id">
-                    <Link className="risk-detail-link" to={`/risks/${risk.id}`}>
-                      {getRiskDisplayId(risk)}
-                    </Link>
-                  </td>
-                  <td>{risk.domain}</td>
-                  <td className="risk-board-origin">
-                    {getBoardOfOriginLabel(risk, riskList.committees)}
-                  </td>
-                  <td>
-                    <span className="status-badge">{getRiskStatus(risk)}</span>
-                  </td>
-                  <td className="risk-description" title={risk.problem_description}>
-                    {risk.problem_description}
-                  </td>
-                  <td className="muted-text">{getRiskDate(risk)}</td>
-                </tr>
-              ))}
+              {riskList.risks.map((risk) => {
+                const readinessLabel = getRiskPackageStatusLabel(risk);
+                const readinessTone = getRiskPackageStatusTone(risk);
+
+                return (
+                  <tr key={risk.id}>
+                    <td className="risk-id">
+                      <Link className="risk-detail-link" to={`/risks/${risk.id}`}>
+                        {getRiskDisplayId(risk)}
+                      </Link>
+                    </td>
+                    <td>{risk.domain}</td>
+                    <td className="risk-board-origin">
+                      {getBoardOfOriginLabel(risk, riskList.committees)}
+                    </td>
+                    <td>
+                      <span className="status-badge">{getRiskStatus(risk)}</span>
+                    </td>
+                    <td>
+                      <div className="readiness-cell">
+                        <span className={`readiness-badge ${readinessTone}`}>
+                          {readinessLabel}
+                        </span>
+                        {risk.workflow_status === "DRAFT" && (
+                          <span className="readiness-hint">
+                            {readinessLabel === "Package complete"
+                              ? "Open detail to confirm assessment readiness."
+                              : "Open detail to review missing items."}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td
+                      className="risk-description"
+                      title={risk.problem_description}
+                    >
+                      {risk.problem_description}
+                    </td>
+                    <td className="muted-text">{getRiskDate(risk)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

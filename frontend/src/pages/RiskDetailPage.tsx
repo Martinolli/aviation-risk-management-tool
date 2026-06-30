@@ -23,6 +23,10 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { AuditLogList } from "../components/AuditLogList";
+import {
+  getRiskPackageStatusLabel,
+  getRiskSubmissionReadiness,
+} from "../utils/riskReadiness";
 
 type RiskDetailState =
   | { status: "loading" }
@@ -281,9 +285,8 @@ export function RiskDetailPage() {
           (committee) => committee.id === risk.board_of_origin_id,
         )
       : undefined;
-  const initialAssessmentExists = assessments.some(
-    (assessment) => assessment.assessment_type === "INITIAL",
-  );
+  const submissionReadiness = getRiskSubmissionReadiness(risk, assessments);
+  const initialAssessmentExists = submissionReadiness.hasInitialAssessment;
   const initialAssessment = assessments.find(
     (assessment) => assessment.assessment_type === "INITIAL",
   );
@@ -398,6 +401,57 @@ export function RiskDetailPage() {
         </p>
         <NextActionPanel nextAction={nextAction} />
       </header>
+
+      <section
+        className="readiness-card"
+        aria-labelledby="risk-detail-readiness-heading"
+      >
+        <h2 id="risk-detail-readiness-heading">Submission readiness</h2>
+        <ul className="readiness-list">
+          {submissionReadiness.checks.map((check) => (
+            <li
+              className={`readiness-item ${check.isComplete ? "complete" : "missing"}`}
+              key={check.key}
+            >
+              <span>{check.label}</span>
+              <span
+                className={`readiness-status ${check.isComplete ? "complete" : "missing"}`}
+              >
+                {check.isComplete ? "Complete" : "Missing"}
+              </span>
+              {risk.workflow_status === "DRAFT" &&
+                !check.isComplete &&
+                check.actionTo &&
+                check.actionLabel && (
+                  <Link className="readiness-action" to={check.actionTo}>
+                    {check.actionLabel}
+                  </Link>
+                )}
+              {risk.workflow_status === "DRAFT" &&
+                check.key === "board_of_origin" &&
+                !check.isComplete && (
+                  <span className="readiness-guidance">
+                    Board assignment is not editable from the risk package.
+                  </span>
+                )}
+            </li>
+          ))}
+        </ul>
+        {risk.workflow_status !== "DRAFT" ? (
+          <p className="readiness-summary">
+            Submission readiness applied while this risk was in DRAFT. Current
+            workflow status: {getRiskPackageStatusLabel(risk)}.
+          </p>
+        ) : submissionReadiness.isReady ? (
+          <p className="readiness-summary success">
+            Ready to submit to Board of Origin.
+          </p>
+        ) : (
+          <p className="readiness-summary warning">
+            Complete all missing readiness items before submission.
+          </p>
+        )}
+      </section>
 
       <DetailSection title="Problem description">
         <p className="detail-copy">{risk.problem_description}</p>
@@ -847,19 +901,6 @@ function hasAnyRiskPackageContent(risk: RiskRecordRead): boolean {
   );
 }
 
-function isMinimumRiskPackageComplete(risk: RiskRecordRead): boolean {
-  return getMissingRequiredPackageFields(risk).length === 0;
-}
-
-function getMissingRequiredPackageFields(risk: RiskRecordRead): string[] {
-  const fields: Array<[string, string | null | undefined]> = [
-    ["System Scope", risk.system_scope],
-    ["Central Event", risk.central_event],
-    ["Hazard Statement", risk.hazard_statement],
-  ];
-  return fields.filter(([, value]) => !value?.trim()).map(([label]) => label);
-}
-
 function canUserUpdateRiskPackage(
   risk: RiskRecordRead,
   userId: string | undefined,
@@ -996,7 +1037,8 @@ function getNextAction({
   );
   const openActions = actions.filter(isActionOpen);
   const completedActions = actions.filter(isActionCompleted);
-  const hasInitialAssessment = Boolean(initialAssessment);
+  const submissionReadiness = getRiskSubmissionReadiness(risk, assessments);
+  const hasInitialAssessment = submissionReadiness.hasInitialAssessment;
   const hasResidualAssessment = Boolean(residualAssessment);
   const hasActions = actions.length > 0;
   const hasOpenActions = openActions.length > 0;
@@ -1059,7 +1101,7 @@ function getNextAction({
     };
   }
 
-  if (risk.workflow_status === "DRAFT" && !risk.board_of_origin_id) {
+  if (risk.workflow_status === "DRAFT" && !submissionReadiness.hasBoardOfOrigin) {
     return {
       title: "Assign Board of Origin",
       description:
@@ -1072,7 +1114,10 @@ function getNextAction({
     };
   }
 
-  if (risk.workflow_status === "DRAFT" && !isMinimumRiskPackageComplete(risk)) {
+  if (
+    risk.workflow_status === "DRAFT" &&
+    !submissionReadiness.packageMinimumComplete
+  ) {
     return {
       title: "Complete risk package",
       description:
@@ -1081,9 +1126,14 @@ function getNextAction({
       linkTo: canEditRiskPackage ? `/risks/${risk.id}/package/edit` : undefined,
       statusTone: "warning",
       checklist: [
-        ...getMissingRequiredPackageFields(risk).map(
-          (field) => `${field} is not recorded.`,
-        ),
+        ...submissionReadiness.checks
+          .filter(
+            (check) =>
+              ["system_scope", "central_event", "hazard_statement"].includes(
+                check.key,
+              ) && !check.isComplete,
+          )
+          .map((check) => `${check.label} is not recorded.`),
         "Causes, consequences, and existing controls are recommended.",
       ],
     };
@@ -1095,7 +1145,7 @@ function getNextAction({
       description:
         "Record the initial risk assessment before submitting the risk to committee review.",
       linkLabel: "Add initial assessment",
-      linkTo: `/risks/${risk.id}/assessments/new`,
+      linkTo: `/risks/${risk.id}/assessments/initial/new`,
       statusTone: "warning",
       checklist: [
         "Problem description recorded.",

@@ -5,24 +5,12 @@ import { ApiError } from "../api/client";
 import { getRiskDetail, submitRisk } from "../api/risks";
 import type { RiskDetailResponse, RiskRecordRead } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { getRiskSubmissionReadiness } from "../utils/riskReadiness";
 
 type RiskSubmitState =
   | { status: "loading" }
   | { status: "success"; detail: RiskDetailResponse }
   | { status: "error"; message: string };
-
-interface SubmissionReadinessCheck {
-  label: string;
-  isComplete: boolean;
-  actionTo?: string;
-  actionLabel?: string;
-}
-
-interface SubmissionReadiness {
-  isReady: boolean;
-  missingItems: string[];
-  checks: SubmissionReadinessCheck[];
-}
 
 export function RiskSubmitPage() {
   const { isAuthenticated, token } = useAuth();
@@ -144,10 +132,10 @@ export function RiskSubmitPage() {
     );
   }
 
-  const readiness = getSubmissionReadiness(risk, riskDetail.detail);
-  const initialAssessmentExists = readiness.checks.find(
-    (check) => check.label === "Initial Risk Assessment",
-  )?.isComplete;
+  const readiness = getRiskSubmissionReadiness(
+    risk,
+    riskDetail.detail.assessments,
+  );
 
   return (
     <section className="risk-submit-page" aria-labelledby="submit-risk-heading">
@@ -177,28 +165,35 @@ export function RiskSubmitPage() {
           </div>
           <div>
             <dt>Initial assessment</dt>
-            <dd>{initialAssessmentExists ? "Recorded" : "Not recorded"}</dd>
+            <dd>{readiness.hasInitialAssessment ? "Recorded" : "Not recorded"}</dd>
           </div>
         </dl>
         <p className="detail-copy">{risk.problem_description}</p>
       </section>
 
-      <section className="readiness-checklist" aria-labelledby="submission-readiness-heading">
+      <section className="readiness-card" aria-labelledby="submission-readiness-heading">
         <h2 id="submission-readiness-heading">Submission readiness</h2>
-        <ul>
+        <ul className="readiness-list">
           {readiness.checks.map((check) => (
             <li
               className={`readiness-item ${check.isComplete ? "complete" : "missing"}`}
-              key={check.label}
+              key={check.key}
             >
               <span>{check.label}</span>
-              <span className="readiness-status">
+              <span
+                className={`readiness-status ${check.isComplete ? "complete" : "missing"}`}
+              >
                 {check.isComplete ? "Complete" : "Missing"}
               </span>
               {!check.isComplete && check.actionTo && check.actionLabel && (
                 <Link className="readiness-action" to={check.actionTo}>
                   {check.actionLabel}
                 </Link>
+              )}
+              {check.key === "board_of_origin" && !check.isComplete && (
+                <span className="readiness-guidance">
+                  Board assignment is not editable from the risk package.
+                </span>
               )}
             </li>
           ))}
@@ -254,52 +249,4 @@ function getRiskRecord(detail: RiskDetailResponse): RiskRecordRead | null {
 
 function getRiskDisplayId(risk: RiskRecordRead): string {
   return risk.risk_id || risk.id.slice(0, 8);
-}
-
-function getSubmissionReadiness(
-  risk: RiskRecordRead,
-  detail: RiskDetailResponse,
-): SubmissionReadiness {
-  const packageEditAction = {
-    actionTo: `/risks/${risk.id}/package/edit`,
-    actionLabel: "Complete risk package",
-  };
-  const checks: SubmissionReadinessCheck[] = [
-    {
-      label: "Board of Origin / Originating Committee",
-      isComplete: Boolean(risk.board_of_origin_id),
-    },
-    {
-      label: "System Scope",
-      isComplete: Boolean(risk.system_scope?.trim()),
-      ...packageEditAction,
-    },
-    {
-      label: "Central Event",
-      isComplete: Boolean(risk.central_event?.trim()),
-      ...packageEditAction,
-    },
-    {
-      label: "Hazard Statement",
-      isComplete: Boolean(risk.hazard_statement?.trim()),
-      ...packageEditAction,
-    },
-    {
-      label: "Initial Risk Assessment",
-      isComplete: (detail.assessments ?? []).some(
-        (assessment) => assessment.assessment_type === "INITIAL",
-      ),
-      actionTo: `/risks/${risk.id}/assessments/new`,
-      actionLabel: "Add initial assessment",
-    },
-  ];
-  const missingItems = checks
-    .filter((check) => !check.isComplete)
-    .map((check) => check.label);
-
-  return {
-    isReady: missingItems.length === 0,
-    missingItems,
-    checks,
-  };
 }
