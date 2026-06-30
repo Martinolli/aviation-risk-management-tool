@@ -9,14 +9,21 @@ const AUTHORITY_LEVEL_ORDER: Record<string, number> = {
   HIGH: 2,
 };
 
-export async function listCommittees(token: string): Promise<CommitteeRead[]> {
-  const response = await apiRequest<CommitteeListResponse>("/committees", {
-    token,
-  });
+export async function listCommittees(
+  token: string,
+  params: { includeArchived?: boolean } = {},
+): Promise<CommitteeRead[]> {
+  const query = new URLSearchParams();
+  if (params.includeArchived !== undefined) {
+    query.set("include_archived", String(params.includeArchived));
+  }
+  const queryString = query.toString();
+  const path = queryString ? `/committees?${queryString}` : "/committees";
+  const response = await apiRequest<CommitteeListResponse>(path, { token });
   const committees = Array.isArray(response) ? response : response.items ?? [];
 
   return committees
-    .filter((committee) => committee.is_active)
+    .filter((committee) => params.includeArchived || committee.is_active)
     .sort((first, second) => {
       const authorityDifference =
         (AUTHORITY_LEVEL_ORDER[first.authority_level] ?? Number.MAX_SAFE_INTEGER) -

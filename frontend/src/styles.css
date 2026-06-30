@@ -82,7 +82,9 @@ a {
 
 .primary-nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
+  justify-content: center;
 }
 
 .primary-nav a {
@@ -1901,6 +1903,313 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.admin-governance-page {
+  display: grid;
+  gap: 2rem;
+  max-width: 1080px;
+  width: 100%;
+}
+
+.admin-governance-page .page-header {
+  margin-bottom: 0;
+}
+
+.admin-summary-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.admin-summary-card {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+  display: grid;
+  gap: 0.25rem;
+  padding: 1.25rem;
+}
+
+.admin-summary-card h2 {
+  color: #334e68;
+  font-size: 1rem;
+  margin: 0 0 0.4rem;
+}
+
+.admin-summary-card > strong {
+  color: #102a43;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.admin-summary-card > span {
+  color: #627d98;
+  font-size: 0.82rem;
+}
+
+.admin-summary-card dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.25rem;
+  margin: 1rem 0 0;
+}
+
+.admin-summary-card dl div {
+  min-width: 54px;
+}
+
+.admin-summary-card dt {
+  color: #627d98;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-summary-card dd {
+  color: #243b53;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0.2rem 0 0;
+}
+
+.governance-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.governance-section-heading {
+  align-items: flex-end;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.governance-section-heading h2 {
+  color: #102a43;
+  font-size: 1.45rem;
+  margin: 0;
+}
+
+.governance-section-heading .eyebrow {
+  margin-bottom: 0.4rem;
+}
+
+.governance-read-only {
+  background: #e5e7eb;
+  border-radius: 999px;
+  color: #4b5563;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.3rem 0.65rem;
+}
+
+.committee-governance-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.committee-governance-card {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+  min-width: 0;
+  padding: 1.25rem;
+}
+
+.committee-governance-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.committee-governance-card h3 {
+  color: #102a43;
+  font-size: 1.1rem;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.committee-governance-card h4 {
+  color: #334e68;
+  font-size: 0.88rem;
+  margin: 1.25rem 0 0.65rem;
+}
+
+.committee-governance-metadata,
+.membership-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.committee-governance-metadata {
+  margin-top: 0.9rem;
+}
+
+.governance-chip {
+  background: #eaf2f8;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #334e68;
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 0.3rem 0.6rem;
+}
+
+.governance-chip.low {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.governance-chip.middle {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.governance-chip.high {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.governance-chip.inactive,
+.governance-membership-chip.inactive {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #6b7280;
+}
+
+.committee-member-list {
+  display: grid;
+  gap: 0.65rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.committee-member-list li {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.35rem;
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem;
+}
+
+.committee-member-identity,
+.committee-member-role {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.committee-member-identity strong {
+  color: #243b53;
+  overflow-wrap: anywhere;
+}
+
+.committee-member-identity span,
+.committee-member-role > span:first-child {
+  color: #627d98;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.committee-member-role {
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.governance-empty {
+  color: #627d98;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.user-governance-table-wrapper {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+  overflow-x: auto;
+}
+
+.user-governance-table {
+  border-collapse: collapse;
+  min-width: 980px;
+  width: 100%;
+}
+
+.user-governance-table th,
+.user-governance-table td {
+  border-bottom: 1px solid #d9e2ec;
+  padding: 0.85rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.user-governance-table th {
+  background: #f0f4f8;
+  color: #334e68;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.user-governance-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.governance-user-name {
+  color: #243b53;
+  font-weight: 700;
+  min-width: 150px;
+  overflow-wrap: anywhere;
+}
+
+.governance-user-email {
+  max-width: 240px;
+  overflow-wrap: anywhere;
+}
+
+.governance-membership-chip {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.4rem;
+  display: grid;
+  font-size: 0.75rem;
+  gap: 0.15rem;
+  max-width: 260px;
+  min-width: 180px;
+  overflow-wrap: anywhere;
+  padding: 0.55rem 0.65rem;
+}
+
+.governance-membership-chip strong {
+  color: #243b53;
+}
+
+.governance-membership-chip span {
+  color: #627d98;
+}
+
+.governance-table-empty {
+  color: #627d98;
+  padding: 1.5rem !important;
+  text-align: center !important;
+}
+
 @media (max-width: 560px) {
   .header-content {
     align-items: flex-start;
@@ -1912,6 +2221,10 @@ button:disabled {
 
   .user-controls {
     width: 100%;
+  }
+
+  .primary-nav {
+    justify-content: flex-start;
   }
 
   .main-content {
@@ -2011,6 +2324,23 @@ button:disabled {
   }
 
   .matrix-preview dl {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .governance-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .committee-governance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .committee-member-role {
     grid-template-columns: 1fr;
   }
 
