@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 
+import {
+  listAdminGovernanceCommitteeMembers,
+  listAdminGovernanceCommittees,
+  listAdminGovernanceUsers,
+} from "../api/adminGovernance";
 import { ApiError } from "../api/client";
-import { listCommitteeMembers } from "../api/committeeMembers";
-import { listCommittees } from "../api/committees";
 import type {
   CommitteeMemberRead,
   CommitteeRead,
   UserRead,
 } from "../api/types";
-import { listUsers } from "../api/users";
 import { useAuth } from "../auth/AuthContext";
 
 type GovernanceDataState =
@@ -27,6 +29,9 @@ const AUTHORITY_LEVEL_ORDER: Record<string, number> = {
   MIDDLE: 1,
   HIGH: 2,
 };
+
+const ADMIN_ACCESS_GUIDANCE =
+  "Admin governance data is restricted to authorized governance administrators.";
 
 export function AdminGovernancePage() {
   const { isAuthenticated, token } = useAuth();
@@ -46,9 +51,11 @@ export function AdminGovernancePage() {
     async function loadGovernanceData() {
       try {
         const [users, committees, memberships] = await Promise.all([
-          listUsers(tokenToUse, { includeInactive: true }),
-          listCommittees(tokenToUse, { includeArchived: true }),
-          listCommitteeMembers(tokenToUse, { includeInactive: true }),
+          listAdminGovernanceUsers(tokenToUse, { includeInactive: true }),
+          listAdminGovernanceCommittees(tokenToUse, { includeArchived: true }),
+          listAdminGovernanceCommitteeMembers(tokenToUse, {
+            includeInactive: true,
+          }),
         ]);
 
         if (isCurrent) {
@@ -97,6 +104,7 @@ export function AdminGovernancePage() {
         className="admin-governance-page"
         aria-labelledby="governance-load-error"
       >
+        <p className="governance-access-note">{ADMIN_ACCESS_GUIDANCE}</p>
         <div aria-live="polite" className="workspace-alert" role="alert">
           <strong id="governance-load-error">
             Unable to load governance data.
@@ -134,6 +142,8 @@ export function AdminGovernancePage() {
           </p>
         </div>
       </header>
+
+      <p className="governance-access-note">{ADMIN_ACCESS_GUIDANCE}</p>
 
       <section className="admin-summary-grid" aria-label="Governance summary">
         <article className="admin-summary-card">

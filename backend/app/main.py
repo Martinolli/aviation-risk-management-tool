@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.admin_governance import router as admin_governance_router
 from app.api.audit_logs import router as audit_log_router
 from app.api.auth import router as auth_router
 from app.api.committees import router as committee_router
@@ -83,6 +84,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(auth_router)
+    app.include_router(admin_governance_router)
     app.include_router(audit_log_router)
     app.include_router(committee_router)
     app.include_router(committee_member_router)

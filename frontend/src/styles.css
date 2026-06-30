@@ -1914,6 +1914,14 @@ button:disabled {
   margin-bottom: 0;
 }
 
+.governance-access-note {
+  background: #eaf2f8;
+  border-left: 4px solid #486581;
+  color: #334e68;
+  margin: 0;
+  padding: 0.8rem 1rem;
+}
+
 .admin-summary-grid {
   display: grid;
   gap: 1rem;
