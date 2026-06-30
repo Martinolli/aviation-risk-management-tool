@@ -23,6 +23,7 @@ export function AppLayout() {
             {!isAuthenticated && <NavLink to="/login">Login</NavLink>}
             {isAuthenticated && (
               <>
+                <NavLink to="/dashboard">Dashboard</NavLink>
                 <NavLink to="/risks">Risks</NavLink>
                 <NavLink to="/my-decisions">My Queue</NavLink>
                 <NavLink to="/reports">Reports</NavLink>

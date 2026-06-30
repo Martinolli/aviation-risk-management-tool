@@ -14,6 +14,7 @@ import { RiskAssessmentCreatePage } from "../pages/RiskAssessmentCreatePage";
 import { RiskActionCreatePage } from "../pages/RiskActionCreatePage";
 import { RiskActionCompletePage } from "../pages/RiskActionCompletePage";
 import { RiskDetailPage } from "../pages/RiskDetailPage";
+import { RiskDashboardPage } from "../pages/RiskDashboardPage";
 import { RiskDecisionCreatePage } from "../pages/RiskDecisionCreatePage";
 import { RiskListPage } from "../pages/RiskListPage";
 import { RiskPackageEditPage } from "../pages/RiskPackageEditPage";
@@ -35,6 +36,7 @@ export function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/dashboard" element={<RiskDashboardPage />} />
         <Route path="/risks" element={<RiskListPage />} />
         <Route path="/my-decisions" element={<MyDecisionQueuePage />} />
         <Route path="/reports" element={<ReportsPage />} />
