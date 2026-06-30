@@ -1585,6 +1585,7 @@ button:disabled {
 }
 
 .submission-summary,
+.readiness-checklist,
 .submission-form {
   background: #fff;
   border: 1px solid #d9e2ec;
@@ -1593,7 +1594,8 @@ button:disabled {
   padding: 1.5rem;
 }
 
-.submission-summary h2 {
+.submission-summary h2,
+.readiness-checklist h2 {
   color: #102a43;
   font-size: 1.25rem;
   margin: 0 0 1rem;
@@ -1601,6 +1603,61 @@ button:disabled {
 
 .submission-summary .detail-copy {
   margin-top: 1.25rem;
+}
+
+.readiness-checklist ul {
+  display: grid;
+  gap: 0.65rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.readiness-item {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #d9e2ec;
+  border-left: 4px solid #829ab1;
+  border-radius: 0.25rem;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 0.75rem 0.9rem;
+}
+
+.readiness-item.complete {
+  border-left-color: #15803d;
+}
+
+.readiness-item.missing {
+  border-left-color: #d97706;
+}
+
+.readiness-status {
+  color: #486581;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.readiness-item.complete .readiness-status {
+  color: #166534;
+}
+
+.readiness-item.missing .readiness-status {
+  color: #9a3412;
+}
+
+.readiness-action {
+  color: #075985;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.readiness-warning {
+  background: #fff8e1;
+  border-left: 4px solid #d97706;
+  color: #7c2d12;
+  padding: 0.85rem 1rem;
 }
 
 .workflow-warning {
@@ -1823,8 +1880,18 @@ button:disabled {
   }
 
   .submission-summary,
+  .readiness-checklist,
   .submission-form {
     padding: 1.25rem;
+  }
+
+  .readiness-item {
+    align-items: start;
+    grid-template-columns: 1fr auto;
+  }
+
+  .readiness-action {
+    grid-column: 1 / -1;
   }
 
   .action-form {

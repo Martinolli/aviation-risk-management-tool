@@ -78,6 +78,8 @@ def test_end_to_end_bootstrap_seed_login_risk_assessment_decision_report_workflo
             "domain": "FLIGHT_TEST",
             "board_of_origin_id": str(flight_test_committee.id),
             "source_trigger": "Flight test preparation observation",
+            "system_scope": "Landing gear indication system",
+            "central_event": "Unstable landing gear indication",
             "hazard_statement": "Unreliable indication may reduce crew status awareness.",
             "causes": ["Wiring disturbance", "Sensor misalignment"],
             "consequences": ["Incorrect landing gear status awareness"],

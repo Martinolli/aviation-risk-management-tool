@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Generator
+from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -17,11 +18,12 @@ from app.models.enums import (
     AuditAction,
     AuthorityLevel,
     CommitteeType,
+    RiskAssessmentType,
     RiskDomain,
     RiskLifecycleStatus,
     RiskWorkflowStatus,
 )
-from app.models.risk import RiskRecord
+from app.models.risk import RiskAssessment, RiskRecord
 from app.models.user import User
 from app.services.auth_service import create_access_token
 
@@ -126,6 +128,28 @@ def _create_committee(
     db_session.add(committee)
     db_session.commit()
     return committee
+
+
+def _make_risk_ready(db_session: Session, risk_record: RiskRecord) -> None:
+    if risk_record.board_of_origin_id is None:
+        risk_record.board_of_origin_id = _create_committee(
+            db_session,
+            name=f"Submission Board-{uuid.uuid4()}",
+        ).id
+    risk_record.system_scope = "Flight test aircraft"
+    risk_record.central_event = "Unexpected vibration during taxi"
+    risk_record.hazard_statement = "Vibration may cause loss of component integrity"
+    db_session.add(
+        RiskAssessment(
+            risk_record_id=risk_record.id,
+            assessment_type=RiskAssessmentType.INITIAL,
+            severity="Major",
+            likelihood="Remote",
+            risk_level="Medium",
+            assessed_at=datetime.now(timezone.utc),
+        )
+    )
+    db_session.commit()
 
 
 def _add_membership(
@@ -324,6 +348,7 @@ def test_submit_risk_changes_workflow_status_to_submitted(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     user = _create_user(db_session)
+    _make_risk_ready(db_session, risk_record)
 
     response = client.post(
         f"/risks/{risk_record.id}/submit",
@@ -344,6 +369,7 @@ def test_submit_risk_again_returns_http_400(
 ) -> None:
     risk_record = _create_risk_record(db_session)
     user = _create_user(db_session)
+    _make_risk_ready(db_session, risk_record)
 
     headers = {"X-User-Id": str(user.id)}
     first_response = client.post(f"/risks/{risk_record.id}/submit", json={}, headers=headers)
@@ -403,6 +429,9 @@ def test_risk_creator_and_owner_authorize_update_and_submit(
     )
     owner_risk_id = owner_risk_response.json()["id"]
     assert owner_risk_response.status_code == 201
+    owner_risk = db_session.get(RiskRecord, uuid.UUID(owner_risk_id))
+    assert owner_risk is not None
+    _make_risk_ready(db_session, owner_risk)
     assert client.post(f"/risks/{owner_risk_id}/submit", json={}).status_code == 400
     assert client.post(
         f"/risks/{owner_risk_id}/submit",
@@ -443,6 +472,34 @@ def test_risk_creator_and_owner_authorize_update_and_submit(
     assert update_audit_log.changed_by_user_id == creator.id
     assert submit_audit_log is not None
     assert submit_audit_log.changed_by_user_id == owner.id
+
+
+def test_submit_incomplete_risk_returns_all_missing_readiness_items(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    user = _create_user(db_session)
+    risk_record = _create_risk_record(
+        db_session,
+        created_by_user_id=user.id,
+    )
+
+    response = client.post(
+        f"/risks/{risk_record.id}/submit",
+        json={},
+        headers=_auth_headers(user),
+    )
+
+    assert response.status_code == 400
+    error_message = response.json()["error"]["message"]
+    for missing_item in [
+        "Board of Origin / Originating Committee",
+        "System Scope",
+        "Central Event",
+        "Hazard Statement",
+        "Initial Risk Assessment",
+    ]:
+        assert missing_item in error_message
 
 
 @pytest.mark.parametrize(

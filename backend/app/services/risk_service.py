@@ -9,10 +9,11 @@ from app.models.enums import (
     AuditAction,
     AuthorityLevel,
     CommitteeType,
+    RiskAssessmentType,
     RiskLifecycleStatus,
     RiskWorkflowStatus,
 )
-from app.models.risk import RiskRecord
+from app.models.risk import RiskAssessment, RiskRecord
 from app.models.user import User
 from app.schemas.risk import RiskRecordCreate, RiskRecordUpdate
 from app.services.risk_access_service import (
@@ -284,6 +285,43 @@ def update_risk_record(
     return risk_record
 
 
+def _has_recorded_text(value: str | None) -> bool:
+    return bool(value and value.strip())
+
+
+def get_risk_submission_readiness(
+    db: Session,
+    *,
+    risk_record: RiskRecord,
+) -> dict[str, object]:
+    initial_assessment_exists = db.scalar(
+        select(RiskAssessment.id).where(
+            RiskAssessment.risk_record_id == risk_record.id,
+            RiskAssessment.assessment_type == RiskAssessmentType.INITIAL,
+        )
+    ) is not None
+    checks = {
+        "board_of_origin": risk_record.board_of_origin_id is not None,
+        "system_scope": _has_recorded_text(risk_record.system_scope),
+        "central_event": _has_recorded_text(risk_record.central_event),
+        "hazard_statement": _has_recorded_text(risk_record.hazard_statement),
+        "initial_assessment": initial_assessment_exists,
+    }
+    labels = {
+        "board_of_origin": "Board of Origin / Originating Committee",
+        "system_scope": "System Scope",
+        "central_event": "Central Event",
+        "hazard_statement": "Hazard Statement",
+        "initial_assessment": "Initial Risk Assessment",
+    }
+    missing_items = [label for key, label in labels.items() if not checks[key]]
+    return {
+        "is_ready": not missing_items,
+        "missing_items": missing_items,
+        "checks": checks,
+    }
+
+
 def submit_risk_record(
     db: Session,
     *,
@@ -304,6 +342,13 @@ def submit_risk_record(
         raise RiskRecordBusinessRuleError("Archived or inactive risks cannot be submitted")
     if risk_record.workflow_status != RiskWorkflowStatus.DRAFT:
         raise RiskRecordBusinessRuleError("Only DRAFT risks can be submitted")
+    readiness = get_risk_submission_readiness(db, risk_record=risk_record)
+    if not readiness["is_ready"]:
+        missing_items = ", ".join(readiness["missing_items"])
+        raise RiskRecordBusinessRuleError(
+            "Risk cannot be submitted until the risk package and initial assessment "
+            f"are complete. Missing: {missing_items}."
+        )
 
     old_status = risk_record.workflow_status
     risk_record.workflow_status = RiskWorkflowStatus.SUBMITTED_TO_OPERATIONAL_BOARD

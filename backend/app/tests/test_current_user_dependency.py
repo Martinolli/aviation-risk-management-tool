@@ -130,7 +130,13 @@ def test_valid_header_attributes_workflow_operations(
 
     risk_response = client.post(
         "/risks",
-        json={**_risk_payload(), "board_of_origin_id": str(committee.id)},
+        json={
+            **_risk_payload(),
+            "board_of_origin_id": str(committee.id),
+            "system_scope": "Flight test aircraft",
+            "central_event": "Unexpected vibration during taxi",
+            "hazard_statement": "Vibration may cause loss of component integrity",
+        },
         headers=headers,
     )
     risk_id = uuid.UUID(risk_response.json()["id"])
@@ -139,16 +145,6 @@ def test_valid_header_attributes_workflow_operations(
     assert db_session.get(RiskRecord, risk_id).created_by_user_id == user.id
     assert _audit_log(
         db_session, entity_id=risk_id, action=AuditAction.CREATE
-    ).changed_by_user_id == user.id
-
-    submit_response = client.post(
-        f"/risks/{risk_id}/submit",
-        json={"reason": "Ready for review"},
-        headers=headers,
-    )
-    assert submit_response.status_code == 200
-    assert _audit_log(
-        db_session, entity_id=risk_id, action=AuditAction.SUBMIT
     ).changed_by_user_id == user.id
 
     assessment_response = client.post(
@@ -164,6 +160,16 @@ def test_valid_header_attributes_workflow_operations(
     )
     assert assessment_response.status_code == 201
     assert assessment_response.json()["assessed_by_user_id"] == str(user.id)
+
+    submit_response = client.post(
+        f"/risks/{risk_id}/submit",
+        json={"reason": "Ready for review"},
+        headers=headers,
+    )
+    assert submit_response.status_code == 200
+    assert _audit_log(
+        db_session, entity_id=risk_id, action=AuditAction.SUBMIT
+    ).changed_by_user_id == user.id
 
     action_response = client.post(
         "/risk-actions",

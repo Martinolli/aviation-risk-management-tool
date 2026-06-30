@@ -1059,11 +1059,24 @@ function getNextAction({
     };
   }
 
+  if (risk.workflow_status === "DRAFT" && !risk.board_of_origin_id) {
+    return {
+      title: "Assign Board of Origin",
+      description:
+        "Assign the originating LOW operational board before submission.",
+      statusTone: "warning",
+      checklist: [
+        "Board of Origin / Originating Committee is not assigned.",
+        "A Board of Origin is required before submission.",
+      ],
+    };
+  }
+
   if (risk.workflow_status === "DRAFT" && !isMinimumRiskPackageComplete(risk)) {
     return {
       title: "Complete risk package",
       description:
-        "Add system scope, central event, hazard statement, causes, consequences, and existing controls before initial assessment.",
+        "Add system scope, central event, and hazard statement before initial assessment.",
       linkLabel: canEditRiskPackage ? "Complete risk package" : undefined,
       linkTo: canEditRiskPackage ? `/risks/${risk.id}/package/edit` : undefined,
       statusTone: "warning",

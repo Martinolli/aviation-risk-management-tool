@@ -15,15 +15,18 @@ from app.models.enums import (
     AuditAction,
     AuthorityLevel,
     CommitteeType,
+    RiskAssessmentType,
     RiskDomain,
     RiskLifecycleStatus,
     RiskWorkflowStatus,
 )
-from app.schemas.risk import RiskRecordCreate, RiskRecordUpdate
+from app.models.risk import RiskAssessment, RiskRecord
 from app.models.user import User
+from app.schemas.risk import RiskRecordCreate, RiskRecordUpdate
 from app.services.risk_service import (
     RiskRecordBusinessRuleError,
     create_risk_record,
+    get_risk_submission_readiness,
     list_risk_records,
     submit_risk_record,
     update_risk_record,
@@ -86,6 +89,25 @@ def _create_user(db_session: Session, *, is_active: bool = True) -> User:
     db_session.add(user)
     db_session.flush()
     return user
+
+
+def _make_risk_ready(db_session: Session, risk_record: RiskRecord) -> None:
+    if risk_record.board_of_origin_id is None:
+        risk_record.board_of_origin_id = _create_board(db_session).id
+    risk_record.system_scope = "Flight test aircraft"
+    risk_record.central_event = "Unexpected vibration during taxi"
+    risk_record.hazard_statement = "Vibration may cause loss of component integrity"
+    db_session.add(
+        RiskAssessment(
+            risk_record_id=risk_record.id,
+            assessment_type=RiskAssessmentType.INITIAL,
+            severity="Major",
+            likelihood="Remote",
+            risk_level="Medium",
+            assessed_at=datetime.now(timezone.utc),
+        )
+    )
+    db_session.flush()
 
 
 def test_create_risk_with_required_problem_description_succeeds(
@@ -216,6 +238,7 @@ def test_submit_risk_enforces_active_creator_or_owner(db_session: Session) -> No
         data=_risk_data(problem_description="Owner assigned risk", owner_user_id=owner.id),
         created_by_user_id=creator.id,
     )
+    _make_risk_ready(db_session, owner_assigned_risk)
     submitted_risk = submit_risk_record(
         db_session,
         risk_record_id=owner_assigned_risk.id,
@@ -448,6 +471,11 @@ def test_submit_draft_risk_succeeds_and_writes_submit_audit_log(
     risk_record = create_risk_record(
         db_session, data=_risk_data(), created_by_user_id=user.id
     )
+    _make_risk_ready(db_session, risk_record)
+    readiness = get_risk_submission_readiness(db_session, risk_record=risk_record)
+
+    assert readiness["is_ready"] is True
+    assert readiness["missing_items"] == []
 
     submitted_risk = submit_risk_record(
         db_session,
@@ -480,6 +508,7 @@ def test_submit_non_draft_risk_raises_business_rule_error(
     risk_record = create_risk_record(
         db_session, data=_risk_data(), created_by_user_id=user.id
     )
+    _make_risk_ready(db_session, risk_record)
     submit_risk_record(
         db_session, risk_record_id=risk_record.id, changed_by_user_id=user.id
     )
@@ -488,6 +517,94 @@ def test_submit_non_draft_risk_raises_business_rule_error(
         submit_risk_record(
             db_session, risk_record_id=risk_record.id, changed_by_user_id=user.id
         )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "missing_label", "missing_value"),
+    [
+        ("board_of_origin_id", "Board of Origin / Originating Committee", None),
+        ("system_scope", "System Scope", "   "),
+        ("central_event", "Central Event", None),
+        ("hazard_statement", "Hazard Statement", ""),
+    ],
+)
+def test_submit_risk_rejects_each_missing_package_requirement(
+    db_session: Session,
+    field_name: str,
+    missing_label: str,
+    missing_value: object,
+) -> None:
+    user = _create_user(db_session)
+    risk_record = create_risk_record(
+        db_session, data=_risk_data(), created_by_user_id=user.id
+    )
+    _make_risk_ready(db_session, risk_record)
+    setattr(risk_record, field_name, missing_value)
+    db_session.flush()
+
+    with pytest.raises(RiskRecordBusinessRuleError, match=missing_label):
+        submit_risk_record(
+            db_session,
+            risk_record_id=risk_record.id,
+            changed_by_user_id=user.id,
+        )
+
+
+def test_submit_risk_rejects_missing_initial_assessment(db_session: Session) -> None:
+    user = _create_user(db_session)
+    board = _create_board(db_session)
+    risk_record = create_risk_record(
+        db_session,
+        data=_risk_data(
+            board_of_origin_id=board.id,
+            system_scope="Flight test aircraft",
+            central_event="Unexpected vibration during taxi",
+            hazard_statement="Vibration may cause loss of component integrity",
+        ),
+        created_by_user_id=user.id,
+    )
+
+    with pytest.raises(RiskRecordBusinessRuleError, match="Initial Risk Assessment"):
+        submit_risk_record(
+            db_session,
+            risk_record_id=risk_record.id,
+            changed_by_user_id=user.id,
+        )
+
+
+def test_submission_readiness_lists_all_missing_items(db_session: Session) -> None:
+    user = _create_user(db_session)
+    risk_record = create_risk_record(
+        db_session, data=_risk_data(), created_by_user_id=user.id
+    )
+
+    readiness = get_risk_submission_readiness(db_session, risk_record=risk_record)
+
+    assert readiness == {
+        "is_ready": False,
+        "missing_items": [
+            "Board of Origin / Originating Committee",
+            "System Scope",
+            "Central Event",
+            "Hazard Statement",
+            "Initial Risk Assessment",
+        ],
+        "checks": {
+            "board_of_origin": False,
+            "system_scope": False,
+            "central_event": False,
+            "hazard_statement": False,
+            "initial_assessment": False,
+        },
+    }
+    with pytest.raises(RiskRecordBusinessRuleError) as exc_info:
+        submit_risk_record(
+            db_session,
+            risk_record_id=risk_record.id,
+            changed_by_user_id=user.id,
+        )
+    for missing_item in readiness["missing_items"]:
+        assert missing_item in str(exc_info.value)
 
 
 def test_list_risk_records_excludes_archived_by_default(

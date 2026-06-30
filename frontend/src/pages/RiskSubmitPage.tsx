@@ -11,6 +11,19 @@ type RiskSubmitState =
   | { status: "success"; detail: RiskDetailResponse }
   | { status: "error"; message: string };
 
+interface SubmissionReadinessCheck {
+  label: string;
+  isComplete: boolean;
+  actionTo?: string;
+  actionLabel?: string;
+}
+
+interface SubmissionReadiness {
+  isReady: boolean;
+  missingItems: string[];
+  checks: SubmissionReadinessCheck[];
+}
+
 export function RiskSubmitPage() {
   const { isAuthenticated, token } = useAuth();
   const { riskRecordId } = useParams();
@@ -131,9 +144,10 @@ export function RiskSubmitPage() {
     );
   }
 
-  const initialAssessmentExists = (riskDetail.detail.assessments ?? []).some(
-    (assessment) => assessment.assessment_type === "INITIAL",
-  );
+  const readiness = getSubmissionReadiness(risk, riskDetail.detail);
+  const initialAssessmentExists = readiness.checks.find(
+    (check) => check.label === "Initial Risk Assessment",
+  )?.isComplete;
 
   return (
     <section className="risk-submit-page" aria-labelledby="submit-risk-heading">
@@ -169,9 +183,32 @@ export function RiskSubmitPage() {
         <p className="detail-copy">{risk.problem_description}</p>
       </section>
 
-      {!initialAssessmentExists && (
-        <div className="workflow-warning" role="note">
-          An initial assessment should be recorded before submission.
+      <section className="readiness-checklist" aria-labelledby="submission-readiness-heading">
+        <h2 id="submission-readiness-heading">Submission readiness</h2>
+        <ul>
+          {readiness.checks.map((check) => (
+            <li
+              className={`readiness-item ${check.isComplete ? "complete" : "missing"}`}
+              key={check.label}
+            >
+              <span>{check.label}</span>
+              <span className="readiness-status">
+                {check.isComplete ? "Complete" : "Missing"}
+              </span>
+              {!check.isComplete && check.actionTo && check.actionLabel && (
+                <Link className="readiness-action" to={check.actionTo}>
+                  {check.actionLabel}
+                </Link>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {!readiness.isReady && (
+        <div className="readiness-warning" role="note">
+          This risk cannot be submitted until all required readiness items are
+          complete. Missing: {readiness.missingItems.join(", ")}.
         </div>
       )}
 
@@ -199,7 +236,7 @@ export function RiskSubmitPage() {
         )}
 
         <div className="form-actions">
-          <button disabled={isSubmitting} type="submit">
+          <button disabled={isSubmitting || !readiness.isReady} type="submit">
             {isSubmitting ? "Submitting risk..." : "Submit risk"}
           </button>
           <Link className="secondary-link" to={`/risks/${risk.id}`}>
@@ -217,4 +254,52 @@ function getRiskRecord(detail: RiskDetailResponse): RiskRecordRead | null {
 
 function getRiskDisplayId(risk: RiskRecordRead): string {
   return risk.risk_id || risk.id.slice(0, 8);
+}
+
+function getSubmissionReadiness(
+  risk: RiskRecordRead,
+  detail: RiskDetailResponse,
+): SubmissionReadiness {
+  const packageEditAction = {
+    actionTo: `/risks/${risk.id}/package/edit`,
+    actionLabel: "Complete risk package",
+  };
+  const checks: SubmissionReadinessCheck[] = [
+    {
+      label: "Board of Origin / Originating Committee",
+      isComplete: Boolean(risk.board_of_origin_id),
+    },
+    {
+      label: "System Scope",
+      isComplete: Boolean(risk.system_scope?.trim()),
+      ...packageEditAction,
+    },
+    {
+      label: "Central Event",
+      isComplete: Boolean(risk.central_event?.trim()),
+      ...packageEditAction,
+    },
+    {
+      label: "Hazard Statement",
+      isComplete: Boolean(risk.hazard_statement?.trim()),
+      ...packageEditAction,
+    },
+    {
+      label: "Initial Risk Assessment",
+      isComplete: (detail.assessments ?? []).some(
+        (assessment) => assessment.assessment_type === "INITIAL",
+      ),
+      actionTo: `/risks/${risk.id}/assessments/new`,
+      actionLabel: "Add initial assessment",
+    },
+  ];
+  const missingItems = checks
+    .filter((check) => !check.isComplete)
+    .map((check) => check.label);
+
+  return {
+    isReady: missingItems.length === 0,
+    missingItems,
+    checks,
+  };
 }

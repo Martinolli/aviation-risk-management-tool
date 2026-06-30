@@ -241,6 +241,14 @@ def test_full_risk_workflow_through_api(client: TestClient, db_session: Session)
     assert risk["workflow_status"] == "DRAFT"
     assert risk["lifecycle_status"] == "OPEN"
 
+    assessment_headers = _create_assessment_actor_headers(client, risk_record_id, admin_headers)
+    initial_assessment = _create_assessment(
+        client,
+        risk_record_id,
+        "INITIAL",
+        assessment_headers,
+    )
+
     submit_response = client.post(
         f"/risks/{risk_record_id}/submit",
         json={"reason": "Ready for operational board review"},
@@ -251,13 +259,6 @@ def test_full_risk_workflow_through_api(client: TestClient, db_session: Session)
         "SUBMITTED_TO_OPERATIONAL_BOARD"
     )
 
-    assessment_headers = _create_assessment_actor_headers(client, risk_record_id, admin_headers)
-    initial_assessment = _create_assessment(
-        client,
-        risk_record_id,
-        "INITIAL",
-        assessment_headers,
-    )
     action = _create_action(client, risk_record_id)
     action_headers = _create_action_actor_headers(client, risk_record_id, admin_headers)
 
