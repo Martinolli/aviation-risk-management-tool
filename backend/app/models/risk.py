@@ -1,7 +1,18 @@
 from datetime import date, datetime
 import uuid
 
-from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, JSON, String, Text, Uuid
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    JSON,
+    String,
+    Text,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -64,6 +75,44 @@ class RiskRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     assessments: Mapped[list["RiskAssessment"]] = relationship(back_populates="risk_record")
     actions: Mapped[list["RiskAction"]] = relationship(back_populates="risk_record")
     decisions: Mapped[list["RiskDecision"]] = relationship(back_populates="risk_record")
+    evidence_items: Mapped[list["RiskEvidence"]] = relationship(
+        back_populates="risk_record"
+    )
+
+
+class RiskEvidence(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "risk_evidence"
+
+    risk_record_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("risk_records.id"),
+        nullable=False,
+        index=True,
+    )
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    content_type: Mapped[str | None] = mapped_column(String(255))
+    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    uploaded_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
+    )
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False, index=True
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    archived_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    archive_reason: Mapped[str | None] = mapped_column(Text)
+
+    risk_record: Mapped[RiskRecord] = relationship(back_populates="evidence_items")
+    uploaded_by_user = relationship("User", foreign_keys=[uploaded_by_user_id])
+    archived_by_user = relationship("User", foreign_keys=[archived_by_user_id])
 
 
 class RiskAssessment(UUIDPrimaryKeyMixin, TimestampMixin, Base):

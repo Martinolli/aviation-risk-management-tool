@@ -152,6 +152,10 @@ activemq-data/
 backend/.env
 backend/generated_reports/
 !backend/generated_reports/.gitkeep
+backend/evidence_uploads/
+!backend/evidence_uploads/
+backend/evidence_uploads/*
+!backend/evidence_uploads/.gitkeep
 frontend/.env
 frontend/.env.local
 frontend/node_modules/

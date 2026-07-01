@@ -11,6 +11,12 @@ import {
   saveBlobAsFile,
 } from "../api/reports";
 import { getRiskDetail } from "../api/risks";
+import {
+  archiveRiskEvidence,
+  downloadRiskEvidence,
+  listRiskEvidence,
+  uploadRiskEvidence,
+} from "../api/riskEvidence";
 import type {
   AuditLogRead,
   CommitteeRead,
@@ -19,6 +25,7 @@ import type {
   RiskAssessmentRead,
   RiskDecisionRead,
   RiskDetailResponse,
+  RiskEvidenceRead,
   RiskRecordRead,
 } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -36,6 +43,11 @@ type RiskDetailState =
 type RiskReportsState =
   | { status: "idle" | "loading" }
   | { status: "success"; reports: GeneratedReportRead[] }
+  | { status: "error"; message: string };
+
+type RiskEvidenceState =
+  | { status: "idle" | "loading" }
+  | { status: "success"; evidenceItems: RiskEvidenceRead[] }
   | { status: "error"; message: string };
 
 type RiskAuditTrailState =
@@ -72,6 +84,9 @@ export function RiskDetailPage() {
   const [riskReports, setRiskReports] = useState<RiskReportsState>({
     status: "idle",
   });
+  const [riskEvidence, setRiskEvidence] = useState<RiskEvidenceState>({
+    status: "idle",
+  });
   const [riskAuditTrail, setRiskAuditTrail] = useState<RiskAuditTrailState>({
     status: "idle",
   });
@@ -85,6 +100,19 @@ export function RiskDetailPage() {
   );
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(
+    null,
+  );
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+  const [evidenceDescription, setEvidenceDescription] = useState("");
+  const [evidenceMessage, setEvidenceMessage] = useState<string | null>(null);
+  const [evidenceErrorMessage, setEvidenceErrorMessage] = useState<string | null>(
+    null,
+  );
+  const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
+  const [downloadingEvidenceId, setDownloadingEvidenceId] = useState<
+    string | null
+  >(null);
+  const [archivingEvidenceId, setArchivingEvidenceId] = useState<string | null>(
     null,
   );
 
@@ -103,6 +131,7 @@ export function RiskDetailPage() {
         if (isCurrent) {
           setRiskDetail({ status: "loading" });
           setRiskReports({ status: "loading" });
+          setRiskEvidence({ status: "loading" });
           setRiskAuditTrail({ status: "loading" });
           setRiskAuditWarning(null);
           setReportMessage(null);
@@ -118,9 +147,27 @@ export function RiskDetailPage() {
         if (!risk) {
           if (isCurrent) {
             setRiskReports({ status: "idle" });
+            setRiskEvidence({ status: "idle" });
             setRiskAuditTrail({ status: "idle" });
           }
           return;
+        }
+
+        try {
+          const evidenceItems = await listRiskEvidence(tokenToUse, risk.id);
+          if (isCurrent) {
+            setRiskEvidence({ status: "success", evidenceItems });
+          }
+        } catch (error) {
+          if (isCurrent) {
+            setRiskEvidence({
+              status: "error",
+              message:
+                error instanceof ApiError
+                  ? error.message
+                  : "Please try again shortly.",
+            });
+          }
         }
 
         let reports: GeneratedReportRead[] = [];
@@ -188,6 +235,7 @@ export function RiskDetailPage() {
               : "Please try again shortly.",
         });
         setRiskReports({ status: "idle" });
+        setRiskEvidence({ status: "idle" });
         setRiskAuditTrail({ status: "idle" });
         setRiskAuditWarning(null);
       }
@@ -277,6 +325,7 @@ export function RiskDetailPage() {
   }
 
   const assessments = riskDetail.detail.assessments ?? [];
+  const loadedRiskId = risk.id;
   const actions = riskDetail.detail.actions ?? [];
   const decisions = riskDetail.detail.decisions ?? [];
   const boardOfOrigin =
@@ -373,6 +422,100 @@ export function RiskDetailPage() {
       );
     } finally {
       setDownloadingReportId(null);
+    }
+  }
+
+  async function refreshRiskEvidence(riskId: string) {
+    if (!token) {
+      return;
+    }
+    setRiskEvidence({ status: "loading" });
+    try {
+      const evidenceItems = await listRiskEvidence(token, riskId);
+      setRiskEvidence({ status: "success", evidenceItems });
+    } catch (error) {
+      setRiskEvidence({
+        status: "error",
+        message:
+          error instanceof ApiError ? error.message : "Please try again shortly.",
+      });
+    }
+  }
+
+  async function handleUploadEvidence(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token || !evidenceFile) {
+      setEvidenceErrorMessage("Select a supporting document to upload.");
+      return;
+    }
+
+    const form = event.currentTarget;
+    setIsUploadingEvidence(true);
+    setEvidenceMessage(null);
+    setEvidenceErrorMessage(null);
+    try {
+      await uploadRiskEvidence(
+        token,
+        loadedRiskId,
+        evidenceFile,
+        evidenceDescription,
+      );
+      setEvidenceMessage("Evidence uploaded.");
+      setEvidenceFile(null);
+      setEvidenceDescription("");
+      form.reset();
+      await refreshRiskEvidence(loadedRiskId);
+    } catch (error) {
+      setEvidenceErrorMessage(
+        error instanceof ApiError ? error.message : "Unable to upload evidence.",
+      );
+    } finally {
+      setIsUploadingEvidence(false);
+    }
+  }
+
+  async function handleDownloadEvidence(evidence: RiskEvidenceRead) {
+    if (!token) {
+      return;
+    }
+    setDownloadingEvidenceId(evidence.id);
+    setEvidenceErrorMessage(null);
+    try {
+      const blob = await downloadRiskEvidence(token, evidence.id);
+      saveBlobAsFile(blob, evidence.original_filename);
+    } catch (error) {
+      setEvidenceErrorMessage(
+        error instanceof ApiError ? error.message : "Unable to download evidence.",
+      );
+    } finally {
+      setDownloadingEvidenceId(null);
+    }
+  }
+
+  async function handleArchiveEvidence(evidence: RiskEvidenceRead) {
+    if (!token) {
+      return;
+    }
+    const archiveReason = window.prompt("Archive reason?");
+    if (archiveReason === null) {
+      return;
+    }
+
+    setArchivingEvidenceId(evidence.id);
+    setEvidenceMessage(null);
+    setEvidenceErrorMessage(null);
+    try {
+      await archiveRiskEvidence(token, evidence.id, {
+        archive_reason: archiveReason.trim() || null,
+      });
+      setEvidenceMessage("Evidence archived.");
+      await refreshRiskEvidence(loadedRiskId);
+    } catch (error) {
+      setEvidenceErrorMessage(
+        error instanceof ApiError ? error.message : "Unable to archive evidence.",
+      );
+    } finally {
+      setArchivingEvidenceId(null);
     }
   }
 
@@ -695,6 +838,71 @@ export function RiskDetailPage() {
         )}
       </DetailSection>
 
+      <DetailSection title="Evidence / Supporting Documents">
+        <div className="evidence-panel">
+          <form className="evidence-upload-form" onSubmit={handleUploadEvidence}>
+            <label htmlFor="evidence-file">Supporting document</label>
+            <input
+              id="evidence-file"
+              name="evidence-file"
+              onChange={(event) =>
+                setEvidenceFile(event.target.files?.[0] ?? null)
+              }
+              required
+              type="file"
+            />
+            <label htmlFor="evidence-description">Description (optional)</label>
+            <textarea
+              id="evidence-description"
+              name="evidence-description"
+              onChange={(event) => setEvidenceDescription(event.target.value)}
+              rows={3}
+              value={evidenceDescription}
+            />
+            <button disabled={isUploadingEvidence} type="submit">
+              {isUploadingEvidence ? "Uploading evidence..." : "Upload evidence"}
+            </button>
+          </form>
+
+          {evidenceMessage && (
+            <p aria-live="polite" className="evidence-success" role="status">
+              {evidenceMessage}
+            </p>
+          )}
+          {evidenceErrorMessage && (
+            <p className="evidence-warning" role="alert">
+              {evidenceErrorMessage}
+            </p>
+          )}
+
+          {riskEvidence.status === "loading" && (
+            <p aria-live="polite" className="workspace-status" role="status">
+              Loading evidence...
+            </p>
+          )}
+          {riskEvidence.status === "error" && (
+            <div aria-live="polite" className="workspace-alert" role="alert">
+              <strong>Unable to load evidence.</strong>
+              <span>{riskEvidence.message}</span>
+            </div>
+          )}
+          {riskEvidence.status === "success" &&
+            riskEvidence.evidenceItems.length === 0 && (
+              <p className="evidence-empty">No evidence attached yet.</p>
+            )}
+          {riskEvidence.status === "success" &&
+            riskEvidence.evidenceItems.length > 0 && (
+              <EvidenceList
+                archivingEvidenceId={archivingEvidenceId}
+                downloadingEvidenceId={downloadingEvidenceId}
+                evidenceItems={riskEvidence.evidenceItems}
+                onArchive={handleArchiveEvidence}
+                onDownload={handleDownloadEvidence}
+              />
+            )}
+        </div>
+      </DetailSection>
+
       <DetailSection title="Audit trail">
         {riskAuditTrail.status === "loading" && (
           <p aria-live="polite" className="workspace-status" role="status">
@@ -782,6 +990,62 @@ export function RiskDetailPage() {
         )}
       </DetailSection>
     </section>
+  );
+}
+
+function EvidenceList({
+  archivingEvidenceId,
+  downloadingEvidenceId,
+  evidenceItems,
+  onArchive,
+  onDownload,
+}: {
+  archivingEvidenceId: string | null;
+  downloadingEvidenceId: string | null;
+  evidenceItems: RiskEvidenceRead[];
+  onArchive: (evidence: RiskEvidenceRead) => void;
+  onDownload: (evidence: RiskEvidenceRead) => void;
+}) {
+  return (
+    <ul className="evidence-list">
+      {evidenceItems.map((evidence) => (
+        <li className="evidence-item" key={evidence.id}>
+          <div>
+            <strong>{evidence.original_filename}</strong>
+            {evidence.description && <p>{evidence.description}</p>}
+            <div className="evidence-metadata">
+              <span>{evidence.content_type || "Content type not provided"}</span>
+              <span>{formatFileSize(evidence.file_size_bytes)}</span>
+              <span>Uploaded {formatDateTime(evidence.uploaded_at)}</span>
+              <span>{evidence.is_active ? "Active" : "Archived"}</span>
+            </div>
+            {evidence.archive_reason && (
+              <p>Archive reason: {evidence.archive_reason}</p>
+            )}
+          </div>
+          <div className="evidence-actions">
+            <button
+              disabled={downloadingEvidenceId === evidence.id}
+              onClick={() => onDownload(evidence)}
+              type="button"
+            >
+              {downloadingEvidenceId === evidence.id
+                ? "Downloading..."
+                : "Download"}
+            </button>
+            {evidence.is_active && (
+              <button
+                disabled={archivingEvidenceId === evidence.id}
+                onClick={() => onArchive(evidence)}
+                type="button"
+              >
+                {archivingEvidenceId === evidence.id ? "Archiving..." : "Archive"}
+              </button>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -1383,6 +1647,16 @@ function formatOptionalBoolean(value: boolean | null | undefined): string {
 
 function formatReportType(value: string): string {
   return value.replace(/_/g, " ") || "Report";
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function isActionCompleted(action: {

@@ -13,7 +13,13 @@ from app.models.enums import (
 )
 from app.models.llm import LLMAnalysis
 from app.models.report import GeneratedReport
-from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
+from app.models.risk import (
+    RiskAction,
+    RiskAssessment,
+    RiskDecision,
+    RiskEvidence,
+    RiskRecord,
+)
 from app.models.role import Role
 from app.models.risk_matrix import (
     RiskLevel,
@@ -38,6 +44,7 @@ __all__ = [
     "RiskAssessmentType",
     "RiskDecision",
     "RiskDecisionType",
+    "RiskEvidence",
     "RiskDomain",
     "RiskLifecycleStatus",
     "RiskLevel",

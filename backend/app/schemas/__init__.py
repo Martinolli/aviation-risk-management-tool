@@ -35,6 +35,11 @@ from app.schemas.risk_assessment import (
 )
 from app.schemas.risk_decision import RiskDecisionCreate, RiskDecisionRead
 from app.schemas.risk_detail import RiskAuditSummary, RiskRecordDetailRead
+from app.schemas.risk_evidence import (
+    RiskEvidenceArchive,
+    RiskEvidenceRead,
+    RiskEvidenceUploadMetadata,
+)
 from app.schemas.risk_matrix import (
     RiskLevelCreate,
     RiskLevelRead,
@@ -86,6 +91,9 @@ __all__ = [
     "RiskRecordRead",
     "RiskRecordSubmit",
     "RiskRecordUpdate",
+    "RiskEvidenceArchive",
+    "RiskEvidenceRead",
+    "RiskEvidenceUploadMetadata",
     "RiskLevelCreate",
     "RiskLevelRead",
     "RiskLevelUpdate",

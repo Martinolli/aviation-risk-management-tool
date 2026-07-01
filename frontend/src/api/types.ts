@@ -192,6 +192,27 @@ export interface RiskActionCompleteRequest {
   completion_notes?: string | null;
 }
 
+export interface RiskEvidenceRead {
+  id: string;
+  risk_record_id: string;
+  original_filename: string;
+  content_type?: string | null;
+  file_size_bytes: number;
+  description?: string | null;
+  uploaded_by_user_id?: string | null;
+  uploaded_at: string;
+  is_active: boolean;
+  archived_at?: string | null;
+  archived_by_user_id?: string | null;
+  archive_reason?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface RiskEvidenceArchiveRequest {
+  archive_reason?: string | null;
+}
+
 export interface CommitteeRead {
   id: string;
   name: string;

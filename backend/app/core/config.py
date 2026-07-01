@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = (
         "http://localhost:5174,http://127.0.0.1:5174"
     )
+    evidence_storage_dir: str = "backend/evidence_uploads"
+    max_evidence_upload_mb: int = 25
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
@@ -28,6 +30,10 @@ class Settings(BaseSettings):
             for origin in self.cors_allowed_origins.split(",")
             if origin.strip()
         ]
+
+    @property
+    def max_evidence_upload_bytes(self) -> int:
+        return self.max_evidence_upload_mb * 1024 * 1024
 
 
 @lru_cache
