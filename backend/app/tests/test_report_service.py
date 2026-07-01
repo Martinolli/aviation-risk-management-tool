@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 from docx import Document
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -23,7 +24,13 @@ from app.models.enums import (
     RiskLifecycleStatus,
     RiskWorkflowStatus,
 )
-from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
+from app.models.risk import (
+    RiskAction,
+    RiskAssessment,
+    RiskDecision,
+    RiskEvidence,
+    RiskRecord,
+)
 from app.services.report_service import (
     ReportRiskNotFoundError,
     generate_risk_dossier_docx,
@@ -138,6 +145,46 @@ def _seed_report_detail(db_session: Session, risk_record: RiskRecord) -> None:
     db_session.flush()
 
 
+def _create_evidence(
+    db_session: Session,
+    risk_record: RiskRecord,
+    *,
+    filename: str = "flight-test-evidence.pdf",
+    description: str = "Flight test supporting document",
+    storage_path: str = "unused/report-metadata-only.pdf",
+    file_size_bytes: int = 2048,
+    is_active: bool = True,
+) -> RiskEvidence:
+    now = datetime.now(timezone.utc)
+    evidence = RiskEvidence(
+        risk_record_id=risk_record.id,
+        original_filename=filename,
+        stored_filename=f"{uuid.uuid4()}_{filename}",
+        storage_path=storage_path,
+        content_type="application/pdf",
+        file_size_bytes=file_size_bytes,
+        description=description,
+        uploaded_at=now,
+        is_active=is_active,
+        archived_at=None if is_active else now,
+        archive_reason=None if is_active else "Superseded evidence",
+    )
+    db_session.add(evidence)
+    db_session.flush()
+    db_session.add(
+        AuditLog(
+            entity_type="RiskEvidence",
+            entity_id=evidence.id,
+            action=AuditAction.CREATE if is_active else AuditAction.ARCHIVE,
+            changed_at=now,
+            new_value={"original_filename": filename},
+            reason=None if is_active else "Superseded evidence",
+        )
+    )
+    db_session.flush()
+    return evidence
+
+
 def _docx_text(path: Path) -> str:
     document = Document(path)
     pieces: list[str] = [paragraph.text for paragraph in document.paragraphs]
@@ -235,7 +282,141 @@ def test_generated_report_contains_board_of_origin_traceability(
     assert "Board of Origin / Originating Committee" in report_text
     assert board.name in report_text
     assert f"Board of Origin ID: {board.id}" in report_text
-    assert "Board of Origin Authority Level: LOW" in report_text
+    assert "Board of Origin Authority Level: Low" in report_text
+
+
+def test_generated_report_contains_evidence_and_audit_annex_sections(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    path, _risk_record = _generate_report(db_session, tmp_path)
+    report_text = _docx_text(path)
+
+    assert "Section 6 - Evidence / Supporting Documents" in report_text
+    assert "No evidence or supporting documents recorded." in report_text
+    assert "Section 8 - Audit Trail Annex" in report_text
+    assert "Create" in report_text
+    assert "Section 9 - Notes / Disclaimer" in report_text
+
+
+def test_generated_report_contains_active_and_archived_evidence_metadata(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    _seed_report_detail(db_session, risk_record)
+    active = _create_evidence(db_session, risk_record)
+    archived = _create_evidence(
+        db_session,
+        risk_record,
+        filename="archived-evidence.txt",
+        description="Archived supporting note",
+        is_active=False,
+    )
+
+    path = generate_risk_dossier_docx(
+        db_session,
+        risk_record_id=risk_record.id,
+        output_dir=tmp_path / "reports",
+    )
+    report_text = _docx_text(path)
+
+    assert active.original_filename in report_text
+    assert active.description in report_text
+    assert archived.original_filename in report_text
+    assert archived.description in report_text
+    assert "2.0 KB" in report_text
+    assert "Active" in report_text
+    assert "Archived" in report_text
+    assert "Superseded evidence" in report_text
+    assert "Evidence Records: 2" in report_text
+    assert "RiskEvidence" in report_text
+    assert "Archive" in report_text
+
+
+def test_generated_report_uses_committee_name_and_authority_level(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    path, _risk_record = _generate_report(db_session, tmp_path)
+    committee = db_session.scalar(select(Committee))
+    assert committee is not None
+    report_text = _docx_text(path)
+
+    assert committee.name in report_text
+    assert "Authority Level" in report_text
+    assert "Low" in report_text
+
+
+def test_generated_report_with_only_create_audit_still_generates(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    db_session.add(
+        AuditLog(
+            entity_type="RiskRecord",
+            entity_id=risk_record.id,
+            action=AuditAction.CREATE,
+            changed_at=datetime.now(timezone.utc),
+        )
+    )
+    db_session.flush()
+
+    path = generate_risk_dossier_docx(
+        db_session,
+        risk_record_id=risk_record.id,
+        output_dir=tmp_path / "reports",
+    )
+
+    assert path.is_file()
+    assert "Total Audit Records: 1" in _docx_text(path)
+
+
+def test_evidence_file_binary_is_not_embedded_in_docx(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    payload = b"TASK074_UNIQUE_EVIDENCE_BINARY_PAYLOAD"
+    evidence_path = tmp_path / "source-evidence.bin"
+    evidence_path.write_bytes(payload)
+    _create_evidence(
+        db_session,
+        risk_record,
+        filename=evidence_path.name,
+        storage_path=str(evidence_path),
+        file_size_bytes=len(payload),
+    )
+
+    path = generate_risk_dossier_docx(
+        db_session,
+        risk_record_id=risk_record.id,
+        output_dir=tmp_path / "reports",
+    )
+
+    with ZipFile(path) as archive:
+        member_names = archive.namelist()
+        assert not any(name.startswith("word/embeddings/") for name in member_names)
+        assert not any(payload in archive.read(name) for name in member_names)
+
+
+def test_report_tables_use_grid_style_and_bold_headers(
+    db_session: Session,
+    tmp_path: Path,
+) -> None:
+    path, _risk_record = _generate_report(db_session, tmp_path)
+    document = Document(path)
+    assessment_table = next(
+        table for table in document.tables if table.cell(0, 0).text == "Type"
+    )
+
+    assert assessment_table.style.name == "Table Grid"
+    assert all(
+        run.bold
+        for cell in assessment_table.rows[0].cells
+        for run in cell.paragraphs[0].runs
+    )
 
 
 def test_generating_report_for_unknown_risk_raises_not_found(

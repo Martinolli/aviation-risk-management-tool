@@ -21,7 +21,13 @@ from app.models.enums import (
     RiskLifecycleStatus,
     RiskWorkflowStatus,
 )
-from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
+from app.models.risk import (
+    RiskAction,
+    RiskAssessment,
+    RiskDecision,
+    RiskEvidence,
+    RiskRecord,
+)
 from app.models.user import User
 from app.services.risk_detail_service import (
     RiskDetailBusinessRuleError,
@@ -205,6 +211,30 @@ def _create_audit_log(
     return audit_log
 
 
+def _create_evidence(
+    db_session: Session,
+    risk_record_id: uuid.UUID,
+    uploaded_at: datetime,
+    *,
+    is_active: bool = True,
+) -> RiskEvidence:
+    evidence = RiskEvidence(
+        risk_record_id=risk_record_id,
+        original_filename=f"evidence-{uuid.uuid4()}.txt",
+        stored_filename=f"{uuid.uuid4()}_evidence.txt",
+        storage_path="unused/evidence.txt",
+        content_type="text/plain",
+        file_size_bytes=10,
+        uploaded_at=uploaded_at,
+        is_active=is_active,
+        archived_at=None if is_active else uploaded_at,
+    )
+    db_session.add(evidence)
+    db_session.flush()
+    _set_created_at(db_session, evidence, uploaded_at)
+    return evidence
+
+
 def test_get_risk_record_detail_returns_risk_record(db_session: Session) -> None:
     risk_record = _create_risk_record(db_session)
 
@@ -234,6 +264,8 @@ def test_detail_includes_related_resources_for_the_risk(db_session: Session) -> 
     assert detail["assessments"] == [assessment]
     assert detail["actions"] == [action]
     assert detail["decisions"] == [decision]
+    assert detail["evidence_items"] == []
+    assert detail["audit_logs"] == []
 
 
 def test_detail_excludes_related_resources_from_other_risks(
@@ -343,8 +375,71 @@ def test_audit_summary_counts_and_latest_changed_at(db_session: Session) -> None
     assert summary["create_count"] == 1
     assert summary["update_count"] == 1
     assert summary["workflow_count"] == 2
+    assert summary["evidence_count"] == 0
     assert summary["latest_changed_at"].replace(tzinfo=timezone.utc) == (
         now + timedelta(minutes=3)
+    )
+
+
+def test_detail_includes_all_evidence_and_related_audit_logs(
+    db_session: Session,
+) -> None:
+    now = datetime.now(timezone.utc)
+    risk_record = _create_risk_record(db_session)
+    committee = _create_committee(db_session)
+    assessment = _create_assessment(db_session, risk_record.id, now)
+    action = _create_action(db_session, risk_record.id, now)
+    decision = _create_decision(db_session, risk_record.id, committee.id, now)
+    older_evidence = _create_evidence(db_session, risk_record.id, now, is_active=False)
+    newer_evidence = _create_evidence(
+        db_session, risk_record.id, now + timedelta(minutes=1)
+    )
+    entity_scopes = [
+        ("RiskRecord", risk_record.id, AuditAction.CREATE),
+        ("RiskAssessment", assessment.id, AuditAction.CREATE),
+        ("RiskAction", action.id, AuditAction.UPDATE),
+        ("RiskDecision", decision.id, AuditAction.APPROVE),
+        ("RiskEvidence", older_evidence.id, AuditAction.ARCHIVE),
+        ("RiskEvidence", newer_evidence.id, AuditAction.CREATE),
+    ]
+    for index, (entity_type, entity_id, audit_action) in enumerate(entity_scopes):
+        db_session.add(
+            AuditLog(
+                entity_type=entity_type,
+                entity_id=entity_id,
+                action=audit_action,
+                changed_at=now + timedelta(minutes=index),
+            )
+        )
+    unrelated = _create_risk_record(db_session)
+    db_session.add(
+        AuditLog(
+            entity_type="RiskRecord",
+            entity_id=unrelated.id,
+            action=AuditAction.UPDATE,
+            changed_at=now + timedelta(minutes=10),
+        )
+    )
+    db_session.flush()
+
+    detail = get_risk_record_detail(
+        db_session,
+        risk_record_id=risk_record.id,
+        requested_by_user_id=risk_record.created_by_user_id,
+    )
+    summary = detail["audit_summary"]
+
+    assert detail["evidence_items"] == [newer_evidence, older_evidence]
+    assert [log.entity_type for log in detail["audit_logs"]] == [
+        scope[0] for scope in entity_scopes
+    ]
+    assert summary["total_count"] == 6
+    assert summary["create_count"] == 3
+    assert summary["update_count"] == 1
+    assert summary["workflow_count"] == 1
+    assert summary["evidence_count"] == 2
+    assert summary["latest_changed_at"].replace(tzinfo=timezone.utc) == (
+        now + timedelta(minutes=5)
     )
 
 
