@@ -20,6 +20,7 @@ from app.services.risk_monitoring_service import (
     close_risk_monitoring_review,
     complete_risk_monitoring_review,
     create_risk_monitoring_review,
+    get_my_monitoring_reviews,
     list_risk_monitoring_reviews,
     update_risk_monitoring_review,
 )
@@ -41,6 +42,22 @@ def _not_found(exc: RiskMonitoringReviewNotFoundError) -> HTTPException:
 
 def _business_rule(exc: RiskMonitoringReviewBusinessRuleError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@router.get("/my", response_model=list[RiskMonitoringReviewRead])
+def get_my_monitoring_reviews_endpoint(
+    include_closed: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    try:
+        return get_my_monitoring_reviews(
+            db,
+            requested_by_user_id=get_optional_current_user_id(current_user),
+            include_closed=include_closed,
+        )
+    except RiskMonitoringReviewBusinessRuleError as exc:
+        raise _business_rule(exc) from exc
 
 
 @router.get(

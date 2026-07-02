@@ -26,6 +26,7 @@ export function AppLayout() {
                 <NavLink to="/dashboard">Dashboard</NavLink>
                 <NavLink to="/risks">Risks</NavLink>
                 <NavLink to="/my-decisions">My Queue</NavLink>
+                <NavLink to="/my-monitoring">My Monitoring</NavLink>
                 <NavLink to="/reports">Reports</NavLink>
                 <NavLink to="/audit-trail">Audit Trail</NavLink>
                 <NavLink to="/admin/governance">Admin</NavLink>

@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from sqlalchemy import case, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 import app.services.audit_service as audit_service
 from app.models.enums import (
@@ -151,6 +151,56 @@ def list_risk_monitoring_reviews(
         RiskMonitoringReview.created_at.desc(),
     )
     return list(db.scalars(statement).all())
+
+
+def get_my_monitoring_reviews(
+    db: Session,
+    *,
+    requested_by_user_id: uuid.UUID | None,
+    include_closed: bool = False,
+) -> list[RiskMonitoringReview]:
+    reader = _validate_actor(
+        db,
+        user_id=requested_by_user_id,
+        context="My Monitoring access",
+    )
+    statement = (
+        select(RiskMonitoringReview)
+        .options(selectinload(RiskMonitoringReview.risk_record))
+        .where(RiskMonitoringReview.is_active.is_(True))
+        .order_by(RiskMonitoringReview.created_at.desc())
+    )
+    if not include_closed:
+        statement = statement.where(
+            RiskMonitoringReview.status.not_in(
+                (RiskMonitoringStatus.CLOSED, RiskMonitoringStatus.CANCELLED)
+            )
+        )
+
+    readable_reviews = [
+        review
+        for review in db.scalars(statement).all()
+        if can_read_risk_record(
+            db,
+            risk_record=review.risk_record,
+            user_id=reader.id,
+        )
+    ]
+    status_priority = {
+        RiskMonitoringStatus.OVERDUE: 0,
+        RiskMonitoringStatus.DUE: 1,
+        RiskMonitoringStatus.ACTIVE: 2,
+        RiskMonitoringStatus.CLOSED: 3,
+        RiskMonitoringStatus.CANCELLED: 4,
+    }
+    return sorted(
+        readable_reviews,
+        key=lambda review: (
+            status_priority[review.status],
+            review.next_review_date is None,
+            review.next_review_date or date.max,
+        ),
+    )
 
 
 def create_risk_monitoring_review(

@@ -53,6 +53,21 @@ export function listRiskMonitoringReviews(
   );
 }
 
+export async function listMyMonitoringReviews(
+  token: string,
+  params: { includeClosed?: boolean } = {},
+): Promise<RiskMonitoringReviewRead[]> {
+  const query = new URLSearchParams();
+  if (params.includeClosed) {
+    query.set("include_closed", "true");
+  }
+  const queryString = query.toString();
+  return apiRequest<RiskMonitoringReviewRead[]>(
+    `/risk-monitoring/my${queryString ? `?${queryString}` : ""}`,
+    { token },
+  );
+}
+
 export function createRiskMonitoringReview(
   token: string,
   request: RiskMonitoringReviewCreateRequest,

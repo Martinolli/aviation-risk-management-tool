@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import { listMyMonitoringReviews } from "../api/riskMonitoring";
 import { listRisks } from "../api/risks";
-import type { RiskRecordRead } from "../api/types";
+import type { RiskMonitoringReviewRead, RiskRecordRead } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import {
   getRiskPackageStatusLabel,
@@ -12,7 +13,12 @@ import {
 
 type DashboardState =
   | { status: "loading" }
-  | { status: "success"; risks: RiskRecordRead[] }
+  | {
+      status: "success";
+      risks: RiskRecordRead[];
+      monitoringReviews: RiskMonitoringReviewRead[];
+      monitoringUnavailable: boolean;
+    }
   | { status: "error"; message: string };
 
 interface DistributionGroup {
@@ -71,21 +77,32 @@ export function RiskDashboardPage() {
     const tokenToUse = token;
 
     async function loadDashboard() {
-      try {
-        const risks = await listRisks(tokenToUse);
-        if (isCurrent) {
-          setDashboardState({ status: "success", risks });
-        }
-      } catch (error) {
+      const [riskResult, monitoringResult] = await Promise.allSettled([
+        listRisks(tokenToUse),
+        listMyMonitoringReviews(tokenToUse, { includeClosed: true }),
+      ]);
+
+      if (riskResult.status === "rejected") {
         if (isCurrent) {
           setDashboardState({
             status: "error",
             message:
-              error instanceof ApiError
-                ? error.message
+              riskResult.reason instanceof ApiError
+                ? riskResult.reason.message
                 : "Please try again shortly.",
           });
         }
+        return;
+      }
+
+      if (isCurrent) {
+        setDashboardState({
+          status: "success",
+          risks: riskResult.value,
+          monitoringReviews:
+            monitoringResult.status === "fulfilled" ? monitoringResult.value : [],
+          monitoringUnavailable: monitoringResult.status === "rejected",
+        });
       }
     }
 
@@ -120,6 +137,10 @@ export function RiskDashboardPage() {
   }
 
   const risks = dashboardState.risks;
+  const monitoringReviews = dashboardState.monitoringReviews;
+  const priorityMonitoringReviews = monitoringReviews
+    .filter((review) => ["OVERDUE", "DUE"].includes(review.status))
+    .slice(0, 5);
   const draftRisks = risks.filter(isDraftRisk);
   const packageReadyDrafts = draftRisks.filter(isPackageMinimumComplete);
   const incompleteDraftCount = draftRisks.length - packageReadyDrafts.length;
@@ -158,6 +179,11 @@ export function RiskDashboardPage() {
       value: packageReadyDrafts.length,
       detail: "Board of Origin and minimum package complete",
     },
+    {
+      label: "Monitoring risks",
+      value: risks.filter((risk) => risk.lifecycle_status === "MONITORING").length,
+      detail: "Lifecycle status: MONITORING",
+    },
   ];
 
   return (
@@ -184,6 +210,78 @@ export function RiskDashboardPage() {
             <small>{kpi.detail}</small>
           </article>
         ))}
+      </section>
+
+      <section
+        className="dashboard-section monitoring-dashboard-snapshot"
+        aria-labelledby="monitoring-dashboard-heading"
+      >
+        <div className="dashboard-section-header">
+          <div>
+            <p className="eyebrow">Review cycle</p>
+            <h2 id="monitoring-dashboard-heading">Monitoring review snapshot</h2>
+          </div>
+          <Link className="secondary-link" to="/my-monitoring">
+            View My Monitoring
+          </Link>
+        </div>
+
+        {dashboardState.monitoringUnavailable ? (
+          <p className="monitoring-snapshot-warning" role="status">
+            Monitoring snapshot unavailable.
+          </p>
+        ) : (
+          <>
+            <div className="monitoring-kpi-grid dashboard-monitoring-kpis">
+              <article className="monitoring-card overdue">
+                <span>Overdue reviews</span>
+                <strong>{countMonitoringStatus(monitoringReviews, "OVERDUE")}</strong>
+              </article>
+              <article className="monitoring-card due">
+                <span>Due today</span>
+                <strong>{countMonitoringStatus(monitoringReviews, "DUE")}</strong>
+              </article>
+              <article className="monitoring-card active">
+                <span>Active reviews</span>
+                <strong>{countMonitoringStatus(monitoringReviews, "ACTIVE")}</strong>
+              </article>
+              <article className="monitoring-card closed">
+                <span>Closed reviews</span>
+                <strong>
+                  {
+                    monitoringReviews.filter((review) =>
+                      ["CLOSED", "CANCELLED"].includes(review.status),
+                    ).length
+                  }
+                </strong>
+              </article>
+            </div>
+
+            {priorityMonitoringReviews.length === 0 ? (
+              <p className="monitoring-empty">
+                No overdue or due monitoring reviews.
+              </p>
+            ) : (
+              <ul className="monitoring-dashboard-list">
+                {priorityMonitoringReviews.map((review) => (
+                  <li key={review.id}>
+                    <span
+                      className={`monitoring-status-badge ${review.status.toLowerCase()}`}
+                    >
+                      {formatLabel(review.status)}
+                    </span>
+                    <Link to={`/risks/${review.risk_record_id}`}>
+                      Risk {review.risk_record_id.slice(0, 8)}
+                    </Link>
+                    <span>
+                      Next Review Date: {review.next_review_date || "Not scheduled"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
       </section>
 
       <div className="dashboard-section-grid">
@@ -471,6 +569,13 @@ function getDomainGroups(risks: RiskRecordRead[]): DistributionGroup[] {
 
 function getPercentage(count: number, total: number): number {
   return total > 0 ? Math.round((count / total) * 100) : 0;
+}
+
+function countMonitoringStatus(
+  reviews: RiskMonitoringReviewRead[],
+  status: string,
+): number {
+  return reviews.filter((review) => review.status === status).length;
 }
 
 function getRecentRisks(risks: RiskRecordRead[], limit: number): RiskRecordRead[] {

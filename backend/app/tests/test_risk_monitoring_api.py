@@ -13,8 +13,11 @@ from app.core.database import get_db
 from app.main import app
 from app.models.audit import AuditLog
 from app.models.base import Base
+from app.models.committee import Committee, CommitteeMember
 from app.models.enums import (
     AuditAction,
+    AuthorityLevel,
+    CommitteeType,
     RiskDomain,
     RiskLifecycleStatus,
     RiskMonitoringStatus,
@@ -427,3 +430,162 @@ def test_list_orders_active_by_next_review_date_before_closed(
     assert db_session.get(
         RiskMonitoringReview, uuid.UUID(closed["id"])
     ).status == RiskMonitoringStatus.CLOSED
+
+
+def test_my_monitoring_returns_reviews_assigned_to_current_user(
+    client: TestClient, db_session: Session
+) -> None:
+    user = _create_user(db_session)
+    risk = _create_risk(db_session, creator=user)
+    review = _create_review(client, risk, user).json()
+
+    response = client.get("/risk-monitoring/my", headers=_headers(user))
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [review["id"]]
+    assert response.json()[0]["monitoring_owner_user_id"] == str(user.id)
+
+
+def test_my_monitoring_excludes_closed_unless_requested(
+    client: TestClient, db_session: Session
+) -> None:
+    user = _create_user(db_session)
+    risk = _create_risk(db_session, creator=user)
+    review = _create_review(client, risk, user).json()
+    client.post(
+        f"/risk-monitoring/{review['id']}/close",
+        headers=_headers(user),
+        json={"closure_reason": "Complete"},
+    )
+
+    active_response = client.get("/risk-monitoring/my", headers=_headers(user))
+    closed_response = client.get(
+        "/risk-monitoring/my?include_closed=true", headers=_headers(user)
+    )
+
+    assert active_response.status_code == 200
+    assert active_response.json() == []
+    assert [item["id"] for item in closed_response.json()] == [review["id"]]
+    assert closed_response.json()[0]["status"] == "CLOSED"
+
+
+def test_my_monitoring_includes_due_and_overdue_in_priority_order(
+    client: TestClient, db_session: Session
+) -> None:
+    user = _create_user(db_session)
+    risk = _create_risk(db_session, creator=user)
+    active = _create_review(
+        client, risk, user, next_review_date=date.today() + timedelta(days=5)
+    ).json()
+    due = _create_review(
+        client, risk, user, next_review_date=date.today()
+    ).json()
+    overdue = _create_review(
+        client, risk, user, next_review_date=date.today() - timedelta(days=1)
+    ).json()
+    closed = _create_review(
+        client, risk, user, next_review_date=date.today() - timedelta(days=2)
+    ).json()
+    client.post(
+        f"/risk-monitoring/{closed['id']}/close",
+        headers=_headers(user),
+        json={},
+    )
+
+    response = client.get(
+        "/risk-monitoring/my?include_closed=true", headers=_headers(user)
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [
+        overdue["id"],
+        due["id"],
+        active["id"],
+        closed["id"],
+    ]
+    assert [item["status"] for item in response.json()] == [
+        "OVERDUE",
+        "DUE",
+        "ACTIVE",
+        "CLOSED",
+    ]
+
+
+def test_my_monitoring_does_not_expose_unreadable_risk_reviews(
+    client: TestClient, db_session: Session
+) -> None:
+    creator = _create_user(db_session)
+    unrelated = _create_user(db_session)
+    risk = _create_risk(db_session, creator=creator)
+    _create_review(client, risk, creator)
+
+    response = client.get("/risk-monitoring/my", headers=_headers(unrelated))
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_my_monitoring_owner_can_see_assigned_readable_review(
+    client: TestClient, db_session: Session
+) -> None:
+    creator = _create_user(db_session)
+    monitoring_owner = _create_user(db_session)
+    risk = _create_risk(db_session, creator=creator)
+    risk.owner_user_id = monitoring_owner.id
+    db_session.commit()
+    created = client.post(
+        "/risk-monitoring",
+        headers=_headers(creator),
+        json={
+            "risk_record_id": str(risk.id),
+            "monitoring_owner_user_id": str(monitoring_owner.id),
+        },
+    ).json()
+
+    response = client.get(
+        "/risk-monitoring/my", headers=_headers(monitoring_owner)
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [created["id"]]
+
+
+def test_my_monitoring_governance_user_sees_readable_reviews(
+    client: TestClient, db_session: Session
+) -> None:
+    creator = _create_user(db_session)
+    governance_user = _create_user(db_session)
+    risk = _create_risk(db_session, creator=creator)
+    review = _create_review(client, risk, creator).json()
+    committee = Committee(
+        name=f"Governance {uuid.uuid4()}",
+        authority_level=AuthorityLevel.MIDDLE,
+        committee_type=CommitteeType.RISK_MANAGEMENT_COMMITTEE,
+        is_fixed=True,
+        is_active=True,
+    )
+    db_session.add(committee)
+    db_session.flush()
+    db_session.add(
+        CommitteeMember(
+            committee_id=committee.id,
+            user_id=governance_user.id,
+            is_active=True,
+        )
+    )
+    db_session.commit()
+
+    response = client.get(
+        "/risk-monitoring/my", headers=_headers(governance_user)
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [review["id"]]
+
+
+def test_unauthenticated_user_cannot_access_my_monitoring(
+    client: TestClient,
+) -> None:
+    response = client.get("/risk-monitoring/my")
+
+    assert response.status_code == 400
