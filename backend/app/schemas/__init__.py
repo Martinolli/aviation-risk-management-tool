@@ -54,6 +54,13 @@ from app.schemas.risk_matrix import (
     RiskSeverityLevelRead,
     RiskSeverityLevelUpdate,
 )
+from app.schemas.risk_monitoring import (
+    RiskMonitoringReviewClose,
+    RiskMonitoringReviewComplete,
+    RiskMonitoringReviewCreate,
+    RiskMonitoringReviewRead,
+    RiskMonitoringReviewUpdate,
+)
 from app.schemas.report import (
     GenerateRiskDossierReportRequest,
     GeneratedReportRead,
@@ -103,6 +110,11 @@ __all__ = [
     "RiskMatrixCellCreate",
     "RiskMatrixCellRead",
     "RiskMatrixCellUpdate",
+    "RiskMonitoringReviewClose",
+    "RiskMonitoringReviewComplete",
+    "RiskMonitoringReviewCreate",
+    "RiskMonitoringReviewRead",
+    "RiskMonitoringReviewUpdate",
     "RiskSeverityLevelCreate",
     "RiskSeverityLevelRead",
     "RiskSeverityLevelUpdate",

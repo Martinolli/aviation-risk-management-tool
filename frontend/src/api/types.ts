@@ -213,6 +213,44 @@ export interface RiskEvidenceArchiveRequest {
   archive_reason?: string | null;
 }
 
+export type RiskMonitoringStatus =
+  | "ACTIVE"
+  | "DUE"
+  | "OVERDUE"
+  | "CLOSED"
+  | "CANCELLED"
+  | string;
+
+export type RiskMonitoringReviewOutcome =
+  | "CONTINUE_MONITORING"
+  | "EFFECTIVE_CONTROLS"
+  | "CONTROLS_NOT_EFFECTIVE"
+  | "REASSESSMENT_REQUIRED"
+  | "ESCALATION_RECOMMENDED"
+  | "CLOSE_MONITORING"
+  | string;
+
+export interface RiskMonitoringReviewRead {
+  id: string;
+  risk_record_id: string;
+  monitoring_owner_user_id?: string | null;
+  review_frequency?: string | null;
+  next_review_date?: string | null;
+  last_reviewed_at?: string | null;
+  status: RiskMonitoringStatus;
+  review_notes?: string | null;
+  effectiveness_review?: string | null;
+  review_outcome?: RiskMonitoringReviewOutcome | null;
+  reviewed_by_user_id?: string | null;
+  created_by_user_id?: string | null;
+  closed_at?: string | null;
+  closed_by_user_id?: string | null;
+  closure_reason?: string | null;
+  is_active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 export interface CommitteeRead {
   id: string;
   name: string;
@@ -319,5 +357,6 @@ export interface RiskDetailResponse {
   assessments?: RiskAssessmentRead[];
   actions?: RiskActionRead[];
   decisions?: RiskDecisionRead[];
+  monitoring_reviews: RiskMonitoringReviewRead[];
   audit_summary?: RiskAuditSummary;
 }

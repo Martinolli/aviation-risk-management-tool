@@ -1335,6 +1335,166 @@ button:disabled {
   color: #1c4532;
 }
 
+.monitoring-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.monitoring-form,
+.monitoring-review-form {
+  background: #f0f4f8;
+  border-left: 4px solid #486581;
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+}
+
+.monitoring-form label,
+.monitoring-review-form label {
+  color: #334e68;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.monitoring-form input,
+.monitoring-form textarea,
+.monitoring-review-form input,
+.monitoring-review-form select,
+.monitoring-review-form textarea {
+  background: #fff;
+  border: 1px solid #bcccdc;
+  border-radius: 0.35rem;
+  color: #102a43;
+  font: inherit;
+  padding: 0.65rem;
+}
+
+.monitoring-form button,
+.monitoring-review-form button {
+  justify-self: start;
+  margin-top: 0.35rem;
+}
+
+.monitoring-list {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.monitoring-item {
+  border: 1px solid #d9e2ec;
+  border-left: 4px solid #829ab1;
+  border-radius: 0.35rem;
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+}
+
+.monitoring-item-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.monitoring-status {
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.6rem;
+  text-transform: uppercase;
+}
+
+.monitoring-status.active {
+  background: #e3f9e5;
+  color: #1c4532;
+}
+
+.monitoring-status.due {
+  background: #fff8e1;
+  color: #7c2d12;
+}
+
+.monitoring-status.overdue {
+  background: #fff5f5;
+  color: #9b2c2c;
+}
+
+.monitoring-status.closed,
+.monitoring-status.cancelled {
+  background: #e4e7eb;
+  color: #334e68;
+}
+
+.monitoring-metadata {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.monitoring-metadata dt {
+  color: #627d98;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.monitoring-metadata dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.monitoring-item > p {
+  color: #486581;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.monitoring-actions {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.monitoring-review-form h3 {
+  color: #243b53;
+  font-size: 1rem;
+  margin: 0 0 0.25rem;
+}
+
+.monitoring-warning,
+.monitoring-success {
+  border-left: 4px solid;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+}
+
+.monitoring-warning {
+  background: #fff5f5;
+  border-left-color: #c53030;
+  color: #742a2a;
+}
+
+.monitoring-success {
+  background: #e3f9e5;
+  border-left-color: #2f855a;
+  color: #1c4532;
+}
+
+@media (max-width: 720px) {
+  .monitoring-actions,
+  .monitoring-metadata {
+    grid-template-columns: 1fr;
+  }
+}
+
 .detail-list .completed-action-status {
   color: #1c4532;
   font-size: 0.9rem;

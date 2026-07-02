@@ -22,6 +22,8 @@ from app.models.enums import (
     RiskDecisionType,
     RiskDomain,
     RiskLifecycleStatus,
+    RiskMonitoringReviewOutcome,
+    RiskMonitoringStatus,
     RiskWorkflowStatus,
 )
 
@@ -78,6 +80,61 @@ class RiskRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     evidence_items: Mapped[list["RiskEvidence"]] = relationship(
         back_populates="risk_record"
     )
+    monitoring_reviews: Mapped[list["RiskMonitoringReview"]] = relationship(
+        back_populates="risk_record"
+    )
+
+
+class RiskMonitoringReview(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "risk_monitoring_reviews"
+
+    risk_record_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("risk_records.id"),
+        nullable=False,
+        index=True,
+    )
+    monitoring_owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
+    )
+    review_frequency: Mapped[str | None] = mapped_column(String(100))
+    next_review_date: Mapped[date | None] = mapped_column(Date, index=True)
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    status: Mapped[RiskMonitoringStatus] = mapped_column(
+        Enum(RiskMonitoringStatus, native_enum=False),
+        default=RiskMonitoringStatus.ACTIVE,
+        nullable=False,
+        index=True,
+    )
+    review_notes: Mapped[str | None] = mapped_column(Text)
+    effectiveness_review: Mapped[str | None] = mapped_column(Text)
+    review_outcome: Mapped[RiskMonitoringReviewOutcome | None] = mapped_column(
+        Enum(RiskMonitoringReviewOutcome, native_enum=False)
+    )
+    reviewed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    closure_reason: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    risk_record: Mapped[RiskRecord] = relationship(
+        back_populates="monitoring_reviews"
+    )
+    monitoring_owner_user = relationship(
+        "User", foreign_keys=[monitoring_owner_user_id]
+    )
+    reviewed_by_user = relationship("User", foreign_keys=[reviewed_by_user_id])
+    created_by_user = relationship("User", foreign_keys=[created_by_user_id])
+    closed_by_user = relationship("User", foreign_keys=[closed_by_user_id])
 
 
 class RiskEvidence(UUIDPrimaryKeyMixin, TimestampMixin, Base):

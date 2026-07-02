@@ -10,6 +10,7 @@ from app.models.risk import (
     RiskAssessment,
     RiskDecision,
     RiskEvidence,
+    RiskMonitoringReview,
     RiskRecord,
 )
 from app.services.risk_access_service import (
@@ -23,6 +24,7 @@ RISK_ASSESSMENT_ENTITY_TYPE = "RiskAssessment"
 RISK_ACTION_ENTITY_TYPE = "RiskAction"
 RISK_DECISION_ENTITY_TYPE = "RiskDecision"
 RISK_EVIDENCE_ENTITY_TYPE = "RiskEvidence"
+RISK_MONITORING_ENTITY_TYPE = "RiskMonitoringReview"
 WORKFLOW_AUDIT_ACTIONS = {
     AuditAction.SUBMIT,
     AuditAction.APPROVE,
@@ -68,6 +70,7 @@ def _related_audit_logs(
     actions: list[RiskAction],
     decisions: list[RiskDecision],
     evidence_items: list[RiskEvidence],
+    monitoring_reviews: list[RiskMonitoringReview],
 ) -> list[AuditLog]:
     audit_scopes = [
         and_(
@@ -80,6 +83,7 @@ def _related_audit_logs(
         (RISK_ACTION_ENTITY_TYPE, actions),
         (RISK_DECISION_ENTITY_TYPE, decisions),
         (RISK_EVIDENCE_ENTITY_TYPE, evidence_items),
+        (RISK_MONITORING_ENTITY_TYPE, monitoring_reviews),
     )
     for entity_type, entities in related_entities:
         entity_ids = [entity.id for entity in entities]
@@ -140,6 +144,13 @@ def _build_risk_record_detail(
             )
         )
     )
+    monitoring_reviews = list(
+        db.scalars(
+            select(RiskMonitoringReview)
+            .where(RiskMonitoringReview.risk_record_id == risk_record_id)
+            .order_by(RiskMonitoringReview.created_at.desc())
+        )
+    )
     audit_logs = _related_audit_logs(
         db,
         risk_record_id=risk_record_id,
@@ -147,6 +158,7 @@ def _build_risk_record_detail(
         actions=actions,
         decisions=decisions,
         evidence_items=evidence_items,
+        monitoring_reviews=monitoring_reviews,
     )
 
     return {
@@ -155,6 +167,7 @@ def _build_risk_record_detail(
         "actions": actions,
         "decisions": decisions,
         "evidence_items": evidence_items,
+        "monitoring_reviews": monitoring_reviews,
         "audit_logs": audit_logs,
         "audit_summary": _audit_summary(audit_logs),
     }

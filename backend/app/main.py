@@ -18,6 +18,7 @@ from app.api.risk_assessments import router as risk_assessment_router
 from app.api.risk_decisions import router as risk_decision_router
 from app.api.risk_evidence import router as risk_evidence_router
 from app.api.risk_matrix import router as risk_matrix_router
+from app.api.risk_monitoring import router as risk_monitoring_router
 from app.api.risks import router as risk_router
 from app.api.reports import router as report_router
 from app.api.roles import router as role_router
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(risk_decision_router)
     app.include_router(risk_evidence_router)
     app.include_router(risk_matrix_router)
+    app.include_router(risk_monitoring_router)
     app.include_router(report_router)
     app.include_router(role_router)
     app.include_router(user_router)

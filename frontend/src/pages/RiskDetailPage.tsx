@@ -17,6 +17,13 @@ import {
   listRiskEvidence,
   uploadRiskEvidence,
 } from "../api/riskEvidence";
+import {
+  closeRiskMonitoringReview,
+  completeRiskMonitoringReview,
+  createRiskMonitoringReview,
+  listRiskMonitoringReviews,
+  type RiskMonitoringReviewCompleteRequest,
+} from "../api/riskMonitoring";
 import type {
   AuditLogRead,
   CommitteeRead,
@@ -26,6 +33,8 @@ import type {
   RiskDecisionRead,
   RiskDetailResponse,
   RiskEvidenceRead,
+  RiskMonitoringReviewRead,
+  RiskMonitoringReviewOutcome,
   RiskRecordRead,
 } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
@@ -48,6 +57,11 @@ type RiskReportsState =
 type RiskEvidenceState =
   | { status: "idle" | "loading" }
   | { status: "success"; evidenceItems: RiskEvidenceRead[] }
+  | { status: "error"; message: string };
+
+type RiskMonitoringState =
+  | { status: "idle" | "loading" }
+  | { status: "success"; monitoringReviews: RiskMonitoringReviewRead[] }
   | { status: "error"; message: string };
 
 type RiskAuditTrailState =
@@ -87,6 +101,9 @@ export function RiskDetailPage() {
   const [riskEvidence, setRiskEvidence] = useState<RiskEvidenceState>({
     status: "idle",
   });
+  const [riskMonitoring, setRiskMonitoring] = useState<RiskMonitoringState>({
+    status: "idle",
+  });
   const [riskAuditTrail, setRiskAuditTrail] = useState<RiskAuditTrailState>({
     status: "idle",
   });
@@ -115,6 +132,23 @@ export function RiskDetailPage() {
   const [archivingEvidenceId, setArchivingEvidenceId] = useState<string | null>(
     null,
   );
+  const [monitoringOwnerUserId, setMonitoringOwnerUserId] = useState("");
+  const [monitoringFrequency, setMonitoringFrequency] = useState("");
+  const [monitoringNextReviewDate, setMonitoringNextReviewDate] = useState("");
+  const [monitoringNotes, setMonitoringNotes] = useState("");
+  const [monitoringEffectivenessReview, setMonitoringEffectivenessReview] =
+    useState("");
+  const [monitoringMessage, setMonitoringMessage] = useState<string | null>(null);
+  const [monitoringErrorMessage, setMonitoringErrorMessage] = useState<
+    string | null
+  >(null);
+  const [isCreatingMonitoring, setIsCreatingMonitoring] = useState(false);
+  const [completingMonitoringId, setCompletingMonitoringId] = useState<
+    string | null
+  >(null);
+  const [closingMonitoringId, setClosingMonitoringId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     let isCurrent = true;
@@ -132,6 +166,7 @@ export function RiskDetailPage() {
           setRiskDetail({ status: "loading" });
           setRiskReports({ status: "loading" });
           setRiskEvidence({ status: "loading" });
+          setRiskMonitoring({ status: "loading" });
           setRiskAuditTrail({ status: "loading" });
           setRiskAuditWarning(null);
           setReportMessage(null);
@@ -141,6 +176,10 @@ export function RiskDetailPage() {
         const detail = await getRiskDetail(tokenToUse, idToLoad);
         if (isCurrent) {
           setRiskDetail({ status: "success", detail });
+          setRiskMonitoring({
+            status: "success",
+            monitoringReviews: detail.monitoring_reviews ?? [],
+          });
         }
 
         const risk = getRiskRecord(detail);
@@ -148,6 +187,7 @@ export function RiskDetailPage() {
           if (isCurrent) {
             setRiskReports({ status: "idle" });
             setRiskEvidence({ status: "idle" });
+            setRiskMonitoring({ status: "idle" });
             setRiskAuditTrail({ status: "idle" });
           }
           return;
@@ -197,6 +237,7 @@ export function RiskDetailPage() {
             assessments: detail.assessments ?? [],
             actions: detail.actions ?? [],
             decisions: detail.decisions ?? [],
+            monitoringReviews: detail.monitoring_reviews ?? [],
             reports,
           });
           if (isCurrent) {
@@ -236,6 +277,7 @@ export function RiskDetailPage() {
         });
         setRiskReports({ status: "idle" });
         setRiskEvidence({ status: "idle" });
+        setRiskMonitoring({ status: "idle" });
         setRiskAuditTrail({ status: "idle" });
         setRiskAuditWarning(null);
       }
@@ -516,6 +558,121 @@ export function RiskDetailPage() {
       );
     } finally {
       setArchivingEvidenceId(null);
+    }
+  }
+
+  async function refreshRiskMonitoring(riskId: string) {
+    if (!token) {
+      return;
+    }
+    setRiskMonitoring({ status: "loading" });
+    try {
+      const monitoringReviews = await listRiskMonitoringReviews(token, riskId);
+      setRiskMonitoring({ status: "success", monitoringReviews });
+    } catch (error) {
+      setRiskMonitoring({
+        status: "error",
+        message:
+          error instanceof ApiError
+            ? error.message
+            : "Unable to load monitoring reviews.",
+      });
+    }
+  }
+
+  async function handleCreateMonitoring(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    if (!token) {
+      return;
+    }
+
+    setIsCreatingMonitoring(true);
+    setMonitoringMessage(null);
+    setMonitoringErrorMessage(null);
+    try {
+      await createRiskMonitoringReview(token, {
+        risk_record_id: loadedRiskId,
+        monitoring_owner_user_id: monitoringOwnerUserId.trim() || null,
+        review_frequency: monitoringFrequency.trim() || null,
+        next_review_date: monitoringNextReviewDate || null,
+        review_notes: monitoringNotes.trim() || null,
+        effectiveness_review: monitoringEffectivenessReview.trim() || null,
+      });
+      setMonitoringOwnerUserId("");
+      setMonitoringFrequency("");
+      setMonitoringNextReviewDate("");
+      setMonitoringNotes("");
+      setMonitoringEffectivenessReview("");
+      setMonitoringMessage("Monitoring review created.");
+      await refreshRiskMonitoring(loadedRiskId);
+      try {
+        const detail = await getRiskDetail(token, loadedRiskId);
+        setRiskDetail({ status: "success", detail });
+      } catch {
+        // The monitoring panel remains usable if refreshing the wider detail fails.
+      }
+    } catch (error) {
+      setMonitoringErrorMessage(
+        error instanceof ApiError
+          ? error.message
+          : "Unable to create monitoring review.",
+      );
+    } finally {
+      setIsCreatingMonitoring(false);
+    }
+  }
+
+  async function handleCompleteMonitoring(
+    monitoringReviewId: string,
+    request: RiskMonitoringReviewCompleteRequest,
+  ) {
+    if (!token) {
+      return;
+    }
+    setCompletingMonitoringId(monitoringReviewId);
+    setMonitoringMessage(null);
+    setMonitoringErrorMessage(null);
+    try {
+      await completeRiskMonitoringReview(token, monitoringReviewId, request);
+      setMonitoringMessage("Effectiveness Review recorded.");
+      await refreshRiskMonitoring(loadedRiskId);
+    } catch (error) {
+      setMonitoringErrorMessage(
+        error instanceof ApiError
+          ? error.message
+          : "Unable to complete monitoring review.",
+      );
+    } finally {
+      setCompletingMonitoringId(null);
+    }
+  }
+
+  async function handleCloseMonitoring(
+    monitoringReviewId: string,
+    closureReason: string,
+  ) {
+    if (!token) {
+      return;
+    }
+    setClosingMonitoringId(monitoringReviewId);
+    setMonitoringMessage(null);
+    setMonitoringErrorMessage(null);
+    try {
+      await closeRiskMonitoringReview(token, monitoringReviewId, {
+        closure_reason: closureReason.trim() || null,
+      });
+      setMonitoringMessage("Monitoring closed.");
+      await refreshRiskMonitoring(loadedRiskId);
+    } catch (error) {
+      setMonitoringErrorMessage(
+        error instanceof ApiError
+          ? error.message
+          : "Unable to close monitoring.",
+      );
+    } finally {
+      setClosingMonitoringId(null);
     }
   }
 
@@ -838,6 +995,100 @@ export function RiskDetailPage() {
         )}
       </DetailSection>
 
+      <DetailSection title="Monitoring / Review Cycle">
+        <div className="monitoring-panel">
+          <form className="monitoring-form" onSubmit={handleCreateMonitoring}>
+            <label htmlFor="monitoring-owner-user-id">
+              Monitoring Owner User ID (optional)
+            </label>
+            <input
+              id="monitoring-owner-user-id"
+              onChange={(event) => setMonitoringOwnerUserId(event.target.value)}
+              placeholder="User UUID"
+              type="text"
+              value={monitoringOwnerUserId}
+            />
+            <label htmlFor="monitoring-frequency">Review Frequency</label>
+            <input
+              id="monitoring-frequency"
+              maxLength={100}
+              onChange={(event) => setMonitoringFrequency(event.target.value)}
+              placeholder="Monthly, Quarterly, Before next flight..."
+              type="text"
+              value={monitoringFrequency}
+            />
+            <label htmlFor="monitoring-next-review-date">Next Review Date</label>
+            <input
+              id="monitoring-next-review-date"
+              onChange={(event) =>
+                setMonitoringNextReviewDate(event.target.value)
+              }
+              type="date"
+              value={monitoringNextReviewDate}
+            />
+            <label htmlFor="monitoring-notes">Review Notes</label>
+            <textarea
+              id="monitoring-notes"
+              onChange={(event) => setMonitoringNotes(event.target.value)}
+              rows={3}
+              value={monitoringNotes}
+            />
+            <label htmlFor="monitoring-effectiveness-review">
+              Effectiveness Review (optional)
+            </label>
+            <textarea
+              id="monitoring-effectiveness-review"
+              onChange={(event) =>
+                setMonitoringEffectivenessReview(event.target.value)
+              }
+              rows={3}
+              value={monitoringEffectivenessReview}
+            />
+            <button disabled={isCreatingMonitoring} type="submit">
+              {isCreatingMonitoring
+                ? "Creating monitoring review..."
+                : "Create monitoring review"}
+            </button>
+          </form>
+
+          {monitoringMessage && (
+            <p className="monitoring-success" role="status">
+              {monitoringMessage}
+            </p>
+          )}
+          {monitoringErrorMessage && (
+            <p className="monitoring-warning" role="alert">
+              {monitoringErrorMessage}
+            </p>
+          )}
+          {riskMonitoring.status === "loading" && (
+            <p aria-live="polite" className="workspace-status" role="status">
+              Loading monitoring reviews...
+            </p>
+          )}
+          {riskMonitoring.status === "error" && (
+            <div className="workspace-alert" role="alert">
+              <strong>Unable to load monitoring reviews.</strong>
+              <span>{riskMonitoring.message}</span>
+            </div>
+          )}
+          {riskMonitoring.status === "success" &&
+            riskMonitoring.monitoringReviews.length === 0 && (
+              <p className="detail-empty">No monitoring reviews recorded yet.</p>
+            )}
+          {riskMonitoring.status === "success" &&
+            riskMonitoring.monitoringReviews.length > 0 && (
+              <MonitoringReviewList
+                closingMonitoringId={closingMonitoringId}
+                completingMonitoringId={completingMonitoringId}
+                monitoringReviews={riskMonitoring.monitoringReviews}
+                onClose={handleCloseMonitoring}
+                onComplete={handleCompleteMonitoring}
+              />
+            )}
+        </div>
+      </DetailSection>
+
       <DetailSection title="Evidence / Supporting Documents">
         <div className="evidence-panel">
           <form className="evidence-upload-form" onSubmit={handleUploadEvidence}>
@@ -990,6 +1241,218 @@ export function RiskDetailPage() {
         )}
       </DetailSection>
     </section>
+  );
+}
+
+function MonitoringReviewList({
+  closingMonitoringId,
+  completingMonitoringId,
+  monitoringReviews,
+  onClose,
+  onComplete,
+}: {
+  closingMonitoringId: string | null;
+  completingMonitoringId: string | null;
+  monitoringReviews: RiskMonitoringReviewRead[];
+  onClose: (monitoringReviewId: string, closureReason: string) => Promise<void>;
+  onComplete: (
+    monitoringReviewId: string,
+    request: RiskMonitoringReviewCompleteRequest,
+  ) => Promise<void>;
+}) {
+  return (
+    <ul className="monitoring-list">
+      {monitoringReviews.map((monitoringReview) => (
+        <MonitoringReviewItem
+          isClosing={closingMonitoringId === monitoringReview.id}
+          isCompleting={completingMonitoringId === monitoringReview.id}
+          key={monitoringReview.id}
+          monitoringReview={monitoringReview}
+          onClose={onClose}
+          onComplete={onComplete}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function MonitoringReviewItem({
+  isClosing,
+  isCompleting,
+  monitoringReview,
+  onClose,
+  onComplete,
+}: {
+  isClosing: boolean;
+  isCompleting: boolean;
+  monitoringReview: RiskMonitoringReviewRead;
+  onClose: (monitoringReviewId: string, closureReason: string) => Promise<void>;
+  onComplete: (
+    monitoringReviewId: string,
+    request: RiskMonitoringReviewCompleteRequest,
+  ) => Promise<void>;
+}) {
+  const [effectivenessReview, setEffectivenessReview] = useState("");
+  const [reviewOutcome, setReviewOutcome] =
+    useState<RiskMonitoringReviewOutcome>("CONTINUE_MONITORING");
+  const [nextReviewDate, setNextReviewDate] = useState("");
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [closureReason, setClosureReason] = useState("");
+  const isOpen =
+    monitoringReview.is_active &&
+    !["CLOSED", "CANCELLED"].includes(monitoringReview.status);
+
+  async function submitEffectivenessReview(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    await onComplete(monitoringReview.id, {
+      effectiveness_review: effectivenessReview.trim(),
+      review_outcome: reviewOutcome,
+      next_review_date: nextReviewDate || null,
+      review_notes: reviewNotes.trim() || null,
+    });
+  }
+
+  async function submitClosure(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onClose(monitoringReview.id, closureReason);
+  }
+
+  return (
+    <li className="monitoring-item">
+      <div className="monitoring-item-header">
+        <strong>Review Cycle</strong>
+        <span
+          className={`monitoring-status ${monitoringReview.status.toLowerCase()}`}
+        >
+          {formatEnumLabel(monitoringReview.status)}
+        </span>
+      </div>
+      <dl className="monitoring-metadata">
+        <div>
+          <dt>Monitoring Owner</dt>
+          <dd>{monitoringReview.monitoring_owner_user_id || "Not assigned"}</dd>
+        </div>
+        <div>
+          <dt>Review Frequency</dt>
+          <dd>{monitoringReview.review_frequency || "Not specified"}</dd>
+        </div>
+        <div>
+          <dt>Next Review Date</dt>
+          <dd>{monitoringReview.next_review_date || "Not scheduled"}</dd>
+        </div>
+        <div>
+          <dt>Last Reviewed At</dt>
+          <dd>{formatDateTime(monitoringReview.last_reviewed_at)}</dd>
+        </div>
+        <div>
+          <dt>Review Outcome</dt>
+          <dd>
+            {monitoringReview.review_outcome
+              ? formatEnumLabel(monitoringReview.review_outcome)
+              : "Not recorded"}
+          </dd>
+        </div>
+      </dl>
+      {monitoringReview.effectiveness_review && (
+        <p>
+          <strong>Effectiveness Review:</strong>{" "}
+          {monitoringReview.effectiveness_review}
+        </p>
+      )}
+      {monitoringReview.review_notes && (
+        <p>
+          <strong>Review Notes:</strong> {monitoringReview.review_notes}
+        </p>
+      )}
+      {monitoringReview.closure_reason && (
+        <p>
+          <strong>Closure Reason:</strong> {monitoringReview.closure_reason}
+        </p>
+      )}
+      {isOpen && (
+        <div className="monitoring-actions">
+          <form
+            className="monitoring-review-form"
+            onSubmit={submitEffectivenessReview}
+          >
+            <h3>Complete Effectiveness Review</h3>
+            <label htmlFor={`effectiveness-review-${monitoringReview.id}`}>
+              Effectiveness Review
+            </label>
+            <textarea
+              id={`effectiveness-review-${monitoringReview.id}`}
+              onChange={(event) => setEffectivenessReview(event.target.value)}
+              required
+              rows={3}
+              value={effectivenessReview}
+            />
+            <label htmlFor={`review-outcome-${monitoringReview.id}`}>
+              Review Outcome
+            </label>
+            <select
+              id={`review-outcome-${monitoringReview.id}`}
+              onChange={(event) =>
+                setReviewOutcome(
+                  event.target.value as RiskMonitoringReviewOutcome,
+                )
+              }
+              value={reviewOutcome}
+            >
+              <option value="CONTINUE_MONITORING">Continue Monitoring</option>
+              <option value="EFFECTIVE_CONTROLS">Effective Controls</option>
+              <option value="CONTROLS_NOT_EFFECTIVE">
+                Controls Not Effective
+              </option>
+              <option value="REASSESSMENT_REQUIRED">
+                Reassessment Required
+              </option>
+              <option value="ESCALATION_RECOMMENDED">
+                Escalation Recommended
+              </option>
+              <option value="CLOSE_MONITORING">Close Monitoring</option>
+            </select>
+            <label htmlFor={`review-next-date-${monitoringReview.id}`}>
+              Next Review Date (optional)
+            </label>
+            <input
+              id={`review-next-date-${monitoringReview.id}`}
+              onChange={(event) => setNextReviewDate(event.target.value)}
+              type="date"
+              value={nextReviewDate}
+            />
+            <label htmlFor={`review-notes-${monitoringReview.id}`}>
+              Review Notes (optional)
+            </label>
+            <textarea
+              id={`review-notes-${monitoringReview.id}`}
+              onChange={(event) => setReviewNotes(event.target.value)}
+              rows={2}
+              value={reviewNotes}
+            />
+            <button disabled={isCompleting || isClosing} type="submit">
+              {isCompleting ? "Completing review..." : "Complete Review"}
+            </button>
+          </form>
+          <form className="monitoring-review-form" onSubmit={submitClosure}>
+            <h3>Close Monitoring</h3>
+            <label htmlFor={`closure-reason-${monitoringReview.id}`}>
+              Closure Reason (optional)
+            </label>
+            <textarea
+              id={`closure-reason-${monitoringReview.id}`}
+              onChange={(event) => setClosureReason(event.target.value)}
+              rows={2}
+              value={closureReason}
+            />
+            <button disabled={isClosing || isCompleting} type="submit">
+              {isClosing ? "Closing monitoring..." : "Close Monitoring"}
+            </button>
+          </form>
+        </div>
+      )}
+    </li>
   );
 }
 
@@ -1184,6 +1647,7 @@ async function loadRiskAuditTrail({
   assessments,
   actions,
   decisions,
+  monitoringReviews,
   reports,
 }: {
   token: string;
@@ -1191,6 +1655,7 @@ async function loadRiskAuditTrail({
   assessments: RiskAssessmentRead[];
   actions: RiskActionRead[];
   decisions: RiskDecisionRead[];
+  monitoringReviews: RiskMonitoringReviewRead[];
   reports: GeneratedReportRead[];
 }): Promise<RiskAuditTrailResult> {
   const requests = [
@@ -1217,6 +1682,13 @@ async function loadRiskAuditTrail({
       listAuditLogs(token, {
         entityType: "RiskDecision",
         entityId: decision.id,
+        limit: 50,
+      }),
+    ),
+    ...monitoringReviews.map((monitoringReview) =>
+      listAuditLogs(token, {
+        entityType: "RiskMonitoringReview",
+        entityId: monitoringReview.id,
         limit: 50,
       }),
     ),
@@ -1647,6 +2119,14 @@ function formatOptionalBoolean(value: boolean | null | undefined): string {
 
 function formatReportType(value: string): string {
   return value.replace(/_/g, " ") || "Report";
+}
+
+function formatEnumLabel(value: string): string {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function formatFileSize(bytes: number): string {

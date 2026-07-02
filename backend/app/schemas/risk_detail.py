@@ -8,6 +8,7 @@ from app.schemas.risk_action import RiskActionRead
 from app.schemas.risk_assessment import RiskAssessmentRead
 from app.schemas.risk_decision import RiskDecisionRead
 from app.schemas.risk_evidence import RiskEvidenceRead
+from app.schemas.risk_monitoring import RiskMonitoringReviewRead
 
 
 class RiskAuditSummary(BaseModel):
@@ -25,5 +26,6 @@ class RiskRecordDetailRead(BaseModel):
     actions: list[RiskActionRead]
     decisions: list[RiskDecisionRead]
     evidence_items: list[RiskEvidenceRead]
+    monitoring_reviews: list[RiskMonitoringReviewRead]
     audit_logs: list[AuditLogRead]
     audit_summary: RiskAuditSummary

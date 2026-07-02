@@ -186,6 +186,7 @@ def test_get_risk_detail_response_includes_aggregate_sections(
     assert isinstance(body["assessments"], list)
     assert isinstance(body["actions"], list)
     assert isinstance(body["decisions"], list)
+    assert isinstance(body["monitoring_reviews"], list)
     assert body["audit_summary"]["total_count"] == 1
 
 

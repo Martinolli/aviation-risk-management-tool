@@ -9,6 +9,8 @@ from app.models.enums import (
     RiskDecisionType,
     RiskDomain,
     RiskLifecycleStatus,
+    RiskMonitoringReviewOutcome,
+    RiskMonitoringStatus,
     RiskWorkflowStatus,
 )
 from app.models.llm import LLMAnalysis
@@ -18,6 +20,7 @@ from app.models.risk import (
     RiskAssessment,
     RiskDecision,
     RiskEvidence,
+    RiskMonitoringReview,
     RiskRecord,
 )
 from app.models.role import Role
@@ -47,6 +50,9 @@ __all__ = [
     "RiskEvidence",
     "RiskDomain",
     "RiskLifecycleStatus",
+    "RiskMonitoringReview",
+    "RiskMonitoringReviewOutcome",
+    "RiskMonitoringStatus",
     "RiskLevel",
     "RiskLikelihoodLevel",
     "RiskMatrixCell",
