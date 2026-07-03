@@ -24,6 +24,14 @@ class GenerateRiskDossierReportRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class GenerateRiskEvidencePackageRequest(BaseModel):
+    output_dir: str | None = None
+    include_archived: bool = False
+    include_risk_dossier: bool = True
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class GenerateCommitteeMeetingPackRequest(BaseModel):
     output_dir: str | None = None
     meeting_title: str | None = None

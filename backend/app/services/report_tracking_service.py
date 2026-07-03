@@ -14,6 +14,10 @@ from app.services.report_service import (
     ReportRiskNotFoundError,
     generate_risk_dossier_docx,
 )
+from app.services.risk_evidence_package_service import (
+    RiskEvidencePackageBusinessRuleError,
+    generate_risk_evidence_package_zip,
+)
 from app.services.committee_meeting_pack_service import (
     CommitteeMeetingPackBusinessRuleError,
     generate_committee_meeting_pack_docx,
@@ -29,6 +33,8 @@ RISK_DOSSIER_REPORT_TYPE = "RISK_DOSSIER_DOCX"
 RISK_DOSSIER_TEMPLATE_VERSION = "1.0"
 COMMITTEE_MEETING_PACK_REPORT_TYPE = "COMMITTEE_MEETING_PACK_DOCX"
 COMMITTEE_MEETING_PACK_TEMPLATE_VERSION = "1.0"
+RISK_EVIDENCE_PACKAGE_REPORT_TYPE = "RISK_EVIDENCE_PACKAGE_ZIP"
+RISK_EVIDENCE_PACKAGE_TEMPLATE_VERSION = "1.0"
 
 
 class GeneratedReportNotFoundError(ValueError):
@@ -159,6 +165,75 @@ def generate_and_track_risk_dossier_report(
             "report_type": generated_report.report_type,
             "file_path": generated_report.file_path,
             "template_version": generated_report.template_version,
+        },
+    )
+    return generated_report
+
+
+def generate_and_track_risk_evidence_package(
+    db: Session,
+    *,
+    risk_record_id: uuid.UUID,
+    output_dir: Path | str | None = None,
+    generated_by_user_id: uuid.UUID | None,
+    include_archived: bool = False,
+    include_risk_dossier: bool = True,
+) -> GeneratedReport:
+    actor = _validate_report_actor(
+        db,
+        user_id=generated_by_user_id,
+        operation="generation",
+    )
+    risk_record = db.get(RiskRecord, risk_record_id)
+    if risk_record is None:
+        raise ReportTrackingBusinessRuleError("Risk record does not exist")
+    _validate_report_risk_access_authority(
+        db,
+        risk_record=risk_record,
+        actor_user_id=actor.id,
+        operation="generation",
+    )
+    if not risk_record.is_active:
+        raise ReportTrackingBusinessRuleError(
+            "Risk Evidence Package cannot be generated for an inactive risk record"
+        )
+
+    try:
+        file_path = generate_risk_evidence_package_zip(
+            db,
+            risk_record_id=risk_record.id,
+            generated_by_user_id=actor.id,
+            output_dir=output_dir or DEFAULT_REPORT_OUTPUT_DIR,
+            include_archived=include_archived,
+            include_risk_dossier=include_risk_dossier,
+        )
+    except RiskEvidencePackageBusinessRuleError as exc:
+        raise ReportTrackingBusinessRuleError(str(exc)) from exc
+
+    generated_report = GeneratedReport(
+        risk_record_id=risk_record.id,
+        committee_id=None,
+        report_type=RISK_EVIDENCE_PACKAGE_REPORT_TYPE,
+        file_path=str(file_path),
+        generated_by_user_id=actor.id,
+        generated_at=datetime.now(timezone.utc),
+        template_version=RISK_EVIDENCE_PACKAGE_TEMPLATE_VERSION,
+    )
+    db.add(generated_report)
+    db.flush()
+
+    audit_service.log_report_generated(
+        db,
+        entity_type="RiskRecord",
+        entity_id=risk_record.id,
+        generated_by_user_id=actor.id,
+        report_metadata={
+            "report_id": generated_report.id,
+            "report_type": generated_report.report_type,
+            "file_path": generated_report.file_path,
+            "template_version": generated_report.template_version,
+            "include_archived": include_archived,
+            "include_risk_dossier": include_risk_dossier,
         },
     )
     return generated_report

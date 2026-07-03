@@ -17,6 +17,12 @@ export interface GenerateCommitteeMeetingPackRequest {
   meeting_date?: string | null;
 }
 
+export interface GenerateRiskEvidencePackageRequest {
+  output_dir?: string | null;
+  include_archived?: boolean;
+  include_risk_dossier?: boolean;
+}
+
 export function generateRiskDossierReport(
   token: string,
   riskRecordId: string,
@@ -38,6 +44,21 @@ export function generateCommitteeMeetingPack(
 ): Promise<GeneratedReportRead> {
   return apiRequest<GeneratedReportRead>(
     `/reports/committee-meeting-packs/${encodeURIComponent(committeeId)}`,
+    {
+      method: "POST",
+      token,
+      body: request,
+    },
+  );
+}
+
+export function generateRiskEvidencePackage(
+  token: string,
+  riskRecordId: string,
+  request: GenerateRiskEvidencePackageRequest = {},
+): Promise<GeneratedReportRead> {
+  return apiRequest<GeneratedReportRead>(
+    `/reports/risk-evidence-packages/${encodeURIComponent(riskRecordId)}`,
     {
       method: "POST",
       token,
@@ -129,10 +150,16 @@ export async function downloadGeneratedReport(
   }
 
   const blob = await response.blob();
+  const isZipResponse = (response.headers.get("content-type") ?? "").includes(
+    "application/zip",
+  );
   const filename =
     getFilenameFromContentDisposition(
       response.headers.get("content-disposition"),
-    ) ?? `risk-report-${generatedReportId}.docx`;
+    ) ??
+    (isZipResponse
+      ? `risk-evidence-package-${generatedReportId}.zip`
+      : `risk-report-${generatedReportId}.docx`);
 
   return { blob, filename };
 }

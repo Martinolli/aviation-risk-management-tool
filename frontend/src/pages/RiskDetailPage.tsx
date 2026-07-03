@@ -7,6 +7,7 @@ import { listCommittees } from "../api/committees";
 import {
   downloadGeneratedReport,
   generateRiskDossierReport,
+  generateRiskEvidencePackage,
   listGeneratedReports,
   saveBlobAsFile,
 } from "../api/reports";
@@ -125,6 +126,17 @@ export function RiskDetailPage() {
   const [downloadingReportId, setDownloadingReportId] = useState<string | null>(
     null,
   );
+  const [includeArchivedEvidence, setIncludeArchivedEvidence] = useState(false);
+  const [includeRiskDossier, setIncludeRiskDossier] = useState(true);
+  const [evidencePackageReport, setEvidencePackageReport] =
+    useState<GeneratedReportRead | null>(null);
+  const [evidencePackageError, setEvidencePackageError] = useState<string | null>(
+    null,
+  );
+  const [isGeneratingEvidencePackage, setIsGeneratingEvidencePackage] =
+    useState(false);
+  const [isDownloadingEvidencePackage, setIsDownloadingEvidencePackage] =
+    useState(false);
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [evidenceDescription, setEvidenceDescription] = useState("");
   const [evidenceMessage, setEvidenceMessage] = useState<string | null>(null);
@@ -177,6 +189,8 @@ export function RiskDetailPage() {
           setRiskAuditWarning(null);
           setReportMessage(null);
           setReportErrorMessage(null);
+          setEvidencePackageReport(null);
+          setEvidencePackageError(null);
         }
 
         const detail = await getRiskDetail(tokenToUse, idToLoad);
@@ -475,6 +489,56 @@ export function RiskDetailPage() {
       );
     } finally {
       setDownloadingReportId(null);
+    }
+  }
+
+  async function handleGenerateEvidencePackage() {
+    if (!token) {
+      return;
+    }
+
+    setIsGeneratingEvidencePackage(true);
+    setEvidencePackageError(null);
+    setEvidencePackageReport(null);
+    try {
+      const report = await generateRiskEvidencePackage(token, loadedRiskId, {
+        include_archived: includeArchivedEvidence,
+        include_risk_dossier: includeRiskDossier,
+      });
+      setEvidencePackageReport(report);
+      await refreshRiskReports(loadedRiskId);
+    } catch (error) {
+      setEvidencePackageError(
+        error instanceof ApiError
+          ? error.message
+          : "Unable to generate Risk Evidence Package.",
+      );
+    } finally {
+      setIsGeneratingEvidencePackage(false);
+    }
+  }
+
+  async function handleDownloadEvidencePackage() {
+    if (!token || !evidencePackageReport) {
+      return;
+    }
+
+    setIsDownloadingEvidencePackage(true);
+    setEvidencePackageError(null);
+    try {
+      const { blob, filename } = await downloadGeneratedReport(
+        token,
+        evidencePackageReport.id,
+      );
+      saveBlobAsFile(blob, filename);
+    } catch (error) {
+      setEvidencePackageError(
+        error instanceof ApiError
+          ? error.message
+          : "Unable to download Risk Evidence Package.",
+      );
+    } finally {
+      setIsDownloadingEvidencePackage(false);
     }
   }
 
@@ -1185,6 +1249,78 @@ export function RiskDetailPage() {
                 onDownload={handleDownloadEvidence}
               />
             )}
+
+          <section
+            className="evidence-package-panel"
+            aria-labelledby="evidence-package-heading"
+          >
+            <div>
+              <h3 id="evidence-package-heading">Evidence Package Export</h3>
+              <p>
+                Generate a controlled ZIP package containing the Risk Dossier,
+                active evidence files, manifest, and package readme.
+              </p>
+            </div>
+            <div className="evidence-package-options">
+              <label>
+                <input
+                  checked={includeArchivedEvidence}
+                  onChange={(event) =>
+                    setIncludeArchivedEvidence(event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                Include archived evidence
+              </label>
+              <label>
+                <input
+                  checked={includeRiskDossier}
+                  onChange={(event) =>
+                    setIncludeRiskDossier(event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                Include Risk Dossier
+              </label>
+            </div>
+            <div className="evidence-package-actions">
+              <button
+                disabled={isGeneratingEvidencePackage}
+                onClick={() => void handleGenerateEvidencePackage()}
+                type="button"
+              >
+                {isGeneratingEvidencePackage
+                  ? "Generating Evidence Package..."
+                  : "Generate Evidence Package"}
+              </button>
+            </div>
+
+            {evidencePackageError && (
+              <p className="evidence-package-warning" role="alert">
+                {evidencePackageError}
+              </p>
+            )}
+
+            {evidencePackageReport && (
+              <article className="evidence-package-card" aria-live="polite">
+                <div>
+                  <strong>Risk Evidence Package</strong>
+                  <span>
+                    Generated {formatDateTime(evidencePackageReport.generated_at)}
+                  </span>
+                </div>
+                <button
+                  disabled={isDownloadingEvidencePackage}
+                  onClick={() => void handleDownloadEvidencePackage()}
+                  type="button"
+                >
+                  {isDownloadingEvidencePackage
+                    ? "Downloading..."
+                    : "Download ZIP"}
+                </button>
+              </article>
+            )}
+          </section>
         </div>
       </DetailSection>
 
@@ -1575,7 +1711,9 @@ function ReportList({
               onClick={() => onDownload(report)}
               type="button"
             >
-              {downloadingReportId === report.id ? "Downloading..." : "Download DOCX"}
+              {downloadingReportId === report.id
+                ? "Downloading..."
+                : getReportDownloadLabel(report.report_type)}
             </button>
           </div>
         </li>
@@ -2136,7 +2274,16 @@ function formatOptionalBoolean(value: boolean | null | undefined): string {
 }
 
 function formatReportType(value: string): string {
-  return value.replace(/_/g, " ") || "Report";
+  const labels: Record<string, string> = {
+    RISK_DOSSIER_DOCX: "Risk Dossier",
+    COMMITTEE_MEETING_PACK_DOCX: "Committee Meeting Pack",
+    RISK_EVIDENCE_PACKAGE_ZIP: "Risk Evidence Package",
+  };
+  return labels[value] || value.replace(/_/g, " ") || "Report";
+}
+
+function getReportDownloadLabel(reportType: string): string {
+  return reportType.endsWith("_ZIP") ? "Download ZIP" : "Download DOCX";
 }
 
 function formatEnumLabel(value: string): string {

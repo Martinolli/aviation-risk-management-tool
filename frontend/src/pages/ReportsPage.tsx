@@ -94,7 +94,8 @@ export function ReportsPage() {
           <h1 id="reports-heading">Reports</h1>
           <p>
             Review and download generated risk dossiers and committee meeting
-            packs.
+            packs. ZIP packages may include evidence files and manifest
+            metadata.
           </p>
         </div>
       </div>
@@ -156,7 +157,7 @@ export function ReportsPage() {
                 >
                   {downloadingReportId === report.id
                     ? "Downloading..."
-                    : "Download DOCX"}
+                    : getReportDownloadLabel(report.report_type)}
                 </button>
               </div>
             </li>
@@ -180,6 +181,11 @@ function formatReportType(value: string): string {
   const labels: Record<string, string> = {
     RISK_DOSSIER_DOCX: "Risk Dossier",
     COMMITTEE_MEETING_PACK_DOCX: "Committee Meeting Pack",
+    RISK_EVIDENCE_PACKAGE_ZIP: "Risk Evidence Package",
   };
   return labels[value] || value.replace(/_/g, " ") || "Report";
+}
+
+function getReportDownloadLabel(reportType: string): string {
+  return reportType.endsWith("_ZIP") ? "Download ZIP" : "Download DOCX";
 }

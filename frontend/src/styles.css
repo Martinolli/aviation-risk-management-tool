@@ -1500,6 +1500,86 @@ button:disabled {
   color: #1c4532;
 }
 
+.evidence-package-panel {
+  background: #f0f4f8;
+  border: 1px solid #d9e2ec;
+  border-left: 4px solid #075985;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.evidence-package-panel h3 {
+  color: #102a43;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.evidence-package-panel p {
+  color: #486581;
+  line-height: 1.5;
+  margin: 0.35rem 0 0;
+}
+
+.evidence-package-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.evidence-package-options label {
+  align-items: center;
+  color: #334e68;
+  display: flex;
+  font-size: 0.88rem;
+  font-weight: 600;
+  gap: 0.45rem;
+}
+
+.evidence-package-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.evidence-package-card {
+  align-items: center;
+  background: #e3f9e5;
+  border-left: 4px solid #2f855a;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+}
+
+.evidence-package-card > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.evidence-package-card strong {
+  color: #1c4532;
+}
+
+.evidence-package-card span {
+  color: #486581;
+  font-size: 0.82rem;
+}
+
+.evidence-package-panel .evidence-package-warning {
+  background: #fff5f5;
+  border-left: 4px solid #c53030;
+  color: #742a2a;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+}
+
+@media (max-width: 720px) {
+  .evidence-package-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .monitoring-panel {
   display: grid;
   gap: 1rem;

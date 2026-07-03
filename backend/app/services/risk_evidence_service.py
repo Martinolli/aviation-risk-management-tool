@@ -269,6 +269,10 @@ def get_risk_evidence_file_path(
         evidence_id=evidence_id,
         requested_by_user_id=requested_by_user_id,
     )
+    return evidence, get_validated_evidence_file_path(evidence)
+
+
+def get_validated_evidence_file_path(evidence: RiskEvidence) -> Path:
     storage_root = get_evidence_storage_directory()
     try:
         file_path = Path(evidence.storage_path).resolve()
@@ -279,7 +283,7 @@ def get_risk_evidence_file_path(
         ) from exc
     if not file_path.is_file():
         raise RiskEvidenceBusinessRuleError("Evidence file does not exist")
-    return evidence, file_path
+    return file_path
 
 
 def archive_risk_evidence(
