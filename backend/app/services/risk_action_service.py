@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 import app.services.audit_service as audit_service
 from app.models.enums import RiskActionStatus, RiskWorkflowStatus
@@ -11,6 +11,11 @@ from app.models.user import User
 from app.schemas.risk_action import (
     RiskActionCreate,
     RiskActionUpdate,
+)
+from app.services.risk_access_service import (
+    RiskAccessBusinessRuleError,
+    can_read_risk_record,
+    validate_active_user,
 )
 
 RISK_ACTION_ENTITY_TYPE = "RiskAction"
@@ -22,6 +27,95 @@ class RiskActionNotFoundError(ValueError):
 
 class RiskActionBusinessRuleError(ValueError):
     pass
+
+
+def get_risk_action_due_status(
+    action: RiskAction,
+    *,
+    today: date | None = None,
+) -> str:
+    if action.status == RiskActionStatus.COMPLETED:
+        return "COMPLETED"
+    if action.status == RiskActionStatus.CANCELLED:
+        return "CANCELLED"
+    if action.due_date is None:
+        return "NO_DUE_DATE"
+
+    current_date = today or date.today()
+    if action.due_date < current_date:
+        return "OVERDUE"
+    if action.due_date == current_date:
+        return "DUE_TODAY"
+    if action.due_date <= current_date + timedelta(days=7):
+        return "DUE_SOON"
+    return "OPEN"
+
+
+def is_action_open_for_alerts(action: RiskAction) -> bool:
+    return action.status not in {
+        RiskActionStatus.COMPLETED,
+        RiskActionStatus.CANCELLED,
+    }
+
+
+def _validate_reader(
+    db: Session,
+    *,
+    user_id: uuid.UUID | None,
+    context: str,
+) -> User:
+    try:
+        return validate_active_user(db, user_id=user_id, context=context)
+    except RiskAccessBusinessRuleError as exc:
+        raise RiskActionBusinessRuleError(str(exc)) from exc
+
+
+def _authorize_risk_read(
+    db: Session,
+    *,
+    risk_record: RiskRecord,
+    user_id: uuid.UUID,
+    operation: str,
+) -> None:
+    if not can_read_risk_record(db, risk_record=risk_record, user_id=user_id):
+        raise RiskActionBusinessRuleError(
+            f"User is not authorized to {operation} Risk Actions for this risk"
+        )
+
+
+def _filter_action_statuses(
+    actions: list[RiskAction],
+    *,
+    include_completed: bool,
+    include_cancelled: bool,
+) -> list[RiskAction]:
+    return [
+        action
+        for action in actions
+        if (include_completed or action.status != RiskActionStatus.COMPLETED)
+        and (include_cancelled or action.status != RiskActionStatus.CANCELLED)
+    ]
+
+
+def _sort_risk_actions_by_urgency(actions: list[RiskAction]) -> list[RiskAction]:
+    due_status_priority = {
+        "OVERDUE": 0,
+        "DUE_TODAY": 1,
+        "DUE_SOON": 2,
+        "OPEN": 3,
+        "NO_DUE_DATE": 4,
+        "COMPLETED": 5,
+        "CANCELLED": 6,
+    }
+    return sorted(
+        actions,
+        key=lambda action: (
+            due_status_priority[get_risk_action_due_status(action)],
+            action.due_date is None,
+            action.due_date or date.max,
+            -(action.created_at.timestamp() if action.created_at else 0),
+        ),
+    )
 
 
 def _risk_action_snapshot(action: RiskAction) -> dict[str, object]:
@@ -149,6 +243,116 @@ def list_risk_actions(
         statement = statement.where(RiskAction.risk_record_id == risk_record_id)
 
     return list(db.scalars(statement).all())
+
+
+def list_authorized_risk_actions(
+    db: Session,
+    *,
+    requested_by_user_id: uuid.UUID | None,
+    risk_record_id: uuid.UUID | None = None,
+    include_completed: bool = True,
+    include_cancelled: bool = True,
+) -> list[RiskAction]:
+    reader = _validate_reader(
+        db,
+        user_id=requested_by_user_id,
+        context="Risk Actions list access",
+    )
+
+    statement = select(RiskAction).options(selectinload(RiskAction.risk_record))
+    if risk_record_id is not None:
+        risk_record = db.get(RiskRecord, risk_record_id)
+        if risk_record is None:
+            raise RiskActionNotFoundError("Risk record not found")
+        _authorize_risk_read(
+            db,
+            risk_record=risk_record,
+            user_id=reader.id,
+            operation="list",
+        )
+        statement = statement.where(RiskAction.risk_record_id == risk_record.id)
+
+    actions = list(db.scalars(statement).all())
+    if risk_record_id is None:
+        actions = [
+            action
+            for action in actions
+            if can_read_risk_record(
+                db,
+                risk_record=action.risk_record,
+                user_id=reader.id,
+            )
+        ]
+
+    return _sort_risk_actions_by_urgency(
+        _filter_action_statuses(
+            actions,
+            include_completed=include_completed,
+            include_cancelled=include_cancelled,
+        )
+    )
+
+
+def get_authorized_risk_action(
+    db: Session,
+    *,
+    risk_action_id: uuid.UUID,
+    requested_by_user_id: uuid.UUID | None,
+) -> RiskAction | None:
+    reader = _validate_reader(
+        db,
+        user_id=requested_by_user_id,
+        context="Risk Action access",
+    )
+    action = db.scalar(
+        select(RiskAction)
+        .options(selectinload(RiskAction.risk_record))
+        .where(RiskAction.id == risk_action_id)
+    )
+    if action is None:
+        return None
+    _authorize_risk_read(
+        db,
+        risk_record=action.risk_record,
+        user_id=reader.id,
+        operation="read",
+    )
+    return action
+
+
+def get_my_risk_actions(
+    db: Session,
+    *,
+    requested_by_user_id: uuid.UUID | None,
+    include_completed: bool = False,
+    include_cancelled: bool = False,
+) -> list[RiskAction]:
+    reader = _validate_reader(
+        db,
+        user_id=requested_by_user_id,
+        context="My Actions access",
+    )
+    actions = list(
+        db.scalars(
+            select(RiskAction).options(selectinload(RiskAction.risk_record))
+        ).all()
+    )
+    readable_actions = [
+        action
+        for action in actions
+        if can_read_risk_record(
+            db,
+            risk_record=action.risk_record,
+            user_id=reader.id,
+        )
+    ]
+    return _sort_risk_actions_by_urgency(
+        _filter_action_statuses(
+            readable_actions,
+            include_completed=include_completed,
+            include_cancelled=include_cancelled,
+        )
+    )
 
 
 def update_risk_action(

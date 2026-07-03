@@ -2,14 +2,27 @@ import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import { listMyRiskActions } from "../api/riskActions";
 import { listMyMonitoringReviews } from "../api/riskMonitoring";
 import { listRisks } from "../api/risks";
-import type { RiskMonitoringReviewRead, RiskRecordRead } from "../api/types";
+import type {
+  RiskActionRead,
+  RiskMonitoringReviewRead,
+  RiskRecordRead,
+} from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import {
   getRiskPackageStatusLabel,
   getRiskPackageStatusTone,
 } from "../utils/riskReadiness";
+import {
+  compareRiskActionsByUrgency,
+  getRiskActionDueStatus,
+  getRiskActionDueStatusLabel,
+  getRiskActionDueStatusTone,
+  isRiskActionOpen,
+  type RiskActionDueStatus,
+} from "../utils/actionDueStatus";
 
 type DashboardState =
   | { status: "loading" }
@@ -18,6 +31,8 @@ type DashboardState =
       risks: RiskRecordRead[];
       monitoringReviews: RiskMonitoringReviewRead[];
       monitoringUnavailable: boolean;
+      riskActions: RiskActionRead[];
+      actionsUnavailable: boolean;
     }
   | { status: "error"; message: string };
 
@@ -77,9 +92,13 @@ export function RiskDashboardPage() {
     const tokenToUse = token;
 
     async function loadDashboard() {
-      const [riskResult, monitoringResult] = await Promise.allSettled([
+      const [riskResult, monitoringResult, actionsResult] = await Promise.allSettled([
         listRisks(tokenToUse),
         listMyMonitoringReviews(tokenToUse, { includeClosed: true }),
+        listMyRiskActions(tokenToUse, {
+          includeCompleted: false,
+          includeCancelled: false,
+        }),
       ]);
 
       if (riskResult.status === "rejected") {
@@ -102,6 +121,9 @@ export function RiskDashboardPage() {
           monitoringReviews:
             monitoringResult.status === "fulfilled" ? monitoringResult.value : [],
           monitoringUnavailable: monitoringResult.status === "rejected",
+          riskActions:
+            actionsResult.status === "fulfilled" ? actionsResult.value : [],
+          actionsUnavailable: actionsResult.status === "rejected",
         });
       }
     }
@@ -138,6 +160,18 @@ export function RiskDashboardPage() {
 
   const risks = dashboardState.risks;
   const monitoringReviews = dashboardState.monitoringReviews;
+  const riskActions = dashboardState.riskActions;
+  const actionStatuses = riskActions.map((action) =>
+    getRiskActionDueStatus(action),
+  );
+  const priorityRiskActions = [...riskActions]
+    .filter((action) =>
+      ["OVERDUE", "DUE_TODAY", "DUE_SOON"].includes(
+        getRiskActionDueStatus(action),
+      ),
+    )
+    .sort(compareRiskActionsByUrgency)
+    .slice(0, 5);
   const priorityMonitoringReviews = monitoringReviews
     .filter((review) => ["OVERDUE", "DUE"].includes(review.status))
     .slice(0, 5);
@@ -183,6 +217,11 @@ export function RiskDashboardPage() {
       label: "Monitoring risks",
       value: risks.filter((risk) => risk.lifecycle_status === "MONITORING").length,
       detail: "Lifecycle status: MONITORING",
+    },
+    {
+      label: "Open actions",
+      value: riskActions.filter(isRiskActionOpen).length,
+      detail: "Visible open Risk Actions",
     },
   ];
 
@@ -278,6 +317,75 @@ export function RiskDashboardPage() {
                     </span>
                   </li>
                 ))}
+              </ul>
+            )}
+          </>
+        )}
+      </section>
+
+      <section
+        className="dashboard-section action-dashboard-snapshot"
+        aria-labelledby="action-dashboard-heading"
+      >
+        <div className="dashboard-section-header">
+          <div>
+            <p className="eyebrow">Mitigation follow-up</p>
+            <h2 id="action-dashboard-heading">Action due-date snapshot</h2>
+          </div>
+          <Link className="secondary-link" to="/my-actions">
+            View My Actions
+          </Link>
+        </div>
+
+        {dashboardState.actionsUnavailable ? (
+          <p className="action-warning" role="status">
+            Action snapshot unavailable.
+          </p>
+        ) : (
+          <>
+            <div className="action-kpi-grid dashboard-action-kpis">
+              <ActionSnapshotKpi
+                label="Overdue actions"
+                status="OVERDUE"
+                statuses={actionStatuses}
+              />
+              <ActionSnapshotKpi
+                label="Due today"
+                status="DUE_TODAY"
+                statuses={actionStatuses}
+              />
+              <ActionSnapshotKpi
+                label="Due soon"
+                status="DUE_SOON"
+                statuses={actionStatuses}
+              />
+              <ActionSnapshotKpi
+                label="No due date"
+                status="NO_DUE_DATE"
+                statuses={actionStatuses}
+              />
+            </div>
+
+            {priorityRiskActions.length === 0 ? (
+              <p className="action-empty">No urgent Risk Actions.</p>
+            ) : (
+              <ul className="action-dashboard-list">
+                {priorityRiskActions.map((action) => {
+                  const dueStatus = getRiskActionDueStatus(action);
+                  return (
+                    <li key={action.id}>
+                      <span
+                        className={`action-due-badge ${getRiskActionDueStatusTone(dueStatus)}`}
+                      >
+                        {getRiskActionDueStatusLabel(dueStatus)}
+                      </span>
+                      <Link to={`/risks/${action.risk_record_id}`}>
+                        {action.title || "Untitled action"}
+                      </Link>
+                      <span>Due Date: {action.due_date || "Not scheduled"}</span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </>
@@ -576,6 +684,23 @@ function countMonitoringStatus(
   status: string,
 ): number {
   return reviews.filter((review) => review.status === status).length;
+}
+
+function ActionSnapshotKpi({
+  label,
+  status,
+  statuses,
+}: {
+  label: string;
+  status: RiskActionDueStatus;
+  statuses: RiskActionDueStatus[];
+}) {
+  return (
+    <article className={`action-card ${getRiskActionDueStatusTone(status)}`}>
+      <span>{label}</span>
+      <strong>{statuses.filter((value) => value === status).length}</strong>
+    </article>
+  );
 }
 
 function getRecentRisks(risks: RiskRecordRead[], limit: number): RiskRecordRead[] {

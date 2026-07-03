@@ -1692,6 +1692,262 @@ button:disabled {
   padding: 0.75rem 0.9rem;
 }
 
+.actions-page {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 1280px;
+  width: 100%;
+}
+
+.actions-page .page-header {
+  margin-bottom: 0;
+}
+
+.action-kpi-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.action-card {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-left: 4px solid #829ab1;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+  display: grid;
+  gap: 0.25rem;
+  padding: 1rem;
+}
+
+.action-card > span {
+  color: #486581;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.action-card > strong {
+  color: #102a43;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.action-card.overdue {
+  border-left-color: #c53030;
+}
+
+.action-card.due-today {
+  border-left-color: #d97706;
+}
+
+.action-card.due-soon {
+  border-left-color: #ca8a04;
+}
+
+.action-card.open {
+  border-left-color: #2f855a;
+}
+
+.action-card.completed,
+.action-card.cancelled,
+.action-card.no-due-date {
+  border-left-color: #627d98;
+}
+
+.action-due-badge {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.55rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.action-due-badge.overdue {
+  background: #fff5f5;
+  color: #9b2c2c;
+}
+
+.action-due-badge.due-today {
+  background: #fff8e1;
+  color: #7c2d12;
+}
+
+.action-due-badge.due-soon {
+  background: #fefce8;
+  color: #854d0e;
+}
+
+.action-due-badge.open {
+  background: #e3f9e5;
+  color: #1c4532;
+}
+
+.action-due-badge.no-due-date {
+  background: #f0f4f8;
+  color: #486581;
+}
+
+.action-due-badge.completed {
+  background: #e3f9e5;
+  color: #1c4532;
+}
+
+.action-due-badge.cancelled {
+  background: #e4e7eb;
+  color: #334e68;
+}
+
+.action-filter-bar {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  min-height: 3.25rem;
+  padding: 0.75rem 1rem;
+}
+
+.action-filter-bar label {
+  align-items: center;
+  color: #334e68;
+  display: flex;
+  font-weight: 600;
+  gap: 0.55rem;
+}
+
+.action-table-wrapper {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+  overflow-x: auto;
+}
+
+.action-queue-table {
+  border-collapse: collapse;
+  min-width: 1180px;
+  width: 100%;
+}
+
+.action-queue-table th,
+.action-queue-table td {
+  border-bottom: 1px solid #e4e7eb;
+  padding: 0.8rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.action-queue-table th {
+  background: #f0f4f8;
+  color: #486581;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.action-queue-table td {
+  color: #334e68;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.action-queue-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.action-row.overdue td:first-child,
+.risk-action-item.overdue {
+  box-shadow: inset 4px 0 #c53030;
+}
+
+.action-row.due-today td:first-child,
+.risk-action-item.due-today {
+  box-shadow: inset 4px 0 #d97706;
+}
+
+.action-row.due-soon td:first-child,
+.risk-action-item.due-soon {
+  box-shadow: inset 4px 0 #ca8a04;
+}
+
+.action-empty {
+  background: #f0f4f8;
+  color: #627d98;
+  margin: 0;
+  padding: 1rem;
+}
+
+.action-dashboard-snapshot {
+  display: grid;
+  gap: 1rem;
+}
+
+.dashboard-action-kpis .action-card {
+  box-shadow: none;
+}
+
+.action-dashboard-list {
+  display: grid;
+  gap: 0.6rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.action-dashboard-list li {
+  align-items: center;
+  border-bottom: 1px solid #e4e7eb;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(180px, 1fr) auto;
+  padding-bottom: 0.6rem;
+}
+
+.action-dashboard-list li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.action-dashboard-list li > span:last-child {
+  color: #627d98;
+  font-size: 0.85rem;
+}
+
+.action-warning {
+  background: #fff8e1;
+  border-left: 4px solid #d97706;
+  color: #7c2d12;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+}
+
+.action-warning.overdue {
+  background: #fff5f5;
+  border-left-color: #c53030;
+  color: #742a2a;
+}
+
+.action-description-excerpt,
+.action-row-links {
+  display: grid;
+  gap: 0.3rem;
+  line-height: 1.4;
+  min-width: 180px;
+}
+
+.risk-action-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: space-between;
+}
+
 @media (max-width: 720px) {
   .monitoring-actions,
   .monitoring-metadata {
@@ -1699,6 +1955,11 @@ button:disabled {
   }
 
   .monitoring-dashboard-list li {
+    align-items: start;
+    grid-template-columns: 1fr;
+  }
+
+  .action-dashboard-list li {
     align-items: start;
     grid-template-columns: 1fr;
   }

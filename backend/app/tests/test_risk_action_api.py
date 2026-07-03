@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import Generator
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -22,6 +22,8 @@ from app.models.enums import (
 )
 from app.models.risk import RiskAction, RiskRecord
 from app.models.user import User
+from app.services.auth_service import create_access_token
+from app.services.risk_action_service import get_risk_action_due_status
 
 
 @pytest.fixture()
@@ -51,12 +53,17 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
     app.dependency_overrides.clear()
 
 
-def _create_risk_record(db_session: Session) -> RiskRecord:
+def _create_risk_record(
+    db_session: Session,
+    *,
+    created_by_user_id: uuid.UUID | None = None,
+) -> RiskRecord:
     risk_record = RiskRecord(
         problem_description=f"Risk record {uuid.uuid4()}",
         domain=RiskDomain.FLIGHT_TEST,
         workflow_status=RiskWorkflowStatus.DRAFT,
         lifecycle_status=RiskLifecycleStatus.OPEN,
+        created_by_user_id=created_by_user_id,
         is_active=True,
     )
     db_session.add(risk_record)
@@ -87,14 +94,17 @@ def _create_action(
     risk_record_id: uuid.UUID,
     *,
     action_owner_user_id: uuid.UUID | None = None,
+    due_date: date | None = date(2026, 6, 30),
+    status: RiskActionStatus = RiskActionStatus.OPEN,
+    title: str = "Inspect flight test instrumentation",
 ) -> RiskAction:
     action = RiskAction(
         risk_record_id=risk_record_id,
-        title="Inspect flight test instrumentation",
+        title=title,
         description="Mitigation action",
         action_owner_user_id=action_owner_user_id,
-        due_date=date(2026, 6, 30),
-        status=RiskActionStatus.OPEN,
+        due_date=due_date,
+        status=status,
     )
     db_session.add(action)
     db_session.commit()
@@ -114,14 +124,19 @@ def _create_user(db_session: Session, *, is_active: bool = True) -> User:
     return user
 
 
+def _headers(user: User) -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token(user_id=user.id)}"}
+
+
 def test_get_risk_actions_returns_list(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    risk_record = _create_risk_record(db_session)
+    user = _create_user(db_session)
+    risk_record = _create_risk_record(db_session, created_by_user_id=user.id)
     _create_action(db_session, risk_record.id)
 
-    response = client.get("/risk-actions")
+    response = client.get("/risk-actions", headers=_headers(user))
 
     assert response.status_code == 200
     assert isinstance(response.json(), list)
@@ -193,17 +208,24 @@ def test_get_risk_action_returns_action(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    risk_record = _create_risk_record(db_session)
+    user = _create_user(db_session)
+    risk_record = _create_risk_record(db_session, created_by_user_id=user.id)
     action = _create_action(db_session, risk_record.id)
 
-    response = client.get(f"/risk-actions/{action.id}")
+    response = client.get(f"/risk-actions/{action.id}", headers=_headers(user))
 
     assert response.status_code == 200
     assert response.json()["id"] == str(action.id)
 
 
-def test_get_unknown_action_returns_http_404(client: TestClient) -> None:
-    response = client.get(f"/risk-actions/{uuid.uuid4()}")
+def test_get_unknown_action_returns_http_404(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    user = _create_user(db_session)
+    response = client.get(
+        f"/risk-actions/{uuid.uuid4()}", headers=_headers(user)
+    )
 
     assert response.status_code == 404
 
@@ -370,14 +392,183 @@ def test_get_risk_actions_filtered_by_risk_record_id(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    first_risk = _create_risk_record(db_session)
-    second_risk = _create_risk_record(db_session)
+    user = _create_user(db_session)
+    first_risk = _create_risk_record(db_session, created_by_user_id=user.id)
+    second_risk = _create_risk_record(db_session, created_by_user_id=user.id)
     first_action = _create_action(db_session, first_risk.id)
     _create_action(db_session, second_risk.id)
 
-    response = client.get(f"/risk-actions?risk_record_id={first_risk.id}")
+    response = client.get(
+        f"/risk-actions?risk_record_id={first_risk.id}", headers=_headers(user)
+    )
 
     assert response.status_code == 200
     body = response.json()
     assert len(body) == 1
     assert body[0]["id"] == str(first_action.id)
+
+
+def test_user_cannot_list_or_get_actions_for_unreadable_risk(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    creator = _create_user(db_session)
+    unauthorized_user = _create_user(db_session)
+    risk_record = _create_risk_record(
+        db_session, created_by_user_id=creator.id
+    )
+    action = _create_action(db_session, risk_record.id)
+
+    scoped_list = client.get(
+        f"/risk-actions?risk_record_id={risk_record.id}",
+        headers=_headers(unauthorized_user),
+    )
+    all_actions = client.get("/risk-actions", headers=_headers(unauthorized_user))
+    individual = client.get(
+        f"/risk-actions/{action.id}", headers=_headers(unauthorized_user)
+    )
+
+    assert scoped_list.status_code == 400
+    assert all_actions.status_code == 200
+    assert all_actions.json() == []
+    assert individual.status_code == 400
+
+
+def test_my_actions_returns_assigned_actions_without_unreadable_actions(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    user = _create_user(db_session)
+    other_user = _create_user(db_session)
+    assigned_risk = _create_risk_record(db_session)
+    unreadable_risk = _create_risk_record(
+        db_session, created_by_user_id=other_user.id
+    )
+    assigned_action = _create_action(
+        db_session,
+        assigned_risk.id,
+        action_owner_user_id=user.id,
+        title="Assigned action",
+    )
+    _create_action(db_session, unreadable_risk.id, title="Unreadable action")
+
+    response = client.get("/risk-actions/my", headers=_headers(user))
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [str(assigned_action.id)]
+
+
+def test_my_actions_status_filters_and_includes(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    user = _create_user(db_session)
+    risk_record = _create_risk_record(
+        db_session, created_by_user_id=user.id
+    )
+    open_action = _create_action(
+        db_session, risk_record.id, title="Open action"
+    )
+    completed_action = _create_action(
+        db_session,
+        risk_record.id,
+        status=RiskActionStatus.COMPLETED,
+        title="Completed action",
+    )
+    cancelled_action = _create_action(
+        db_session,
+        risk_record.id,
+        status=RiskActionStatus.CANCELLED,
+        title="Cancelled action",
+    )
+
+    default_response = client.get("/risk-actions/my", headers=_headers(user))
+    completed_response = client.get(
+        "/risk-actions/my?include_completed=true", headers=_headers(user)
+    )
+    cancelled_response = client.get(
+        "/risk-actions/my?include_cancelled=true", headers=_headers(user)
+    )
+
+    assert [item["id"] for item in default_response.json()] == [str(open_action.id)]
+    assert {item["id"] for item in completed_response.json()} == {
+        str(open_action.id),
+        str(completed_action.id),
+    }
+    assert {item["id"] for item in cancelled_response.json()} == {
+        str(open_action.id),
+        str(cancelled_action.id),
+    }
+
+
+def test_my_actions_orders_by_due_status(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    user = _create_user(db_session)
+    risk_record = _create_risk_record(
+        db_session, created_by_user_id=user.id
+    )
+    today = date.today()
+    action_specs = [
+        ("No due date", None, RiskActionStatus.OPEN),
+        ("Cancelled", today - timedelta(days=5), RiskActionStatus.CANCELLED),
+        ("Open", today + timedelta(days=20), RiskActionStatus.IN_PROGRESS),
+        ("Due soon", today + timedelta(days=7), RiskActionStatus.OPEN),
+        ("Completed", today - timedelta(days=5), RiskActionStatus.COMPLETED),
+        ("Due today", today, RiskActionStatus.OPEN),
+        ("Overdue", today - timedelta(days=1), RiskActionStatus.OPEN),
+    ]
+    for title, due_date, action_status in action_specs:
+        _create_action(
+            db_session,
+            risk_record.id,
+            title=title,
+            due_date=due_date,
+            status=action_status,
+        )
+
+    response = client.get(
+        "/risk-actions/my?include_completed=true&include_cancelled=true",
+        headers=_headers(user),
+    )
+
+    assert response.status_code == 200
+    assert [item["title"] for item in response.json()] == [
+        "Overdue",
+        "Due today",
+        "Due soon",
+        "Open",
+        "No due date",
+        "Completed",
+        "Cancelled",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("status", "expected_due_status"),
+    [
+        (RiskActionStatus.COMPLETED, "COMPLETED"),
+        (RiskActionStatus.CANCELLED, "CANCELLED"),
+    ],
+)
+def test_closed_actions_with_past_due_dates_are_not_overdue(
+    db_session: Session,
+    status: RiskActionStatus,
+    expected_due_status: str,
+) -> None:
+    risk_record = _create_risk_record(db_session)
+    action = _create_action(
+        db_session,
+        risk_record.id,
+        due_date=date.today() - timedelta(days=30),
+        status=status,
+    )
+
+    assert get_risk_action_due_status(action) == expected_due_status
+
+
+def test_unauthenticated_user_cannot_access_my_actions(client: TestClient) -> None:
+    response = client.get("/risk-actions/my")
+
+    assert response.status_code == 400

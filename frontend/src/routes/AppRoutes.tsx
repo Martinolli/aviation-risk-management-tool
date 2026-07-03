@@ -7,6 +7,7 @@ import { AuditTrailPage } from "../pages/AuditTrailPage";
 import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { MyDecisionQueuePage } from "../pages/MyDecisionQueuePage";
+import { MyActionsPage } from "../pages/MyActionsPage";
 import { MyMonitoringPage } from "../pages/MyMonitoringPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { ReportsPage } from "../pages/ReportsPage";
@@ -40,6 +41,7 @@ export function AppRoutes() {
         <Route path="/dashboard" element={<RiskDashboardPage />} />
         <Route path="/risks" element={<RiskListPage />} />
         <Route path="/my-decisions" element={<MyDecisionQueuePage />} />
+        <Route path="/my-actions" element={<MyActionsPage />} />
         <Route path="/my-monitoring" element={<MyMonitoringPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/audit-trail" element={<AuditTrailPage />} />

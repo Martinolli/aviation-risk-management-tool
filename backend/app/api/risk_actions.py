@@ -18,8 +18,9 @@ from app.services.risk_action_service import (
     RiskActionNotFoundError,
     complete_risk_action,
     create_risk_action,
-    get_risk_action,
-    list_risk_actions,
+    get_authorized_risk_action,
+    get_my_risk_actions,
+    list_authorized_risk_actions,
     update_risk_action,
 )
 
@@ -35,17 +36,69 @@ def _commit_and_refresh(db: Session, risk_action: RiskAction) -> RiskAction:
 @router.get("", response_model=list[RiskActionRead])
 def list_risk_actions_endpoint(
     risk_record_id: uuid.UUID | None = None,
+    include_completed: bool = True,
+    include_cancelled: bool = True,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
-    return list_risk_actions(db, risk_record_id=risk_record_id)
+    try:
+        return list_authorized_risk_actions(
+            db,
+            requested_by_user_id=get_optional_current_user_id(current_user),
+            risk_record_id=risk_record_id,
+            include_completed=include_completed,
+            include_cancelled=include_cancelled,
+        )
+    except RiskActionNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except RiskActionBusinessRuleError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get("/my", response_model=list[RiskActionRead])
+def get_my_risk_actions_endpoint(
+    include_completed: bool = False,
+    include_cancelled: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    try:
+        return get_my_risk_actions(
+            db,
+            requested_by_user_id=get_optional_current_user_id(current_user),
+            include_completed=include_completed,
+            include_cancelled=include_cancelled,
+        )
+    except RiskActionBusinessRuleError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("/{risk_action_id}", response_model=RiskActionRead)
 def get_risk_action_endpoint(
     risk_action_id: uuid.UUID,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
-    action = get_risk_action(db, risk_action_id=risk_action_id)
+    try:
+        action = get_authorized_risk_action(
+            db,
+            risk_action_id=risk_action_id,
+            requested_by_user_id=get_optional_current_user_id(current_user),
+        )
+    except RiskActionBusinessRuleError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
     if action is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

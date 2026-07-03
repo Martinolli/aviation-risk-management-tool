@@ -43,6 +43,12 @@ import {
   getRiskPackageStatusLabel,
   getRiskSubmissionReadiness,
 } from "../utils/riskReadiness";
+import {
+  getRiskActionDueStatus,
+  getRiskActionDueStatusLabel,
+  getRiskActionDueStatusTone,
+  isRiskActionOpen,
+} from "../utils/actionDueStatus";
 
 type RiskDetailState =
   | { status: "loading" }
@@ -395,6 +401,11 @@ export function RiskDetailPage() {
   });
   const allActionsCompleted =
     actions.length > 0 && actions.every((action) => isActionCompleted(action));
+  const actionDueStatuses = actions.map((action) =>
+    getRiskActionDueStatus(action),
+  );
+  const hasOverdueActions = actionDueStatuses.includes("OVERDUE");
+  const hasActionsDueToday = actionDueStatuses.includes("DUE_TODAY");
   const successMessage = getSuccessMessage(location.state);
 
   async function refreshRiskReports(riskId: string) {
@@ -927,39 +938,62 @@ export function RiskDetailPage() {
             may still be recorded if needed.
           </p>
         )}
+        {hasOverdueActions && (
+          <p className="action-warning overdue" role="status">
+            One or more mitigation actions are overdue.
+          </p>
+        )}
+        {hasActionsDueToday && (
+          <p className="action-warning due-today" role="status">
+            One or more mitigation actions are due today.
+          </p>
+        )}
         {actions.length === 0 ? (
           <p className="detail-empty">No mitigation actions recorded yet.</p>
         ) : (
           <ul className="detail-list">
-            {actions.map((action) => (
-              <li key={action.id}>
-                <strong>{action.title || "Untitled action"}</strong>
-                <span>{action.status || "Status not specified"}</span>
-                {action.description && <span>{action.description}</span>}
-                <div className="action-metadata">
-                  {action.action_owner_user_id && (
-                    <span>Owner: {action.action_owner_user_id}</span>
+            {actions.map((action) => {
+              const dueStatus = getRiskActionDueStatus(action);
+              return (
+                <li
+                  className={`risk-action-item ${getRiskActionDueStatusTone(dueStatus)}`}
+                  key={action.id}
+                >
+                  <div className="risk-action-heading">
+                    <strong>{action.title || "Untitled action"}</strong>
+                    <span
+                      className={`action-due-badge ${getRiskActionDueStatusTone(dueStatus)}`}
+                    >
+                      {getRiskActionDueStatusLabel(dueStatus)}
+                    </span>
+                  </div>
+                  <span>{action.status || "Status not specified"}</span>
+                  {action.description && <span>{action.description}</span>}
+                  <div className="action-metadata">
+                    <span>
+                      Action Owner: {action.action_owner_user_id || "Not assigned"}
+                    </span>
+                    <span>Due Date: {action.due_date || "Not scheduled"}</span>
+                    {action.completed_at && (
+                      <span>Completed: {formatDateTime(action.completed_at)}</span>
+                    )}
+                  </div>
+                  {action.completion_notes && (
+                    <span>Completion notes: {action.completion_notes}</span>
                   )}
-                  {action.due_date && <span>Due: {action.due_date}</span>}
-                  {action.completed_at && (
-                    <span>Completed: {formatDateTime(action.completed_at)}</span>
-                  )}
-                </div>
-                {action.completion_notes && (
-                  <span>Completion notes: {action.completion_notes}</span>
-                )}
-                {isActionCompleted(action) ? (
-                  <span className="completed-action-status">Action completed.</span>
-                ) : (
-                  <Link
-                    className="action-inline-button"
-                    to={`/risks/${risk.id}/actions/${action.id}/complete`}
-                  >
-                    Complete action
-                  </Link>
-                )}
-              </li>
-            ))}
+                  {isActionCompleted(action) ? (
+                    <span className="completed-action-status">Action completed.</span>
+                  ) : isRiskActionOpen(action) ? (
+                    <Link
+                      className="action-inline-button"
+                      to={`/risks/${risk.id}/actions/${action.id}/complete`}
+                    >
+                      Complete action
+                    </Link>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </DetailSection>
@@ -1771,7 +1805,7 @@ function getNextAction({
   const residualAssessment = assessments.find(
     (assessment) => assessment.assessment_type === "RESIDUAL",
   );
-  const openActions = actions.filter(isActionOpen);
+  const openActions = actions.filter(isRiskActionOpen);
   const completedActions = actions.filter(isActionCompleted);
   const submissionReadiness = getRiskSubmissionReadiness(risk, assessments);
   const hasInitialAssessment = submissionReadiness.hasInitialAssessment;
@@ -2068,22 +2102,6 @@ function isOperationalBoardReviewStatus(status: string): boolean {
     "SUBMITTED_TO_OPERATIONAL_BOARD",
     "UNDER_OPERATIONAL_BOARD_REVIEW",
   ].includes(status);
-}
-
-function isActionOpen(action: RiskActionRead): boolean {
-  if (action.status === "COMPLETED") {
-    return false;
-  }
-
-  if (action.completed_at) {
-    return false;
-  }
-
-  if (action.status === "CANCELLED") {
-    return false;
-  }
-
-  return true;
 }
 
 function getLatestDecision(
