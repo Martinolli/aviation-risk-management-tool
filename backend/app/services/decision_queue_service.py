@@ -95,6 +95,23 @@ def _queue_risks_for_committee(
     return list(db.scalars(statement).all())
 
 
+def get_decision_queue_for_committee(
+    db: Session,
+    *,
+    committee_id: uuid.UUID,
+) -> list[RiskRecord]:
+    committee = db.get(Committee, committee_id)
+    if committee is None:
+        raise DecisionQueueBusinessRuleError("Committee does not exist")
+    if not committee.is_active:
+        raise DecisionQueueBusinessRuleError("Committee is inactive")
+    return _queue_risks_for_committee(db, committee=committee)
+
+
+def get_decision_queue_scope(committee: Committee) -> str | list[str]:
+    return _queue_scope(committee)
+
+
 def _risk_timestamp(risk_record: RiskRecordRead, field: str) -> float:
     value: datetime | None = getattr(risk_record, field, None)
     if value is None:

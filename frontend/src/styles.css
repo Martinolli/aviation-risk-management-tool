@@ -1150,6 +1150,171 @@ button:disabled {
   max-width: 1080px;
 }
 
+.meeting-packs-page {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 1080px;
+  width: 100%;
+}
+
+.meeting-packs-page .page-header {
+  margin-bottom: 0;
+}
+
+.meeting-pack-form {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-left: 4px solid #486581;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+  display: grid;
+  gap: 0.55rem;
+  padding: 1.25rem;
+}
+
+.meeting-pack-form label {
+  color: #334e68;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.meeting-pack-form input,
+.meeting-pack-form select {
+  background: #fff;
+  border: 1px solid #bcccdc;
+  border-radius: 0.35rem;
+  color: #102a43;
+  font: inherit;
+  max-width: 680px;
+  padding: 0.65rem;
+  width: 100%;
+}
+
+.meeting-pack-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.45rem;
+}
+
+.meeting-pack-preview {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgb(16 42 67 / 8%);
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.meeting-pack-preview h2,
+.meeting-pack-report-card h2,
+.meeting-pack-empty h2 {
+  color: #102a43;
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.meeting-pack-preview p,
+.meeting-pack-empty p {
+  color: #486581;
+  line-height: 1.5;
+  margin: 0.4rem 0 0;
+}
+
+.meeting-pack-risk-list {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.meeting-pack-risk-list li {
+  border-left: 4px solid #075985;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem 1rem;
+}
+
+.meeting-pack-risk-list li > div {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.meeting-pack-risk-list a {
+  color: #075985;
+  font-weight: 700;
+}
+
+.meeting-pack-risk-list span {
+  background: #f0f4f8;
+  border-radius: 0.25rem;
+  color: #486581;
+  font-size: 0.76rem;
+  padding: 0.2rem 0.4rem;
+}
+
+.meeting-pack-risk-list p {
+  color: #334e68;
+  margin: 0;
+}
+
+.meeting-pack-report-card {
+  align-items: flex-start;
+  background: #e3f9e5;
+  border: 1px solid #a3d9a5;
+  border-left: 4px solid #2f855a;
+  border-radius: 0.5rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1.25rem;
+}
+
+.meeting-pack-report-card dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0;
+}
+
+.meeting-pack-report-card dl > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.meeting-pack-report-card dt {
+  color: #486581;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.meeting-pack-report-card dd {
+  color: #1c4532;
+  margin: 0;
+}
+
+.meeting-pack-empty {
+  background: #f0f4f8;
+  border-radius: 0.5rem;
+  color: #627d98;
+  margin: 0;
+  padding: 1rem 1.25rem;
+}
+
+@media (max-width: 720px) {
+  .meeting-pack-report-card {
+    flex-direction: column;
+  }
+
+  .meeting-pack-report-card button {
+    width: 100%;
+  }
+}
+
 .report-panel {
   align-items: center;
   background: #f0f4f8;

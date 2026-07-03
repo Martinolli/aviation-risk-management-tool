@@ -11,6 +11,12 @@ interface GeneratedReportListParams {
   reportType?: string;
 }
 
+export interface GenerateCommitteeMeetingPackRequest {
+  output_dir?: string | null;
+  meeting_title?: string | null;
+  meeting_date?: string | null;
+}
+
 export function generateRiskDossierReport(
   token: string,
   riskRecordId: string,
@@ -21,6 +27,21 @@ export function generateRiskDossierReport(
       method: "POST",
       token,
       body: {},
+    },
+  );
+}
+
+export function generateCommitteeMeetingPack(
+  token: string,
+  committeeId: string,
+  request: GenerateCommitteeMeetingPackRequest = {},
+): Promise<GeneratedReportRead> {
+  return apiRequest<GeneratedReportRead>(
+    `/reports/committee-meeting-packs/${encodeURIComponent(committeeId)}`,
+    {
+      method: "POST",
+      token,
+      body: request,
     },
   );
 }

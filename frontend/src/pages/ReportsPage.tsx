@@ -92,7 +92,10 @@ export function ReportsPage() {
         <div>
           <p className="eyebrow">Report library</p>
           <h1 id="reports-heading">Reports</h1>
-          <p>Review and download generated risk dossier reports.</p>
+          <p>
+            Review and download generated risk dossiers and committee meeting
+            packs.
+          </p>
         </div>
       </div>
 
@@ -118,7 +121,10 @@ export function ReportsPage() {
       {reportsState.status === "success" && reportsState.reports.length === 0 && (
         <section className="workspace-empty" aria-labelledby="empty-reports-heading">
           <h2 id="empty-reports-heading">No reports generated yet.</h2>
-          <p>Generate a risk dossier from a risk detail page to begin.</p>
+          <p>
+            Generate a risk dossier from a risk detail page or create a
+            Committee Meeting Pack to begin.
+          </p>
         </section>
       )}
 
@@ -131,6 +137,9 @@ export function ReportsPage() {
                 <div className="report-meta">
                   {report.risk_record_id && (
                     <span>Risk record: {report.risk_record_id}</span>
+                  )}
+                  {report.committee_id && (
+                    <span>Committee: {report.committee_id}</span>
                   )}
                   <span>Generated {formatDateTime(report.generated_at)}</span>
                   {report.generated_by_user_id && (
@@ -168,5 +177,9 @@ function formatDateTime(value: string | null | undefined): string {
 }
 
 function formatReportType(value: string): string {
-  return value.replace(/_/g, " ") || "Report";
+  const labels: Record<string, string> = {
+    RISK_DOSSIER_DOCX: "Risk Dossier",
+    COMMITTEE_MEETING_PACK_DOCX: "Committee Meeting Pack",
+  };
+  return labels[value] || value.replace(/_/g, " ") || "Report";
 }

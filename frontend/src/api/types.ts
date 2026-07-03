@@ -330,6 +330,7 @@ export interface RiskDecisionRead {
 export interface GeneratedReportRead {
   id: string;
   risk_record_id?: string | null;
+  committee_id?: string | null;
   report_type: string;
   file_path: string;
   generated_by_user_id?: string | null;

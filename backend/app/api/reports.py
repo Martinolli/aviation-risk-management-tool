@@ -9,12 +9,14 @@ from app.core.database import get_db
 from app.models.report import GeneratedReport
 from app.models.user import User
 from app.schemas.report import (
+    GenerateCommitteeMeetingPackRequest,
     GenerateRiskDossierReportRequest,
     GeneratedReportRead,
 )
 from app.services.report_tracking_service import (
     GeneratedReportNotFoundError,
     ReportTrackingBusinessRuleError,
+    generate_and_track_committee_meeting_pack,
     generate_and_track_risk_dossier_report,
     get_authorized_generated_report_file_path,
     get_authorized_generated_report,
@@ -50,6 +52,35 @@ def generate_risk_dossier_report_endpoint(
             risk_record_id=risk_record_id,
             output_dir=data.output_dir if data is not None else None,
             generated_by_user_id=get_optional_current_user_id(current_user),
+        )
+        return _commit_and_refresh(db, generated_report)
+    except ReportTrackingBusinessRuleError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post(
+    "/committee-meeting-packs/{committee_id}",
+    response_model=GeneratedReportRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def generate_committee_meeting_pack_endpoint(
+    committee_id: uuid.UUID,
+    data: GenerateCommitteeMeetingPackRequest | None = None,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    try:
+        generated_report = generate_and_track_committee_meeting_pack(
+            db,
+            committee_id=committee_id,
+            output_dir=data.output_dir if data is not None else None,
+            generated_by_user_id=get_optional_current_user_id(current_user),
+            meeting_title=data.meeting_title if data is not None else None,
+            meeting_date=data.meeting_date if data is not None else None,
         )
         return _commit_and_refresh(db, generated_report)
     except ReportTrackingBusinessRuleError as exc:

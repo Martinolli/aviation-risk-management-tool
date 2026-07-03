@@ -28,6 +28,7 @@ export function AppLayout() {
                 <NavLink to="/my-decisions">My Queue</NavLink>
                 <NavLink to="/my-actions">My Actions</NavLink>
                 <NavLink to="/my-monitoring">My Monitoring</NavLink>
+                <NavLink to="/committee-meeting-packs">Meeting Packs</NavLink>
                 <NavLink to="/reports">Reports</NavLink>
                 <NavLink to="/audit-trail">Audit Trail</NavLink>
                 <NavLink to="/admin/governance">Admin</NavLink>

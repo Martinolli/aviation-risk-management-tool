@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 class GeneratedReportRead(BaseModel):
     id: uuid.UUID
     risk_record_id: uuid.UUID | None
+    committee_id: uuid.UUID | None
     report_type: str
     file_path: str
     generated_by_user_id: uuid.UUID | None
@@ -19,5 +20,13 @@ class GeneratedReportRead(BaseModel):
 
 class GenerateRiskDossierReportRequest(BaseModel):
     output_dir: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class GenerateCommitteeMeetingPackRequest(BaseModel):
+    output_dir: str | None = None
+    meeting_title: str | None = None
+    meeting_date: date | None = None
 
     model_config = ConfigDict(extra="forbid")

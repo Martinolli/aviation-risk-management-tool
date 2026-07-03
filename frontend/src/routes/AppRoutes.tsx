@@ -4,6 +4,7 @@ import { AppLayout } from "../components/AppLayout";
 import { useAuth } from "../auth/AuthContext";
 import { AdminGovernancePage } from "../pages/AdminGovernancePage";
 import { AuditTrailPage } from "../pages/AuditTrailPage";
+import { CommitteeMeetingPacksPage } from "../pages/CommitteeMeetingPacksPage";
 import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { MyDecisionQueuePage } from "../pages/MyDecisionQueuePage";
@@ -43,6 +44,10 @@ export function AppRoutes() {
         <Route path="/my-decisions" element={<MyDecisionQueuePage />} />
         <Route path="/my-actions" element={<MyActionsPage />} />
         <Route path="/my-monitoring" element={<MyMonitoringPage />} />
+        <Route
+          path="/committee-meeting-packs"
+          element={<CommitteeMeetingPacksPage />}
+        />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/audit-trail" element={<AuditTrailPage />} />
         <Route path="/admin/governance" element={<AdminGovernancePage />} />
