@@ -80,6 +80,44 @@ def test_user_writes_require_governance_admin(client: TestClient, db_session: Se
     assert client.post("/users", json=_payload(), headers=_admin_headers(db_session, level=AuthorityLevel.HIGH)).status_code == 201
 
 
+def test_admin_can_deactivate_and_reactivate_user(client: TestClient, db_session: Session) -> None:
+    headers = _admin_headers(db_session)
+    create_response = client.post("/users", json=_payload(), headers=headers)
+    user_id = create_response.json()["id"]
+
+    deactivate_response = client.patch(
+        f"/users/{user_id}",
+        json={"is_active": False},
+        headers=headers,
+    )
+    reactivate_response = client.patch(
+        f"/users/{user_id}",
+        json={"is_active": True},
+        headers=headers,
+    )
+
+    assert deactivate_response.status_code == 200
+    assert deactivate_response.json()["is_active"] is False
+    assert reactivate_response.status_code == 200
+    assert reactivate_response.json()["is_active"] is True
+
+
+def test_non_admin_cannot_deactivate_user(client: TestClient, db_session: Session) -> None:
+    headers = _admin_headers(db_session)
+    user_id = client.post("/users", json=_payload(), headers=headers).json()["id"]
+    regular = User(email=f"regular-{uuid.uuid4()}@example.com", display_name="Regular", is_active=True)
+    db_session.add(regular)
+    db_session.commit()
+
+    response = client.patch(
+        f"/users/{user_id}",
+        json={"is_active": False},
+        headers={"X-User-Id": str(regular.id)},
+    )
+
+    assert response.status_code == 400
+
+
 def test_user_password_api_fields_are_hashed_and_never_returned(
     client: TestClient,
     db_session: Session,

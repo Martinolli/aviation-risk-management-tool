@@ -148,6 +148,44 @@ def test_patch_committee_updates_low_committee(
     assert response.json()["name"] == new_name
 
 
+def test_patch_committee_updates_configurable_description_and_status(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    committee = _create_committee(db_session, name=_name("Configurable Safety Committee"))
+
+    response = client.patch(
+        f"/committees/{committee.id}",
+        json={"description": "Updated description", "is_active": False},
+        headers=_admin_headers(db_session),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["description"] == "Updated description"
+    assert response.json()["is_active"] is False
+
+
+def test_patch_fixed_committee_name_returns_http_400(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    committee = _create_committee(
+        db_session,
+        name=_name("Risk Management Committee"),
+        authority_level=AuthorityLevel.MIDDLE,
+        committee_type=CommitteeType.RISK_MANAGEMENT_COMMITTEE,
+        is_fixed=True,
+    )
+
+    response = client.patch(
+        f"/committees/{committee.id}",
+        json={"name": _name("Renamed Protected Committee")},
+        headers=_admin_headers(db_session),
+    )
+
+    assert response.status_code == 400
+
+
 def test_archive_low_committee(
     client: TestClient,
     db_session: Session,

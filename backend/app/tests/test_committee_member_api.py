@@ -83,3 +83,126 @@ def test_committee_member_writes_require_governance_admin(client: TestClient, db
     payload = {"committee_id": str(committee.id), "user_id": str(user.id)}
     assert client.post("/committee-members", json=payload).status_code == 400
     assert client.post("/committee-members", json=payload, headers=_admin_headers(db_session)).status_code == 201
+
+
+def test_committee_member_can_be_deactivated_and_reactivated(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    committee, user = _committee(db_session), _user(db_session)
+    headers = _admin_headers(db_session)
+    member_id = client.post(
+        "/committee-members",
+        json={"committee_id": str(committee.id), "user_id": str(user.id)},
+        headers=headers,
+    ).json()["id"]
+
+    deactivated = client.patch(
+        f"/committee-members/{member_id}",
+        json={"is_active": False},
+        headers=headers,
+    )
+    reactivated = client.patch(
+        f"/committee-members/{member_id}",
+        json={"is_active": True},
+        headers=headers,
+    )
+
+    assert deactivated.status_code == 200
+    assert deactivated.json()["is_active"] is False
+    assert reactivated.status_code == 200
+    assert reactivated.json()["is_active"] is True
+
+
+def test_reactivating_membership_rechecks_user_and_committee_active_state(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    committee, user = _committee(db_session), _user(db_session)
+    headers = _admin_headers(db_session)
+    member_id = client.post(
+        "/committee-members",
+        json={"committee_id": str(committee.id), "user_id": str(user.id)},
+        headers=headers,
+    ).json()["id"]
+    client.patch(
+        f"/committee-members/{member_id}",
+        json={"is_active": False},
+        headers=headers,
+    )
+
+    user.is_active = False
+    db_session.commit()
+    inactive_user_response = client.patch(
+        f"/committee-members/{member_id}",
+        json={"is_active": True},
+        headers=headers,
+    )
+    user.is_active = True
+    committee.is_active = False
+    db_session.commit()
+    inactive_committee_response = client.patch(
+        f"/committee-members/{member_id}",
+        json={"is_active": True},
+        headers=headers,
+    )
+
+    assert inactive_user_response.status_code == 400
+    assert "User is inactive" in inactive_user_response.json()["error"]["message"]
+    assert inactive_committee_response.status_code == 400
+    assert "Committee is inactive" in inactive_committee_response.json()["error"]["message"]
+
+
+def test_inactive_user_and_committee_cannot_receive_new_active_membership(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    committee, user = _committee(db_session), _user(db_session)
+    headers = _admin_headers(db_session)
+    user.is_active = False
+    db_session.commit()
+
+    inactive_user_response = client.post(
+        "/committee-members",
+        json={"committee_id": str(committee.id), "user_id": str(user.id)},
+        headers=headers,
+    )
+    user.is_active = True
+    committee.is_active = False
+    db_session.commit()
+    inactive_committee_response = client.post(
+        "/committee-members",
+        json={"committee_id": str(committee.id), "user_id": str(user.id)},
+        headers=headers,
+    )
+
+    assert inactive_user_response.status_code == 400
+    assert "User is inactive" in inactive_user_response.json()["error"]["message"]
+    assert inactive_committee_response.status_code == 400
+    assert "Committee is inactive" in inactive_committee_response.json()["error"]["message"]
+
+
+def test_duplicate_active_membership_is_prevented_on_reactivation(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    committee, user = _committee(db_session), _user(db_session)
+    headers = _admin_headers(db_session)
+    payload = {"committee_id": str(committee.id), "user_id": str(user.id)}
+    first_member_id = client.post("/committee-members", json=payload, headers=headers).json()["id"]
+    client.patch(
+        f"/committee-members/{first_member_id}",
+        json={"is_active": False},
+        headers=headers,
+    )
+    second_response = client.post("/committee-members", json=payload, headers=headers)
+
+    reactivation_response = client.patch(
+        f"/committee-members/{first_member_id}",
+        json={"is_active": True},
+        headers=headers,
+    )
+
+    assert second_response.status_code == 201
+    assert reactivation_response.status_code == 400
+    assert "already has an active membership" in reactivation_response.json()["error"]["message"]

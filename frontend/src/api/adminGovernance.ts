@@ -1,8 +1,15 @@
 import { apiRequest } from "./client";
 import type {
+  CommitteeArchiveRequest,
+  CommitteeCreateRequest,
+  CommitteeMemberCreateRequest,
   CommitteeMemberRead,
+  CommitteeMemberUpdateRequest,
   CommitteeRead,
+  CommitteeUpdateRequest,
+  UserCreateRequest,
   UserRead,
+  UserUpdateRequest,
 } from "./types";
 
 type UserListResponse = UserRead[] | { items?: UserRead[] };
@@ -64,6 +71,96 @@ export async function listAdminGovernanceCommitteeMembers(
     { token },
   );
   return Array.isArray(response) ? response : response.items ?? [];
+}
+
+export function createAdminUser(
+  token: string,
+  request: UserCreateRequest,
+): Promise<UserRead> {
+  return apiRequest<UserRead>("/users", {
+    method: "POST",
+    token,
+    body: request,
+  });
+}
+
+export function updateAdminUser(
+  token: string,
+  userId: string,
+  request: UserUpdateRequest,
+): Promise<UserRead> {
+  return apiRequest<UserRead>(`/users/${encodeURIComponent(userId)}`, {
+    method: "PATCH",
+    token,
+    body: request,
+  });
+}
+
+export function createAdminCommittee(
+  token: string,
+  request: CommitteeCreateRequest,
+): Promise<CommitteeRead> {
+  return apiRequest<CommitteeRead>("/committees", {
+    method: "POST",
+    token,
+    body: request,
+  });
+}
+
+export function updateAdminCommittee(
+  token: string,
+  committeeId: string,
+  request: CommitteeUpdateRequest,
+): Promise<CommitteeRead> {
+  return apiRequest<CommitteeRead>(
+    `/committees/${encodeURIComponent(committeeId)}`,
+    {
+      method: "PATCH",
+      token,
+      body: request,
+    },
+  );
+}
+
+export function archiveAdminCommittee(
+  token: string,
+  committeeId: string,
+  request: CommitteeArchiveRequest,
+): Promise<CommitteeRead> {
+  return apiRequest<CommitteeRead>(
+    `/committees/${encodeURIComponent(committeeId)}/archive`,
+    {
+      method: "POST",
+      token,
+      body: request,
+    },
+  );
+}
+
+export function createAdminCommitteeMember(
+  token: string,
+  request: CommitteeMemberCreateRequest,
+): Promise<CommitteeMemberRead> {
+  return apiRequest<CommitteeMemberRead>("/committee-members", {
+    method: "POST",
+    token,
+    body: request,
+  });
+}
+
+export function updateAdminCommitteeMember(
+  token: string,
+  committeeMemberId: string,
+  request: CommitteeMemberUpdateRequest,
+): Promise<CommitteeMemberRead> {
+  return apiRequest<CommitteeMemberRead>(
+    `/committee-members/${encodeURIComponent(committeeMemberId)}`,
+    {
+      method: "PATCH",
+      token,
+      body: request,
+    },
+  );
 }
 
 function withQuery(path: string, query: URLSearchParams): string {

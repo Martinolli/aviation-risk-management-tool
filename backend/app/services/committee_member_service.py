@@ -148,6 +148,17 @@ def update_committee_member(
         raise CommitteeMemberBusinessRuleError(
             "User already has an active membership in this committee"
         )
+    if update_data.get("is_active"):
+        committee = db.get(Committee, member.committee_id)
+        if committee is None:
+            raise CommitteeMemberBusinessRuleError("Committee does not exist")
+        if not committee.is_active:
+            raise CommitteeMemberBusinessRuleError("Committee is inactive")
+        user = db.get(User, member.user_id)
+        if user is None:
+            raise CommitteeMemberBusinessRuleError("User does not exist")
+        if not user.is_active:
+            raise CommitteeMemberBusinessRuleError("User is inactive")
 
     for field_name, new_value in update_data.items():
         old_value = getattr(member, field_name)

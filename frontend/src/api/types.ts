@@ -20,6 +20,18 @@ export interface UserRead {
   updated_at?: string;
 }
 
+export interface UserCreateRequest {
+  email: string;
+  display_name: string;
+  password?: string | null;
+}
+
+export interface UserUpdateRequest {
+  display_name?: string | null;
+  is_active?: boolean | null;
+  password?: string | null;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -265,6 +277,23 @@ export interface CommitteeRead {
   updated_at?: string | null;
 }
 
+export interface CommitteeCreateRequest {
+  name: string;
+  description?: string | null;
+  authority_level: "LOW" | "MIDDLE" | "HIGH" | string;
+  committee_type: string;
+}
+
+export interface CommitteeUpdateRequest {
+  name?: string | null;
+  description?: string | null;
+  is_active?: boolean | null;
+}
+
+export interface CommitteeArchiveRequest {
+  archive_reason: string;
+}
+
 export interface CommitteeMemberRead {
   id: string;
   committee_id: string;
@@ -273,6 +302,17 @@ export interface CommitteeMemberRead {
   is_active: boolean;
   created_at?: string | null;
   updated_at?: string | null;
+}
+
+export interface CommitteeMemberCreateRequest {
+  committee_id: string;
+  user_id: string;
+  role_label?: string | null;
+}
+
+export interface CommitteeMemberUpdateRequest {
+  role_label?: string | null;
+  is_active?: boolean | null;
 }
 
 export type CommitteeMeetingStatus = "DRAFT" | "FINALIZED" | "CANCELLED";

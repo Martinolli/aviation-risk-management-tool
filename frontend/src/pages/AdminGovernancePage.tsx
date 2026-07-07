@@ -1,10 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 
 import {
+  archiveAdminCommittee,
+  createAdminCommittee,
+  createAdminCommitteeMember,
+  createAdminUser,
   listAdminGovernanceCommitteeMembers,
   listAdminGovernanceCommittees,
   listAdminGovernanceUsers,
+  updateAdminCommittee,
+  updateAdminCommitteeMember,
+  updateAdminUser,
 } from "../api/adminGovernance";
 import { ApiError } from "../api/client";
 import type {
@@ -34,98 +41,316 @@ const ADMIN_ACCESS_GUIDANCE =
   "Admin governance data is restricted to authorized governance administrators.";
 
 export function AdminGovernancePage() {
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated, token, user: currentUser } = useAuth();
   const [governanceData, setGovernanceData] = useState<GovernanceDataState>({
     status: "loading",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [createUserForm, setCreateUserForm] = useState({
+    display_name: "",
+    email: "",
+    password: "",
+  });
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [userEditForm, setUserEditForm] = useState({
+    display_name: "",
+    is_active: true,
+    password: "",
+  });
+  const [createCommitteeForm, setCreateCommitteeForm] = useState({
+    name: "",
+    description: "",
+  });
+  const [selectedCommitteeId, setSelectedCommitteeId] = useState("");
+  const [committeeEditForm, setCommitteeEditForm] = useState({
+    name: "",
+    description: "",
+    is_active: true,
+    archive_reason: "",
+  });
+  const [membershipForm, setMembershipForm] = useState({
+    committee_id: "",
+    user_id: "",
+    role_label: "",
+  });
+  const [membershipRoleDrafts, setMembershipRoleDrafts] = useState<
+    Record<string, string>
+  >({});
+
+  async function loadGovernanceData(tokenToUse: string) {
+    setGovernanceData((current) =>
+      current.status === "success" ? current : { status: "loading" },
+    );
+    try {
+      const [users, committees, memberships] = await Promise.all([
+        listAdminGovernanceUsers(tokenToUse, { includeInactive: true }),
+        listAdminGovernanceCommittees(tokenToUse, { includeArchived: true }),
+        listAdminGovernanceCommitteeMembers(tokenToUse, {
+          includeInactive: true,
+        }),
+      ]);
+      setGovernanceData({
+        status: "success",
+        users,
+        committees,
+        memberships,
+      });
+      setMembershipRoleDrafts((current) => {
+        const next = { ...current };
+        for (const membership of memberships) {
+          next[membership.id] = next[membership.id] ?? membership.role_label ?? "";
+        }
+        return next;
+      });
+      setMembershipForm((current) => ({
+        ...current,
+        committee_id:
+          current.committee_id ||
+          committees.find((committee) => committee.is_active)?.id ||
+          "",
+        user_id:
+          current.user_id || users.find((listedUser) => listedUser.is_active)?.id || "",
+      }));
+    } catch (error) {
+      setGovernanceData({
+        status: "error",
+        message:
+          error instanceof ApiError
+            ? error.message
+            : "Please try again shortly.",
+      });
+    }
+  }
 
   useEffect(() => {
-    let isCurrent = true;
-
     if (!token) {
       return;
     }
-
-    const tokenToUse = token;
-
-    async function loadGovernanceData() {
-      try {
-        const [users, committees, memberships] = await Promise.all([
-          listAdminGovernanceUsers(tokenToUse, { includeInactive: true }),
-          listAdminGovernanceCommittees(tokenToUse, { includeArchived: true }),
-          listAdminGovernanceCommitteeMembers(tokenToUse, {
-            includeInactive: true,
-          }),
-        ]);
-
-        if (isCurrent) {
-          setGovernanceData({
-            status: "success",
-            users,
-            committees,
-            memberships,
-          });
-        }
-      } catch (error) {
-        if (isCurrent) {
-          setGovernanceData({
-            status: "error",
-            message:
-              error instanceof ApiError
-                ? error.message
-                : "Please try again shortly.",
-          });
-        }
-      }
-    }
-
-    void loadGovernanceData();
-
-    return () => {
-      isCurrent = false;
-    };
+    void loadGovernanceData(token);
   }, [token]);
+
+  const data =
+    governanceData.status === "success"
+      ? governanceData
+      : { users: [], committees: [], memberships: [] };
+  const users = data.users;
+  const committees = data.committees;
+  const memberships = data.memberships;
+  const usersById = useMemo(
+    () => new Map(users.map((listedUser) => [listedUser.id, listedUser])),
+    [users],
+  );
+  const committeesById = useMemo(
+    () => new Map(committees.map((committee) => [committee.id, committee])),
+    [committees],
+  );
+  const sortedUsers = useMemo(() => [...users].sort(compareUsers), [users]);
+  const sortedCommittees = useMemo(
+    () => [...committees].sort(compareCommittees),
+    [committees],
+  );
+  const activeUsers = sortedUsers.filter((listedUser) => listedUser.is_active);
+  const activeCommittees = sortedCommittees.filter(
+    (committee) => committee.is_active,
+  );
+  const selectedCommitteeMembers = memberships
+    .filter((membership) => membership.committee_id === membershipForm.committee_id)
+    .sort((first, second) => compareMemberships(first, second, usersById));
+  const selectedUser = usersById.get(selectedUserId);
+  const selectedCommittee = committeesById.get(selectedCommitteeId);
+
+  useEffect(() => {
+    if (!selectedUser && sortedUsers[0]) {
+      setSelectedUserId(sortedUsers[0].id);
+    }
+  }, [selectedUser, sortedUsers]);
+
+  useEffect(() => {
+    if (selectedUser) {
+      setUserEditForm({
+        display_name: selectedUser.display_name,
+        is_active: selectedUser.is_active,
+        password: "",
+      });
+    }
+  }, [selectedUser]);
+
+  useEffect(() => {
+    const firstConfigurable = sortedCommittees.find(
+      (committee) => !committee.is_fixed,
+    );
+    if (!selectedCommittee && firstConfigurable) {
+      setSelectedCommitteeId(firstConfigurable.id);
+    }
+  }, [selectedCommittee, sortedCommittees]);
+
+  useEffect(() => {
+    if (selectedCommittee) {
+      setCommitteeEditForm({
+        name: selectedCommittee.name,
+        description: selectedCommittee.description ?? "",
+        is_active: selectedCommittee.is_active,
+        archive_reason: "",
+      });
+    }
+  }, [selectedCommittee]);
 
   if (!isAuthenticated || !token) {
     return <Navigate replace to="/login" />;
   }
+  const adminToken = token;
 
-  if (governanceData.status === "loading") {
-    return (
-      <p aria-live="polite" className="workspace-status" role="status">
-        Loading governance data...
-      </p>
-    );
+  async function runAdminAction(
+    success: string,
+    action: () => Promise<void>,
+  ): Promise<void> {
+    if (!token) {
+      return;
+    }
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      await action();
+      await loadGovernanceData(token);
+      setSuccessMessage(success);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof ApiError
+          ? error.message
+          : "Unable to complete admin operation.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
-  if (governanceData.status === "error") {
-    return (
-      <section
-        className="admin-governance-page"
-        aria-labelledby="governance-load-error"
-      >
-        <p className="governance-access-note">{ADMIN_ACCESS_GUIDANCE}</p>
-        <div aria-live="polite" className="workspace-alert" role="alert">
-          <strong id="governance-load-error">
-            Unable to load governance data.
-          </strong>
-          <span>{governanceData.message}</span>
-        </div>
-      </section>
-    );
+  async function handleCreateUser(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await runAdminAction("User created.", async () => {
+      await createAdminUser(adminToken, {
+        display_name: createUserForm.display_name.trim(),
+        email: createUserForm.email.trim(),
+        password: createUserForm.password || null,
+      });
+      setCreateUserForm({ display_name: "", email: "", password: "" });
+    });
   }
 
-  const { users, committees, memberships } = governanceData;
-  const sortedCommittees = [...committees].sort(compareCommittees);
-  const sortedUsers = [...users].sort(compareUsers);
-  const usersById = new Map(users.map((user) => [user.id, user]));
-  const committeesById = new Map(
-    committees.map((committee) => [committee.id, committee]),
-  );
-  const activeUserCount = users.filter((user) => user.is_active).length;
-  const activeMembershipCount = memberships.filter(
-    (membership) => membership.is_active,
-  ).length;
+  async function handleUpdateUser(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedUser) {
+      return;
+    }
+    if (
+      selectedUser.id === currentUser?.id &&
+      selectedUser.is_active &&
+      !userEditForm.is_active
+    ) {
+      setErrorMessage("Current user cannot be deactivated from this page.");
+      return;
+    }
+    if (
+      selectedUser.is_active &&
+      !userEditForm.is_active &&
+      !window.confirm("Deactivate this user?")
+    ) {
+      return;
+    }
+    await runAdminAction("User updated.", async () => {
+      await updateAdminUser(adminToken, selectedUser.id, {
+        display_name: userEditForm.display_name.trim(),
+        is_active: userEditForm.is_active,
+        password: userEditForm.password || undefined,
+      });
+    });
+  }
+
+  async function handleCreateCommittee(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await runAdminAction("Committee created.", async () => {
+      await createAdminCommittee(adminToken, {
+        name: createCommitteeForm.name.trim(),
+        description: createCommitteeForm.description.trim() || null,
+        authority_level: "LOW",
+        committee_type: "OPERATIONAL_BOARD",
+      });
+      setCreateCommitteeForm({ name: "", description: "" });
+    });
+  }
+
+  async function handleUpdateCommittee(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedCommittee || selectedCommittee.is_fixed) {
+      return;
+    }
+    await runAdminAction("Committee updated.", async () => {
+      await updateAdminCommittee(adminToken, selectedCommittee.id, {
+        name: committeeEditForm.name.trim(),
+        description: committeeEditForm.description.trim() || null,
+        is_active: committeeEditForm.is_active,
+      });
+    });
+  }
+
+  async function handleArchiveCommittee() {
+    if (!selectedCommittee || selectedCommittee.is_fixed) {
+      return;
+    }
+    if (!committeeEditForm.archive_reason.trim()) {
+      setErrorMessage("Archive reason is required.");
+      return;
+    }
+    if (!window.confirm("Archive this configurable committee?")) {
+      return;
+    }
+    await runAdminAction("Committee archived.", async () => {
+      await archiveAdminCommittee(adminToken, selectedCommittee.id, {
+        archive_reason: committeeEditForm.archive_reason.trim(),
+      });
+    });
+  }
+
+  async function handleCreateMembership(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await runAdminAction("Committee membership added.", async () => {
+      await createAdminCommitteeMember(adminToken, {
+        committee_id: membershipForm.committee_id,
+        user_id: membershipForm.user_id,
+        role_label: membershipForm.role_label.trim() || null,
+      });
+      setMembershipForm((current) => ({ ...current, role_label: "" }));
+    });
+  }
+
+  async function handleUpdateMembershipRole(membership: CommitteeMemberRead) {
+    await runAdminAction("Committee membership updated.", async () => {
+      await updateAdminCommitteeMember(adminToken, membership.id, {
+        role_label: membershipRoleDrafts[membership.id]?.trim() || null,
+      });
+    });
+  }
+
+  async function handleToggleMembership(membership: CommitteeMemberRead) {
+    if (
+      membership.is_active &&
+      !window.confirm("Deactivate this committee membership?")
+    ) {
+      return;
+    }
+    await runAdminAction(
+      membership.is_active
+        ? "Committee membership deactivated."
+        : "Committee membership reactivated.",
+      async () => {
+        await updateAdminCommitteeMember(adminToken, membership.id, {
+          is_active: !membership.is_active,
+        });
+      },
+    );
+  }
 
   return (
     <section
@@ -134,10 +359,10 @@ export function AdminGovernancePage() {
     >
       <header className="page-header">
         <div>
-          <p className="eyebrow">Administration</p>
+          <p className="eyebrow">Admin Governance</p>
           <h1 id="admin-governance-heading">Governance management</h1>
           <p>
-            Review users, committees, Authority Levels, and active committee
+            Manage users, committees, Authority Levels, and committee
             memberships.
           </p>
         </div>
@@ -145,271 +370,537 @@ export function AdminGovernancePage() {
 
       <p className="governance-access-note">{ADMIN_ACCESS_GUIDANCE}</p>
 
-      <section className="admin-summary-grid" aria-label="Governance summary">
-        <article className="admin-summary-card">
-          <h2>Users</h2>
-          <strong>{users.length}</strong>
-          <span>Total users</span>
-          <dl>
-            <div>
-              <dt>Active</dt>
-              <dd>{activeUserCount}</dd>
-            </div>
-            <div>
-              <dt>Inactive</dt>
-              <dd>{users.length - activeUserCount}</dd>
-            </div>
-          </dl>
-        </article>
+      {governanceData.status === "loading" && (
+        <p aria-live="polite" className="workspace-status" role="status">
+          Loading governance data...
+        </p>
+      )}
+      {governanceData.status === "error" && (
+        <div aria-live="polite" className="workspace-alert" role="alert">
+          <strong>Unable to load governance data.</strong>
+          <span>{governanceData.message}</span>
+        </div>
+      )}
+      {successMessage && (
+        <p className="admin-success-message" role="status">
+          {successMessage}
+        </p>
+      )}
+      {errorMessage && (
+        <p className="admin-error-message" role="alert">
+          {errorMessage}
+        </p>
+      )}
 
-        <article className="admin-summary-card">
-          <h2>Committees</h2>
-          <strong>{committees.length}</strong>
-          <span>Total committees</span>
-          <dl>
-            {(["LOW", "MIDDLE", "HIGH"] as const).map((authorityLevel) => (
-              <div key={authorityLevel}>
-                <dt>{authorityLevel}</dt>
-                <dd>
-                  {
-                    committees.filter(
-                      (committee) =>
-                        committee.authority_level === authorityLevel,
-                    ).length
-                  }
-                </dd>
+      {governanceData.status === "success" && (
+        <>
+          <section className="admin-summary-grid" aria-label="Governance summary">
+            <SummaryCard title="Users" value={users.length} detail={`${activeUsers.length} active`} />
+            <SummaryCard title="Committees" value={committees.length} detail={`${activeCommittees.length} active`} />
+            <SummaryCard title="Memberships" value={memberships.length} detail={`${memberships.filter((membership) => membership.is_active).length} active`} />
+            <SummaryCard title="Active committees" value={activeCommittees.length} detail="Operational governance" />
+            <SummaryCard title="Configurable LOW committees" value={committees.filter((committee) => committee.authority_level === "LOW" && !committee.is_fixed).length} detail="Configurable" />
+            <SummaryCard title="Fixed / protected committees" value={committees.filter((committee) => committee.is_fixed).length} detail="Risk Management Committee / Executive Safety Management Committee" />
+            <SummaryCard title="Inactive memberships" value={memberships.filter((membership) => !membership.is_active).length} detail="Inactive membership" />
+          </section>
+
+          <section className="admin-section" aria-labelledby="users-heading">
+            <div className="admin-section-header">
+              <div>
+                <p className="eyebrow">User administration</p>
+                <h2 id="users-heading">Users</h2>
               </div>
-            ))}
-          </dl>
-        </article>
-
-        <article className="admin-summary-card">
-          <h2>Memberships</h2>
-          <strong>{memberships.length}</strong>
-          <span>Total memberships</span>
-          <dl>
-            <div>
-              <dt>Active</dt>
-              <dd>{activeMembershipCount}</dd>
             </div>
-            <div>
-              <dt>Inactive</dt>
-              <dd>{memberships.length - activeMembershipCount}</dd>
+
+            <form className="admin-form" onSubmit={handleCreateUser}>
+              <h3>Create user</h3>
+              <div className="admin-form-grid">
+                <label>
+                  Display name
+                  <input
+                    onChange={(event) =>
+                      setCreateUserForm((current) => ({
+                        ...current,
+                        display_name: event.target.value,
+                      }))
+                    }
+                    required
+                    value={createUserForm.display_name}
+                  />
+                </label>
+                <label>
+                  Email
+                  <input
+                    onChange={(event) =>
+                      setCreateUserForm((current) => ({
+                        ...current,
+                        email: event.target.value,
+                      }))
+                    }
+                    required
+                    type="email"
+                    value={createUserForm.email}
+                  />
+                </label>
+                <label>
+                  Temporary password
+                  <input
+                    autoComplete="new-password"
+                    onChange={(event) =>
+                      setCreateUserForm((current) => ({
+                        ...current,
+                        password: event.target.value,
+                      }))
+                    }
+                    type="password"
+                    value={createUserForm.password}
+                  />
+                </label>
+              </div>
+              <div className="admin-inline-actions">
+                <button disabled={isSubmitting} type="submit">
+                  Create user
+                </button>
+              </div>
+            </form>
+
+            <div className="admin-control-row">
+              <label>
+                Select user
+                <select
+                  onChange={(event) => setSelectedUserId(event.target.value)}
+                  value={selectedUserId}
+                >
+                  {sortedUsers.map((listedUser) => (
+                    <option key={listedUser.id} value={listedUser.id}>
+                      {listedUser.display_name} - {listedUser.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-          </dl>
-        </article>
-      </section>
 
-      <section
-        className="governance-section"
-        aria-labelledby="committees-members-heading"
-      >
-        <div className="governance-section-heading">
-          <div>
-            <p className="eyebrow">Committee structure</p>
-            <h2 id="committees-members-heading">Committees and members</h2>
-          </div>
-          <span className="governance-read-only">Read only</span>
-        </div>
+            {selectedUser && (
+              <form className="admin-edit-panel" onSubmit={handleUpdateUser}>
+                <h3>Update user</h3>
+                <p className="admin-warning-text">
+                  Password fields are blank by design and are only sent when
+                  entered.
+                </p>
+                <div className="admin-form-grid">
+                  <label>
+                    Display name
+                    <input
+                      onChange={(event) =>
+                        setUserEditForm((current) => ({
+                          ...current,
+                          display_name: event.target.value,
+                        }))
+                      }
+                      required
+                      value={userEditForm.display_name}
+                    />
+                  </label>
+                  <label>
+                    New password
+                    <input
+                      autoComplete="new-password"
+                      onChange={(event) =>
+                        setUserEditForm((current) => ({
+                          ...current,
+                          password: event.target.value,
+                        }))
+                      }
+                      type="password"
+                      value={userEditForm.password}
+                    />
+                  </label>
+                  <label className="admin-toggle">
+                    <input
+                      checked={userEditForm.is_active}
+                      disabled={selectedUser.id === currentUser?.id}
+                      onChange={(event) =>
+                        setUserEditForm((current) => ({
+                          ...current,
+                          is_active: event.target.checked,
+                        }))
+                      }
+                      type="checkbox"
+                    />
+                    Active user
+                  </label>
+                </div>
+                {selectedUser.id === currentUser?.id && (
+                  <p className="admin-warning-text">
+                    Current user deactivation is disabled on this page.
+                  </p>
+                )}
+                <div className="admin-inline-actions">
+                  <button disabled={isSubmitting} type="submit">
+                    Update user
+                  </button>
+                </div>
+              </form>
+            )}
 
-        {sortedCommittees.length === 0 ? (
-          <p className="workspace-empty">No committees found.</p>
-        ) : (
-          <div className="committee-governance-grid">
-            {sortedCommittees.map((committee) => {
-              const committeeMemberships = memberships
-                .filter(
-                  (membership) => membership.committee_id === committee.id,
-                )
-                .sort((first, second) =>
-                  compareMemberships(first, second, usersById),
-                );
-
-              return (
-                <article className="committee-governance-card" key={committee.id}>
-                  <div className="committee-governance-header">
-                    <h3>{committee.name}</h3>
-                    <span
-                      className={`governance-chip ${committee.is_active ? "" : "inactive"}`}
-                    >
-                      {committee.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                  <div className="committee-governance-metadata">
-                    <span
-                      className={`governance-chip ${getAuthorityLevelClass(committee.authority_level)}`}
-                    >
-                      Authority Level: {committee.authority_level}
-                    </span>
-                    <span className="governance-chip">
-                      {formatLabel(committee.committee_type)}
-                    </span>
-                    <span className="governance-chip">
-                      {committee.is_fixed ? "Fixed / protected" : "Configurable"}
-                    </span>
-                  </div>
-
-                  <h4>Members</h4>
-                  {committeeMemberships.length === 0 ? (
-                    <p className="governance-empty">No members assigned.</p>
-                  ) : (
-                    <ul className="committee-member-list">
-                      {committeeMemberships.map((membership) => {
-                        const member = usersById.get(membership.user_id);
-
-                        return (
-                          <li key={membership.id}>
-                            <div className="committee-member-identity">
-                              <strong>
-                                {member?.display_name || "Unknown user"}
-                              </strong>
-                              <span>{member?.email || membership.user_id}</span>
-                            </div>
-                            <div className="committee-member-role">
-                              <span>{membership.role_label || "Committee member"}</span>
-                              <span
-                                className={`governance-chip ${membership.is_active ? "" : "inactive"}`}
-                              >
-                                {membership.is_active
-                                  ? "Active membership"
-                                  : "Inactive membership"}
-                              </span>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
+            <div className="admin-managed-grid">
+              {sortedUsers.map((listedUser) => (
+                <article className="admin-managed-card" key={listedUser.id}>
+                  <h3>{listedUser.display_name}</h3>
+                  <p>{listedUser.email}</p>
+                  <span
+                    className={`governance-chip ${listedUser.is_active ? "" : "inactive"}`}
+                  >
+                    {listedUser.is_active ? "Active" : "Inactive"}
+                  </span>
                 </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+              ))}
+            </div>
+          </section>
 
-      <section
-        className="governance-section"
-        aria-labelledby="users-memberships-heading"
-      >
-        <div className="governance-section-heading">
-          <div>
-            <p className="eyebrow">Directory</p>
-            <h2 id="users-memberships-heading">Users and memberships</h2>
-          </div>
-          <span className="governance-read-only">Read only</span>
-        </div>
+          <section className="admin-section" aria-labelledby="committees-heading">
+            <div className="admin-section-header">
+              <div>
+                <p className="eyebrow">Committee administration</p>
+                <h2 id="committees-heading">Committees</h2>
+              </div>
+            </div>
 
-        <div className="user-governance-table-wrapper">
-          <table className="user-governance-table">
-            <caption className="visually-hidden">
-              Users and committee memberships
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Email</th>
-                <th scope="col">Status</th>
-                <th scope="col">Committee memberships</th>
-                <th scope="col">Governance roles</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedUsers.length === 0 ? (
-                <tr>
-                  <td className="governance-table-empty" colSpan={5}>
-                    No users found.
-                  </td>
-                </tr>
-              ) : (
-                sortedUsers.map((user) => {
-                  const userMemberships = memberships
-                    .filter((membership) => membership.user_id === user.id)
-                    .sort((first, second) =>
-                      compareUserMemberships(
-                        first,
-                        second,
-                        committeesById,
-                      ),
-                    );
-                  const governanceRoles = Array.from(
-                    new Set(
-                      userMemberships.map(
-                        (membership) =>
-                          membership.role_label || "Committee member",
-                      ),
-                    ),
-                  ).sort((first, second) => first.localeCompare(second));
+            <form className="admin-form" onSubmit={handleCreateCommittee}>
+              <h3>Create configurable LOW committee</h3>
+              <p className="protected-committee-note">
+                MIDDLE and HIGH committees are protected governance entities and
+                are not created here.
+              </p>
+              <div className="admin-form-grid">
+                <label>
+                  Name
+                  <input
+                    onChange={(event) =>
+                      setCreateCommitteeForm((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
+                    }
+                    required
+                    value={createCommitteeForm.name}
+                  />
+                </label>
+                <label>
+                  Description
+                  <textarea
+                    onChange={(event) =>
+                      setCreateCommitteeForm((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                    rows={3}
+                    value={createCommitteeForm.description}
+                  />
+                </label>
+                <label>
+                  Authority Level
+                  <select disabled value="LOW">
+                    <option value="LOW">LOW</option>
+                  </select>
+                </label>
+                <label>
+                  Committee Type
+                  <select disabled value="OPERATIONAL_BOARD">
+                    <option value="OPERATIONAL_BOARD">OPERATIONAL_BOARD</option>
+                  </select>
+                </label>
+              </div>
+              <div className="admin-inline-actions">
+                <button disabled={isSubmitting} type="submit">
+                  Create committee
+                </button>
+              </div>
+            </form>
 
-                  return (
-                    <tr key={user.id}>
-                      <td className="governance-user-name">
-                        {user.display_name}
-                      </td>
-                      <td className="governance-user-email">{user.email}</td>
-                      <td>
-                        <span
-                          className={`governance-chip ${user.is_active ? "" : "inactive"}`}
-                        >
-                          {user.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td>
-                        {userMemberships.length === 0 ? (
-                          <span className="governance-empty">
-                            No committee membership
-                          </span>
-                        ) : (
-                          <ul className="membership-chip-list">
-                            {userMemberships.map((membership) => {
-                              const committee = committeesById.get(
-                                membership.committee_id,
-                              );
-
-                              return (
-                                <li
-                                  className={`governance-membership-chip ${membership.is_active ? "" : "inactive"}`}
-                                  key={membership.id}
-                                >
-                                  <strong>
-                                    {committee?.name || membership.committee_id}
-                                  </strong>
-                                  <span>
-                                    Authority Level: {committee?.authority_level || "Unknown"}
-                                  </span>
-                                  <span>
-                                    {membership.role_label || "Committee member"}
-                                    {!membership.is_active && " · Inactive"}
-                                  </span>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
-                      </td>
-                      <td>
-                        {governanceRoles.length === 0 ? (
-                          <span className="governance-empty">
-                            No governance role
-                          </span>
-                        ) : (
-                          <div className="membership-chip-list">
-                            {governanceRoles.map((role) => (
-                              <span className="governance-chip" key={role}>
-                                {role}
-                              </span>
-                            ))}
+            <div className="committee-governance-grid">
+              {(["LOW", "MIDDLE", "HIGH"] as const).map((authorityLevel) => (
+                <section
+                  className="admin-managed-card"
+                  key={authorityLevel}
+                  aria-labelledby={`committee-group-${authorityLevel}`}
+                >
+                  <h3 id={`committee-group-${authorityLevel}`}>
+                    Authority Level: {authorityLevel}
+                  </h3>
+                  {sortedCommittees
+                    .filter(
+                      (committee) => committee.authority_level === authorityLevel,
+                    )
+                    .map((committee) => (
+                      <article className="admin-committee-row" key={committee.id}>
+                        <div>
+                          <strong>{committee.name}</strong>
+                          <p>{committee.description || "No description"}</p>
+                          <div className="committee-governance-metadata">
+                            <span className="governance-chip">
+                              {formatLabel(committee.committee_type)}
+                            </span>
+                            <span
+                              className={`governance-chip ${committee.is_active ? "" : "inactive"}`}
+                            >
+                              {committee.is_active ? "Active" : "Inactive"}
+                            </span>
+                            <span className="governance-chip">
+                              {committee.is_fixed
+                                ? "Fixed / protected"
+                                : "Configurable"}
+                            </span>
                           </div>
+                        </div>
+                        {!committee.is_fixed ? (
+                          <button
+                            disabled={isSubmitting}
+                            onClick={() => setSelectedCommitteeId(committee.id)}
+                            type="button"
+                          >
+                            Edit
+                          </button>
+                        ) : (
+                          <span className="protected-committee-note">
+                            Read-only
+                          </span>
                         )}
-                      </td>
-                    </tr>
+                      </article>
+                    ))}
+                </section>
+              ))}
+            </div>
+
+            {selectedCommittee && !selectedCommittee.is_fixed && (
+              <form className="admin-edit-panel" onSubmit={handleUpdateCommittee}>
+                <h3>Update configurable committee</h3>
+                <div className="admin-form-grid">
+                  <label>
+                    Name
+                    <input
+                      onChange={(event) =>
+                        setCommitteeEditForm((current) => ({
+                          ...current,
+                          name: event.target.value,
+                        }))
+                      }
+                      required
+                      value={committeeEditForm.name}
+                    />
+                  </label>
+                  <label>
+                    Description
+                    <textarea
+                      onChange={(event) =>
+                        setCommitteeEditForm((current) => ({
+                          ...current,
+                          description: event.target.value,
+                        }))
+                      }
+                      rows={3}
+                      value={committeeEditForm.description}
+                    />
+                  </label>
+                  <label className="admin-toggle">
+                    <input
+                      checked={committeeEditForm.is_active}
+                      onChange={(event) =>
+                        setCommitteeEditForm((current) => ({
+                          ...current,
+                          is_active: event.target.checked,
+                        }))
+                      }
+                      type="checkbox"
+                    />
+                    Active committee
+                  </label>
+                </div>
+                <div className="admin-inline-actions">
+                  <button disabled={isSubmitting} type="submit">
+                    Update committee
+                  </button>
+                </div>
+                <div className="admin-danger-zone">
+                  <label>
+                    Archive reason
+                    <textarea
+                      onChange={(event) =>
+                        setCommitteeEditForm((current) => ({
+                          ...current,
+                          archive_reason: event.target.value,
+                        }))
+                      }
+                      rows={2}
+                      value={committeeEditForm.archive_reason}
+                    />
+                  </label>
+                  <button
+                    disabled={isSubmitting}
+                    onClick={() => void handleArchiveCommittee()}
+                    type="button"
+                  >
+                    Archive configurable committee
+                  </button>
+                </div>
+              </form>
+            )}
+          </section>
+
+          <section className="admin-section membership-manager" aria-labelledby="memberships-heading">
+            <div className="admin-section-header">
+              <div>
+                <p className="eyebrow">Committee membership</p>
+                <h2 id="memberships-heading">Committee memberships</h2>
+              </div>
+            </div>
+
+            <form className="admin-form" onSubmit={handleCreateMembership}>
+              <h3>Add committee membership</h3>
+              <div className="admin-form-grid">
+                <label>
+                  Committee
+                  <select
+                    onChange={(event) =>
+                      setMembershipForm((current) => ({
+                        ...current,
+                        committee_id: event.target.value,
+                      }))
+                    }
+                    required
+                    value={membershipForm.committee_id}
+                  >
+                    <option value="">Select committee</option>
+                    {activeCommittees.map((committee) => (
+                      <option key={committee.id} value={committee.id}>
+                        {committee.name} - {committee.authority_level}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  User
+                  <select
+                    onChange={(event) =>
+                      setMembershipForm((current) => ({
+                        ...current,
+                        user_id: event.target.value,
+                      }))
+                    }
+                    required
+                    value={membershipForm.user_id}
+                  >
+                    <option value="">Select active user</option>
+                    {activeUsers.map((listedUser) => (
+                      <option key={listedUser.id} value={listedUser.id}>
+                        {listedUser.display_name} - {listedUser.email}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Role label
+                  <input
+                    onChange={(event) =>
+                      setMembershipForm((current) => ({
+                        ...current,
+                        role_label: event.target.value,
+                      }))
+                    }
+                    value={membershipForm.role_label}
+                  />
+                </label>
+              </div>
+              <div className="admin-inline-actions">
+                <button disabled={isSubmitting} type="submit">
+                  Add membership
+                </button>
+              </div>
+            </form>
+
+            <div className="membership-list">
+              {selectedCommitteeMembers.length === 0 ? (
+                <p className="governance-empty">
+                  No committee membership records for the selected committee.
+                </p>
+              ) : (
+                selectedCommitteeMembers.map((membership) => {
+                  const memberUser = usersById.get(membership.user_id);
+                  return (
+                    <article className="admin-managed-card" key={membership.id}>
+                      <div className="committee-member-identity">
+                        <strong>{memberUser?.display_name || membership.user_id}</strong>
+                        <span>{memberUser?.email || "Unknown email"}</span>
+                      </div>
+                      <span
+                        className={`governance-chip ${membership.is_active ? "" : "inactive"}`}
+                      >
+                        {membership.is_active
+                          ? "Active membership"
+                          : "Inactive membership"}
+                      </span>
+                      <div className="admin-control-row">
+                        <label>
+                          Role label
+                          <input
+                            onChange={(event) =>
+                              setMembershipRoleDrafts((current) => ({
+                                ...current,
+                                [membership.id]: event.target.value,
+                              }))
+                            }
+                            value={
+                              membershipRoleDrafts[membership.id] ??
+                              membership.role_label ??
+                              ""
+                            }
+                          />
+                        </label>
+                      </div>
+                      <div className="admin-inline-actions">
+                        <button
+                          disabled={isSubmitting}
+                          onClick={() => void handleUpdateMembershipRole(membership)}
+                          type="button"
+                        >
+                          Update role
+                        </button>
+                        <button
+                          disabled={isSubmitting}
+                          onClick={() => void handleToggleMembership(membership)}
+                          type="button"
+                        >
+                          {membership.is_active ? "Deactivate" : "Reactivate"}
+                        </button>
+                      </div>
+                    </article>
                   );
                 })
               )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </div>
+          </section>
+        </>
+      )}
     </section>
+  );
+}
+
+function SummaryCard({
+  title,
+  value,
+  detail,
+}: {
+  title: string;
+  value: number;
+  detail: string;
+}) {
+  return (
+    <article className="admin-summary-card">
+      <h2>{title}</h2>
+      <strong>{value}</strong>
+      <span>{detail}</span>
+    </article>
   );
 }
 
@@ -435,39 +926,9 @@ function compareMemberships(
   if (first.is_active !== second.is_active) {
     return first.is_active ? -1 : 1;
   }
-  const roleDifference = (first.role_label || "").localeCompare(
-    second.role_label || "",
-  );
-  if (roleDifference) {
-    return roleDifference;
-  }
   return (usersById.get(first.user_id)?.display_name || first.user_id).localeCompare(
     usersById.get(second.user_id)?.display_name || second.user_id,
   );
-}
-
-function compareUserMemberships(
-  first: CommitteeMemberRead,
-  second: CommitteeMemberRead,
-  committeesById: Map<string, CommitteeRead>,
-): number {
-  if (first.is_active !== second.is_active) {
-    return first.is_active ? -1 : 1;
-  }
-  const firstCommittee = committeesById.get(first.committee_id);
-  const secondCommittee = committeesById.get(second.committee_id);
-  if (firstCommittee && secondCommittee) {
-    return compareCommittees(firstCommittee, secondCommittee);
-  }
-  return (firstCommittee?.name || first.committee_id).localeCompare(
-    secondCommittee?.name || second.committee_id,
-  );
-}
-
-function getAuthorityLevelClass(authorityLevel: string): string {
-  return ["LOW", "MIDDLE", "HIGH"].includes(authorityLevel)
-    ? authorityLevel.toLowerCase()
-    : "";
 }
 
 function formatLabel(value: string): string {
