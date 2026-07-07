@@ -38,3 +38,9 @@ class GenerateCommitteeMeetingPackRequest(BaseModel):
     meeting_date: date | None = None
 
     model_config = ConfigDict(extra="forbid")
+
+
+class GenerateCommitteeMeetingMinutesReportRequest(BaseModel):
+    output_dir: str | None = None
+
+    model_config = ConfigDict(extra="forbid")

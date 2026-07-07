@@ -1,8 +1,15 @@
 from app.models.audit import AuditLog
 from app.models.committee import Committee, CommitteeMember
+from app.models.committee_meeting import (
+    CommitteeMeeting,
+    CommitteeMeetingAttendee,
+    CommitteeMeetingRiskItem,
+)
 from app.models.enums import (
     AuditAction,
     AuthorityLevel,
+    CommitteeMeetingAttendanceStatus,
+    CommitteeMeetingStatus,
     CommitteeType,
     RiskActionStatus,
     RiskAssessmentType,
@@ -37,6 +44,11 @@ __all__ = [
     "AuditLog",
     "AuthorityLevel",
     "Committee",
+    "CommitteeMeeting",
+    "CommitteeMeetingAttendee",
+    "CommitteeMeetingAttendanceStatus",
+    "CommitteeMeetingRiskItem",
+    "CommitteeMeetingStatus",
     "CommitteeMember",
     "CommitteeType",
     "GeneratedReport",

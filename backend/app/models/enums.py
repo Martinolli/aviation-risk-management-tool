@@ -13,6 +13,19 @@ class CommitteeType(StrEnum):
     EXECUTIVE_SAFETY_MANAGEMENT_COMMITTEE = "EXECUTIVE_SAFETY_MANAGEMENT_COMMITTEE"
 
 
+class CommitteeMeetingStatus(StrEnum):
+    DRAFT = "DRAFT"
+    FINALIZED = "FINALIZED"
+    CANCELLED = "CANCELLED"
+
+
+class CommitteeMeetingAttendanceStatus(StrEnum):
+    PRESENT = "PRESENT"
+    ABSENT = "ABSENT"
+    APOLOGY = "APOLOGY"
+    OBSERVER = "OBSERVER"
+
+
 class RiskWorkflowStatus(StrEnum):
     DRAFT = "DRAFT"
     SUBMITTED_TO_OPERATIONAL_BOARD = "SUBMITTED_TO_OPERATIONAL_BOARD"

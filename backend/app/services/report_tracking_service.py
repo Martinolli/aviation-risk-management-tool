@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 import app.services.audit_service as audit_service
 from app.models.committee import Committee
+from app.models.committee_meeting import CommitteeMeeting
 from app.models.report import GeneratedReport
 from app.models.risk import RiskRecord
 from app.models.user import User
@@ -22,6 +23,10 @@ from app.services.committee_meeting_pack_service import (
     CommitteeMeetingPackBusinessRuleError,
     generate_committee_meeting_pack_docx,
 )
+from app.services.committee_meeting_minutes_report_service import (
+    CommitteeMeetingMinutesReportBusinessRuleError,
+    generate_committee_meeting_minutes_docx,
+)
 from app.services.risk_access_service import (
     can_read_risk_record,
     is_active_committee_member,
@@ -33,6 +38,8 @@ RISK_DOSSIER_REPORT_TYPE = "RISK_DOSSIER_DOCX"
 RISK_DOSSIER_TEMPLATE_VERSION = "1.0"
 COMMITTEE_MEETING_PACK_REPORT_TYPE = "COMMITTEE_MEETING_PACK_DOCX"
 COMMITTEE_MEETING_PACK_TEMPLATE_VERSION = "1.0"
+COMMITTEE_MEETING_MINUTES_REPORT_TYPE = "COMMITTEE_MEETING_MINUTES_DOCX"
+COMMITTEE_MEETING_MINUTES_TEMPLATE_VERSION = "1.0"
 RISK_EVIDENCE_PACKAGE_REPORT_TYPE = "RISK_EVIDENCE_PACKAGE_ZIP"
 RISK_EVIDENCE_PACKAGE_TEMPLATE_VERSION = "1.0"
 
@@ -298,6 +305,70 @@ def generate_and_track_committee_meeting_pack(
             "file_path": generated_report.file_path,
             "template_version": generated_report.template_version,
             "meeting_date": meeting_date.isoformat() if meeting_date else None,
+        },
+    )
+    return generated_report
+
+
+def generate_and_track_committee_meeting_minutes_report(
+    db: Session,
+    *,
+    meeting_id: uuid.UUID,
+    output_dir: Path | str | None = None,
+    generated_by_user_id: uuid.UUID | None,
+) -> GeneratedReport:
+    actor = _validate_report_actor(
+        db,
+        user_id=generated_by_user_id,
+        operation="generation",
+    )
+    meeting = db.get(CommitteeMeeting, meeting_id)
+    if meeting is None:
+        raise ReportTrackingBusinessRuleError("Committee Meeting Minutes not found")
+    committee = db.get(Committee, meeting.committee_id)
+    if committee is None:
+        raise ReportTrackingBusinessRuleError("Committee does not exist")
+    _validate_report_committee_access_authority(
+        db,
+        committee=committee,
+        actor_user_id=actor.id,
+        operation="generation",
+    )
+
+    try:
+        file_path = generate_committee_meeting_minutes_docx(
+            db,
+            meeting_id=meeting.id,
+            generated_by_user_id=actor.id,
+            output_dir=output_dir or DEFAULT_REPORT_OUTPUT_DIR,
+        )
+    except CommitteeMeetingMinutesReportBusinessRuleError as exc:
+        raise ReportTrackingBusinessRuleError(str(exc)) from exc
+
+    generated_report = GeneratedReport(
+        committee_id=meeting.committee_id,
+        risk_record_id=None,
+        report_type=COMMITTEE_MEETING_MINUTES_REPORT_TYPE,
+        file_path=str(file_path),
+        generated_by_user_id=actor.id,
+        generated_at=datetime.now(timezone.utc),
+        template_version=COMMITTEE_MEETING_MINUTES_TEMPLATE_VERSION,
+    )
+    db.add(generated_report)
+    db.flush()
+
+    audit_service.log_report_generated(
+        db,
+        entity_type="CommitteeMeeting",
+        entity_id=meeting.id,
+        generated_by_user_id=actor.id,
+        report_metadata={
+            "meeting_id": meeting.id,
+            "committee_id": meeting.committee_id,
+            "report_id": generated_report.id,
+            "report_type": generated_report.report_type,
+            "file_path": generated_report.file_path,
+            "template_version": generated_report.template_version,
         },
     )
     return generated_report

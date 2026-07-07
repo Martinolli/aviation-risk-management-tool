@@ -275,6 +275,138 @@ export interface CommitteeMemberRead {
   updated_at?: string | null;
 }
 
+export type CommitteeMeetingStatus = "DRAFT" | "FINALIZED" | "CANCELLED";
+
+export type CommitteeMeetingAttendanceStatus =
+  | "PRESENT"
+  | "ABSENT"
+  | "APOLOGY"
+  | "OBSERVER";
+
+export interface CommitteeMeetingAttendeeRead {
+  id: string;
+  meeting_id: string;
+  user_id?: string | null;
+  attendee_name?: string | null;
+  attendee_email?: string | null;
+  role_label?: string | null;
+  attendance_status: CommitteeMeetingAttendanceStatus;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommitteeMeetingRiskItemRead {
+  id: string;
+  meeting_id: string;
+  risk_record_id: string;
+  agenda_item_number?: number | null;
+  discussion_summary?: string | null;
+  decision_summary?: string | null;
+  action_items?: string | null;
+  linked_risk_decision_id?: string | null;
+  follow_up_required: boolean;
+  follow_up_notes?: string | null;
+  risk_id?: string | null;
+  risk_problem_description?: string | null;
+  risk_domain?: string | null;
+  risk_workflow_status?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommitteeMeetingRead {
+  id: string;
+  committee_id: string;
+  title: string;
+  meeting_date: string;
+  meeting_time_utc?: string | null;
+  location?: string | null;
+  chair_user_id?: string | null;
+  created_by_user_id?: string | null;
+  status: CommitteeMeetingStatus;
+  agenda_summary?: string | null;
+  discussion_summary?: string | null;
+  decisions_summary?: string | null;
+  action_items_summary?: string | null;
+  finalized_at?: string | null;
+  finalized_by_user_id?: string | null;
+  cancellation_reason?: string | null;
+  is_active: boolean;
+  committee_name?: string | null;
+  authority_level?: string | null;
+  committee_type?: string | null;
+  attendees: CommitteeMeetingAttendeeRead[];
+  risk_items: CommitteeMeetingRiskItemRead[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommitteeMeetingAttendeeCreateRequest {
+  user_id?: string | null;
+  attendee_name?: string | null;
+  attendee_email?: string | null;
+  role_label?: string | null;
+  attendance_status?: CommitteeMeetingAttendanceStatus;
+  notes?: string | null;
+}
+
+export interface CommitteeMeetingRiskItemCreateRequest {
+  risk_record_id: string;
+  agenda_item_number?: number | null;
+  discussion_summary?: string | null;
+  decision_summary?: string | null;
+  action_items?: string | null;
+  linked_risk_decision_id?: string | null;
+  follow_up_required?: boolean;
+  follow_up_notes?: string | null;
+}
+
+export interface CommitteeMeetingRiskItemUpdateRequest {
+  agenda_item_number?: number | null;
+  discussion_summary?: string | null;
+  decision_summary?: string | null;
+  action_items?: string | null;
+  linked_risk_decision_id?: string | null;
+  follow_up_required?: boolean | null;
+  follow_up_notes?: string | null;
+}
+
+export interface CommitteeMeetingCreateRequest {
+  committee_id: string;
+  title: string;
+  meeting_date: string;
+  meeting_time_utc?: string | null;
+  location?: string | null;
+  chair_user_id?: string | null;
+  agenda_summary?: string | null;
+  discussion_summary?: string | null;
+  decisions_summary?: string | null;
+  action_items_summary?: string | null;
+  attendees?: CommitteeMeetingAttendeeCreateRequest[];
+  risk_items?: CommitteeMeetingRiskItemCreateRequest[];
+}
+
+export interface CommitteeMeetingUpdateRequest {
+  title?: string;
+  meeting_date?: string;
+  meeting_time_utc?: string | null;
+  location?: string | null;
+  chair_user_id?: string | null;
+  agenda_summary?: string | null;
+  discussion_summary?: string | null;
+  decisions_summary?: string | null;
+  action_items_summary?: string | null;
+}
+
+export interface CommitteeMeetingFinalizeRequest {
+  finalization_notes?: string | null;
+}
+
+export interface CommitteeMeetingCancelRequest {
+  cancellation_reason?: string | null;
+}
+
 export interface MyDecisionQueueCommitteeRead {
   committee_id: string;
   committee_name: string;

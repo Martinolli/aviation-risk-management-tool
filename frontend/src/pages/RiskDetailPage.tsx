@@ -2277,6 +2277,7 @@ function formatReportType(value: string): string {
   const labels: Record<string, string> = {
     RISK_DOSSIER_DOCX: "Risk Dossier",
     COMMITTEE_MEETING_PACK_DOCX: "Committee Meeting Pack",
+    COMMITTEE_MEETING_MINUTES_DOCX: "Committee Meeting Minutes",
     RISK_EVIDENCE_PACKAGE_ZIP: "Risk Evidence Package",
   };
   return labels[value] || value.replace(/_/g, " ") || "Report";

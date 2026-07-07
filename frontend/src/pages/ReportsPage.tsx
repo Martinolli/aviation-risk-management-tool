@@ -94,8 +94,7 @@ export function ReportsPage() {
           <h1 id="reports-heading">Reports</h1>
           <p>
             Review and download generated risk dossiers and committee meeting
-            packs. ZIP packages may include evidence files and manifest
-            metadata.
+            packs, meeting minutes, and evidence packages.
           </p>
         </div>
       </div>
@@ -181,6 +180,7 @@ function formatReportType(value: string): string {
   const labels: Record<string, string> = {
     RISK_DOSSIER_DOCX: "Risk Dossier",
     COMMITTEE_MEETING_PACK_DOCX: "Committee Meeting Pack",
+    COMMITTEE_MEETING_MINUTES_DOCX: "Committee Meeting Minutes",
     RISK_EVIDENCE_PACKAGE_ZIP: "Risk Evidence Package",
   };
   return labels[value] || value.replace(/_/g, " ") || "Report";

@@ -52,6 +52,21 @@ export function generateCommitteeMeetingPack(
   );
 }
 
+export function generateCommitteeMeetingMinutesReport(
+  token: string,
+  meetingId: string,
+  outputDir?: string | null,
+): Promise<GeneratedReportRead> {
+  return apiRequest<GeneratedReportRead>(
+    `/reports/committee-meeting-minutes/${encodeURIComponent(meetingId)}`,
+    {
+      method: "POST",
+      token,
+      body: { output_dir: outputDir ?? null },
+    },
+  );
+}
+
 export function generateRiskEvidencePackage(
   token: string,
   riskRecordId: string,
