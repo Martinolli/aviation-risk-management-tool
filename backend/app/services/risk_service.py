@@ -1,6 +1,7 @@
 import uuid
+from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
 import app.services.audit_service as audit_service
@@ -10,12 +11,15 @@ from app.models.enums import (
     AuthorityLevel,
     CommitteeType,
     RiskAssessmentType,
+    RiskActionStatus,
     RiskLifecycleStatus,
+    RiskMonitoringStatus,
     RiskWorkflowStatus,
 )
-from app.models.risk import RiskAssessment, RiskRecord
+from app.models.risk import RiskAction, RiskAssessment, RiskMonitoringReview, RiskRecord
 from app.models.user import User
 from app.schemas.risk import RiskRecordCreate, RiskRecordUpdate
+from app.schemas.risk_search import RiskRecordListFilters
 from app.services.risk_access_service import (
     RiskAccessBusinessRuleError,
     filter_readable_risk_records,
@@ -199,14 +203,123 @@ def get_risk_record(
     return db.get(RiskRecord, risk_record_id)
 
 
+def _apply_risk_record_filters(statement, filters: RiskRecordListFilters):
+    if filters.search:
+        search_pattern = f"%{filters.search}%"
+        statement = statement.where(
+            or_(
+                RiskRecord.risk_id.ilike(search_pattern),
+                RiskRecord.problem_description.ilike(search_pattern),
+                RiskRecord.source_trigger.ilike(search_pattern),
+                RiskRecord.system_scope.ilike(search_pattern),
+                RiskRecord.central_event.ilike(search_pattern),
+                RiskRecord.hazard_statement.ilike(search_pattern),
+            )
+        )
+    if filters.risk_id:
+        statement = statement.where(RiskRecord.risk_id.ilike(f"%{filters.risk_id}%"))
+    if filters.domain is not None:
+        statement = statement.where(RiskRecord.domain == filters.domain)
+    if filters.board_of_origin_id is not None:
+        statement = statement.where(
+            RiskRecord.board_of_origin_id == filters.board_of_origin_id
+        )
+    if filters.workflow_status is not None:
+        statement = statement.where(RiskRecord.workflow_status == filters.workflow_status)
+    if filters.lifecycle_status is not None:
+        statement = statement.where(
+            RiskRecord.lifecycle_status == filters.lifecycle_status
+        )
+    if filters.owner_user_id is not None:
+        statement = statement.where(RiskRecord.owner_user_id == filters.owner_user_id)
+    if filters.created_by_user_id is not None:
+        statement = statement.where(
+            RiskRecord.created_by_user_id == filters.created_by_user_id
+        )
+    if filters.latest_risk_level:
+        latest_assessment_times = (
+            select(
+                RiskAssessment.risk_record_id,
+                func.max(RiskAssessment.assessed_at).label("latest_assessed_at"),
+            )
+            .group_by(RiskAssessment.risk_record_id)
+            .subquery()
+        )
+        latest_matching_risk_ids = (
+            select(RiskAssessment.risk_record_id)
+            .join(
+                latest_assessment_times,
+                (RiskAssessment.risk_record_id == latest_assessment_times.c.risk_record_id)
+                & (
+                    RiskAssessment.assessed_at
+                    == latest_assessment_times.c.latest_assessed_at
+                ),
+            )
+            .where(func.lower(RiskAssessment.risk_level) == filters.latest_risk_level.lower())
+        )
+        statement = statement.where(RiskRecord.id.in_(latest_matching_risk_ids))
+    if filters.has_overdue_actions is not None:
+        overdue_open_action_exists = exists().where(
+            RiskAction.risk_record_id == RiskRecord.id,
+            RiskAction.status.in_(
+                [RiskActionStatus.OPEN, RiskActionStatus.IN_PROGRESS]
+            ),
+            RiskAction.due_date < date.today(),
+        )
+        statement = statement.where(
+            overdue_open_action_exists
+            if filters.has_overdue_actions
+            else ~overdue_open_action_exists
+        )
+    if filters.has_due_or_overdue_monitoring is not None:
+        due_or_overdue_monitoring_exists = exists().where(
+            RiskMonitoringReview.risk_record_id == RiskRecord.id,
+            RiskMonitoringReview.is_active.is_(True),
+            RiskMonitoringReview.status.in_(
+                [RiskMonitoringStatus.DUE, RiskMonitoringStatus.OVERDUE]
+            ),
+        )
+        statement = statement.where(
+            due_or_overdue_monitoring_exists
+            if filters.has_due_or_overdue_monitoring
+            else ~due_or_overdue_monitoring_exists
+        )
+
+    return statement
+
+
+def _apply_risk_record_sorting(statement, filters: RiskRecordListFilters | None):
+    sort_by = filters.sort_by if filters is not None else "updated_at"
+    sort_direction = filters.sort_direction if filters is not None else "desc"
+    sort_column = {
+        "risk_id": RiskRecord.risk_id,
+        "created_at": RiskRecord.created_at,
+        "updated_at": RiskRecord.updated_at,
+        "domain": RiskRecord.domain,
+        "workflow_status": RiskRecord.workflow_status,
+        "lifecycle_status": RiskRecord.lifecycle_status,
+    }[sort_by]
+    order_expression = (
+        sort_column.asc() if sort_direction == "asc" else sort_column.desc()
+    )
+    return statement.order_by(order_expression, RiskRecord.created_at.desc())
+
+
 def list_risk_records(
     db: Session,
     *,
     include_archived: bool = False,
+    filters: RiskRecordListFilters | None = None,
 ) -> list[RiskRecord]:
-    statement = select(RiskRecord).order_by(RiskRecord.created_at.desc())
-    if not include_archived:
+    effective_include_archived = include_archived or (
+        filters.include_archived if filters is not None else False
+    )
+    statement = select(RiskRecord)
+    if not effective_include_archived:
         statement = statement.where(RiskRecord.is_active.is_(True))
+    if filters is not None:
+        statement = _apply_risk_record_filters(statement, filters)
+    statement = _apply_risk_record_sorting(statement, filters)
 
     return list(db.scalars(statement).all())
 
@@ -216,6 +329,7 @@ def list_authorized_risk_records(
     *,
     requested_by_user_id: uuid.UUID | None,
     include_archived: bool = False,
+    filters: RiskRecordListFilters | None = None,
 ) -> list[RiskRecord]:
     try:
         reader = validate_active_user(
@@ -226,7 +340,11 @@ def list_authorized_risk_records(
     except RiskAccessBusinessRuleError as exc:
         raise RiskRecordBusinessRuleError(str(exc)) from exc
 
-    risk_records = list_risk_records(db, include_archived=include_archived)
+    risk_records = list_risk_records(
+        db,
+        include_archived=include_archived,
+        filters=filters,
+    )
     return filter_readable_risk_records(
         db,
         risk_records=risk_records,
