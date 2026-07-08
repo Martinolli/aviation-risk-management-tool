@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -175,16 +176,27 @@ def list_audit_logs(
     entity_id: uuid.UUID | None = None,
     action: AuditAction | None = None,
     changed_by_user_id: uuid.UUID | None = None,
+    changed_at_from: datetime | None = None,
+    changed_at_to: datetime | None = None,
     limit: int = 100,
     offset: int = 0,
+    max_limit: int = MAX_AUDIT_LOG_LIMIT,
 ) -> list[AuditLog]:
     _validate_audit_reader(db, user_id=requested_by_user_id)
     if limit < 1:
         raise AuditQueryBusinessRuleError("limit must be at least 1")
     if offset < 0:
         raise AuditQueryBusinessRuleError("offset must be at least 0")
+    if (
+        changed_at_from is not None
+        and changed_at_to is not None
+        and changed_at_from > changed_at_to
+    ):
+        raise AuditQueryBusinessRuleError(
+            "changed_at_from must not be after changed_at_to"
+        )
 
-    effective_limit = min(limit, MAX_AUDIT_LOG_LIMIT)
+    effective_limit = min(limit, max_limit)
     statement = select(AuditLog).order_by(AuditLog.changed_at.desc())
 
     if entity_type is not None:
@@ -195,6 +207,10 @@ def list_audit_logs(
         statement = statement.where(AuditLog.action == action)
     if changed_by_user_id is not None:
         statement = statement.where(AuditLog.changed_by_user_id == changed_by_user_id)
+    if changed_at_from is not None:
+        statement = statement.where(AuditLog.changed_at >= changed_at_from)
+    if changed_at_to is not None:
+        statement = statement.where(AuditLog.changed_at <= changed_at_to)
 
     statement = statement.limit(effective_limit).offset(offset)
     return [

@@ -268,6 +268,26 @@ def test_list_audit_logs_filters_by_changed_by_user_id(
     assert logs == [target]
 
 
+def test_list_audit_logs_filters_by_changed_at_range(
+    db_session: Session, reader: User
+) -> None:
+    now = datetime.now(timezone.utc)
+    older = _create_audit_log(db_session, changed_at=now - timedelta(days=2))
+    middle = _create_audit_log(db_session, changed_at=now - timedelta(days=1))
+    newer = _create_audit_log(db_session, changed_at=now)
+
+    logs = list_audit_logs(
+        db_session,
+        requested_by_user_id=reader.id,
+        changed_at_from=now - timedelta(days=1, hours=1),
+        changed_at_to=now - timedelta(hours=1),
+    )
+
+    assert logs == [middle]
+    assert older not in logs
+    assert newer not in logs
+
+
 def test_list_audit_logs_applies_limit(db_session: Session, reader: User) -> None:
     _seed_logs(db_session)
 
