@@ -1,10 +1,43 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
+import { getMyNotifications } from "../api/notifications";
 import { useAuth } from "../auth/AuthContext";
 
 export function AppLayout() {
-  const { isAuthenticated, logout, user } = useAuth();
+  const { isAuthenticated, logout, token, user } = useAuth();
   const navigate = useNavigate();
+  const [attentionCount, setAttentionCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let isCurrent = true;
+    if (!isAuthenticated || !token) {
+      setAttentionCount(null);
+      return;
+    }
+    const tokenToUse = token;
+
+    async function loadAttentionCount() {
+      try {
+        const summary = await getMyNotifications(tokenToUse, {
+          includeInfo: false,
+          limit: 50,
+        });
+        if (isCurrent) {
+          setAttentionCount(summary.critical_count + summary.warning_count);
+        }
+      } catch {
+        if (isCurrent) {
+          setAttentionCount(null);
+        }
+      }
+    }
+
+    void loadAttentionCount();
+    return () => {
+      isCurrent = false;
+    };
+  }, [isAuthenticated, token]);
 
   function handleLogout() {
     logout();
@@ -24,6 +57,14 @@ export function AppLayout() {
             {isAuthenticated && (
               <>
                 <NavLink to="/dashboard">Dashboard</NavLink>
+                <NavLink to="/notifications">
+                  <span>Notifications</span>
+                  {attentionCount !== null && attentionCount > 0 && (
+                    <span className="nav-notification-badge">
+                      {attentionCount}
+                    </span>
+                  )}
+                </NavLink>
                 <NavLink to="/risks">Risks</NavLink>
                 <NavLink to="/my-decisions">My Queue</NavLink>
                 <NavLink to="/my-actions">My Actions</NavLink>

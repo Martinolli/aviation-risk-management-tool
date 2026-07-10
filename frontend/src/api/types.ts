@@ -472,6 +472,43 @@ export interface MyDecisionQueueRead {
   queue_items: MyDecisionQueueItemRead[];
 }
 
+export type NotificationSeverity = "CRITICAL" | "WARNING" | "INFO";
+
+export type NotificationCategory =
+  | "ACTION"
+  | "MONITORING"
+  | "DECISION_QUEUE"
+  | "MEETING";
+
+export interface NotificationRead {
+  id: string;
+  category: NotificationCategory;
+  severity: NotificationSeverity;
+  title: string;
+  message: string;
+  target_type: string;
+  target_id: string;
+  risk_record_id?: string | null;
+  risk_id?: string | null;
+  committee_id?: string | null;
+  committee_name?: string | null;
+  due_date?: string | null;
+  created_reference_at?: string | null;
+  action_url?: string | null;
+}
+
+export interface NotificationSummaryRead {
+  total_count: number;
+  critical_count: number;
+  warning_count: number;
+  info_count: number;
+  action_count: number;
+  monitoring_count: number;
+  decision_queue_count: number;
+  meeting_count: number;
+  items: NotificationRead[];
+}
+
 export type RiskDecisionType =
   | "APPROVE"
   | "REJECT"

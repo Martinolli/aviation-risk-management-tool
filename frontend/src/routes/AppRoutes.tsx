@@ -12,6 +12,7 @@ import { LoginPage } from "../pages/LoginPage";
 import { MyDecisionQueuePage } from "../pages/MyDecisionQueuePage";
 import { MyActionsPage } from "../pages/MyActionsPage";
 import { MyMonitoringPage } from "../pages/MyMonitoringPage";
+import { NotificationsPage } from "../pages/NotificationsPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { ReportsPage } from "../pages/ReportsPage";
 import { RiskCreatePage } from "../pages/RiskCreatePage";
@@ -42,6 +43,7 @@ export function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<RiskDashboardPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/risks" element={<RiskListPage />} />
         <Route path="/my-decisions" element={<MyDecisionQueuePage />} />
         <Route path="/my-actions" element={<MyActionsPage />} />
