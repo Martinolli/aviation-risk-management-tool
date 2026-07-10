@@ -9,6 +9,7 @@ import { CommitteeMeetingPacksPage } from "../pages/CommitteeMeetingPacksPage";
 import { CommitteeMeetingsPage } from "../pages/CommitteeMeetingsPage";
 import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
+import { ManagementDashboardPage } from "../pages/ManagementDashboardPage";
 import { MyDecisionQueuePage } from "../pages/MyDecisionQueuePage";
 import { MyActionsPage } from "../pages/MyActionsPage";
 import { MyMonitoringPage } from "../pages/MyMonitoringPage";
@@ -43,6 +44,10 @@ export function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<RiskDashboardPage />} />
+        <Route
+          path="/management-dashboard"
+          element={<ManagementDashboardPage />}
+        />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/risks" element={<RiskListPage />} />
         <Route path="/my-decisions" element={<MyDecisionQueuePage />} />

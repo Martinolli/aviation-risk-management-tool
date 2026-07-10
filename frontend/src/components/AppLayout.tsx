@@ -57,6 +57,7 @@ export function AppLayout() {
             {isAuthenticated && (
               <>
                 <NavLink to="/dashboard">Dashboard</NavLink>
+                <NavLink to="/management-dashboard">Management</NavLink>
                 <NavLink to="/notifications">
                   <span>Notifications</span>
                   {attentionCount !== null && attentionCount > 0 && (

@@ -509,6 +509,61 @@ export interface NotificationSummaryRead {
   items: NotificationRead[];
 }
 
+export interface ManagementDashboardKpi {
+  key: string;
+  label: string;
+  value: number;
+  detail?: string | null;
+  severity?: string | null;
+}
+
+export interface ManagementDashboardRiskSummary {
+  risk_record_id: string;
+  risk_id?: string | null;
+  problem_description: string;
+  domain: string;
+  workflow_status: string;
+  lifecycle_status: string;
+  latest_risk_level?: string | null;
+  board_of_origin_id?: string | null;
+  board_of_origin_name?: string | null;
+  owner_user_id?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ManagementDashboardGroup {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface ManagementDashboardAttentionItem {
+  category: string;
+  severity: string;
+  title: string;
+  message: string;
+  target_type: string;
+  target_id: string;
+  risk_record_id?: string | null;
+  risk_id?: string | null;
+  action_url?: string | null;
+  due_date?: string | null;
+}
+
+export interface ManagementDashboardRead {
+  generated_at: string;
+  kpis: ManagementDashboardKpi[];
+  risk_level_distribution: ManagementDashboardGroup[];
+  domain_hotspots: ManagementDashboardGroup[];
+  workflow_backlog: ManagementDashboardGroup[];
+  authority_level_backlog: ManagementDashboardGroup[];
+  top_attention_items: ManagementDashboardAttentionItem[];
+  high_exposure_risks: ManagementDashboardRiskSummary[];
+  overdue_action_risks: ManagementDashboardRiskSummary[];
+  monitoring_concern_risks: ManagementDashboardRiskSummary[];
+  committee_backlog_risks: ManagementDashboardRiskSummary[];
+}
+
 export type RiskDecisionType =
   | "APPROVE"
   | "REJECT"

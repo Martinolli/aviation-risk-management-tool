@@ -236,9 +236,14 @@ export function RiskDashboardPage() {
             readiness, and recent activity.
           </p>
         </div>
-        <Link className="button" to="/risks">
-          View risk records
-        </Link>
+        <div className="dashboard-header-actions">
+          <Link className="button secondary" to="/management-dashboard">
+            Management Dashboard
+          </Link>
+          <Link className="button" to="/risks">
+            View risk records
+          </Link>
+        </div>
       </header>
 
       <section className="dashboard-grid" aria-label="Risk key performance indicators">
