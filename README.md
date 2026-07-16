@@ -36,6 +36,14 @@ npm run dev
 The frontend development server defaults to `http://127.0.0.1:5174`. The home
 page checks backend connectivity through `GET /health`.
 
+## Deployment Readiness
+
+Before deployment, confirm CI is green, Production Configuration passes backend
+startup safety validation, and secrets are configured outside the repository.
+See the [Deployment Readiness Guide](docs/deployment-readiness.md) for
+Environment Hardening, CORS Allowed Origins, JWT Secret, Evidence Storage, and
+Generated Reports checklists.
+
 ## Authority Structure
 
 The tool supports three authority levels:

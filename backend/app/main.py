@@ -78,6 +78,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
 
 def create_app() -> FastAPI:
+    settings.validate_production_safety()
     app = FastAPI(title=settings.app_name)
     app.add_middleware(
         CORSMiddleware,

@@ -1,6 +1,7 @@
 import argparse
 import uuid
 
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.services.bootstrap_service import (
     BootstrapBusinessRuleError,
@@ -38,6 +39,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     access_parser.add_argument("--password", default="ChangeMe123!")
     access_parser.add_argument("--dry-run", action="store_true")
+    subparsers.add_parser(
+        "check-deployment-readiness",
+        help="Validate Deployment Readiness production safety settings.",
+    )
     return parser
 
 
@@ -47,6 +52,8 @@ def main(argv: list[str] | None = None) -> int:
         return _seed_default_risk_matrix(args)
     if args.command == "seed-test-access-profiles":
         return _seed_test_access_profiles(args)
+    if args.command == "check-deployment-readiness":
+        return _check_deployment_readiness()
     if args.command != "bootstrap-admin":
         return 2
 
@@ -87,6 +94,16 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Committee: {summary[2]}")
     print(f"Membership ID: {summary[3]}")
     print(f"Roles ensured: {summary[4]}")
+    return 0
+
+
+def _check_deployment_readiness() -> int:
+    try:
+        settings.validate_production_safety()
+    except ValueError as exc:
+        print(f"Deployment readiness check failed: {exc}")
+        return 1
+    print("Deployment readiness check passed.")
     return 0
 
 
