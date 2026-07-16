@@ -19,8 +19,8 @@ jobs:
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
       ENABLE_X_USER_ID_AUTH_FALLBACK: "false"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -58,8 +58,8 @@ jobs:
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
       ENABLE_X_USER_ID_AUTH_FALLBACK: "false"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -86,8 +86,8 @@ jobs:
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
       ENABLE_X_USER_ID_AUTH_FALLBACK: "false"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
