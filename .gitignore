@@ -156,6 +156,14 @@ backend/evidence_uploads/
 !backend/evidence_uploads/
 backend/evidence_uploads/*
 !backend/evidence_uploads/.gitkeep
+backups/*
+!backups/.gitkeep
+*.dump
+*.backup
+*.bak
+*.sql.gz
+*.tar.gz
+*.zip
 frontend/.env
 frontend/.env.local
 frontend/node_modules/

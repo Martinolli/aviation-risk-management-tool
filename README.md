@@ -44,6 +44,13 @@ See the [Deployment Readiness Guide](docs/deployment-readiness.md) for
 Environment Hardening, CORS Allowed Origins, JWT Secret, Evidence Storage, and
 Generated Reports checklists.
 
+## Backup and Restore
+
+See the [Backup and Restore Procedure](docs/backup-and-restore.md) for local
+Database Backup, Evidence Backup, Generated Reports Backup, and Restore
+Procedure guidance. Helper scripts are under `scripts/`. The `backups/` folder
+is ignored except for `.gitkeep`; do not commit backup outputs.
+
 ## Authority Structure
 
 The tool supports three authority levels:

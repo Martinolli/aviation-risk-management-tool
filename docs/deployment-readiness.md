@@ -50,6 +50,10 @@ This guide prepares the Aviation Risk Management Tool for safer deployment readi
 - Default test users disabled or removed.
 - CI green before deployment.
 
+## Backup and Restore Readiness
+
+Backup and Restore procedure must be defined before production use. The backup scope must include the PostgreSQL database, evidence uploads, and generated reports. Restore must be tested in a non-production environment before relying on the procedure for SMS governance operations. See the [Backup and Restore Procedure](backup-and-restore.md).
+
 ## Local Development Startup
 
 ```powershell
