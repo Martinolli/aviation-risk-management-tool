@@ -72,3 +72,38 @@ jobs:
         run: alembic upgrade head
       - name: Show Alembic current revision
         run: alembic current
+
+  backend-health-smoke:
+    name: Backend Health Check Smoke Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: "sqlite+pysqlite:///:memory:"
+      JWT_SECRET_KEY: "ci-change-me-use-env-secret-in-production-32bytes"
+      JWT_ALGORITHM: "HS256"
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      ENABLE_X_USER_ID_AUTH_FALLBACK: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Start FastAPI Health Check server
+        run: |
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/backend.log 2>&1 &
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:8000/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/backend.log
+          exit 1
