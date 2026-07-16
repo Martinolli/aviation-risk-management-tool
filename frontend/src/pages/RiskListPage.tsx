@@ -4,8 +4,13 @@ import { Link, Navigate, useLocation } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { listCommittees } from "../api/committees";
-import { listRisks } from "../api/risks";
+import {
+  exportRiskRegisterCsv,
+  exportRiskRegisterDocx,
+  listRisks,
+} from "../api/risks";
 import type { RiskListParams } from "../api/risks";
+import { saveBlobAsFile } from "../api/reports";
 import type { CommitteeRead, RiskRecordRead } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -21,6 +26,12 @@ type RiskListState =
       committees: CommitteeRead[];
       committeeWarning: string | null;
     }
+  | { status: "error"; message: string };
+
+type RiskExportState =
+  | { status: "idle" }
+  | { status: "loading"; format: "CSV" | "DOCX" }
+  | { status: "success"; message: string }
   | { status: "error"; message: string };
 
 const DEFAULT_FILTERS: RiskListParams = {
@@ -96,6 +107,9 @@ export function RiskListPage() {
   const location = useLocation();
   const [filters, setFilters] = useState<RiskListParams>(DEFAULT_FILTERS);
   const [riskList, setRiskList] = useState<RiskListState>({ status: "loading" });
+  const [exportState, setExportState] = useState<RiskExportState>({
+    status: "idle",
+  });
   const successMessage = getSuccessMessage(location.state);
 
   useEffect(() => {
@@ -122,6 +136,7 @@ export function RiskListPage() {
 
   const committees = riskList.status === "success" ? riskList.committees : [];
   const activeFilterCount = getActiveFilterCount(filters);
+  const isExporting = exportState.status === "loading";
 
   async function applyFilters(nextFilters: RiskListParams) {
     if (!token) {
@@ -129,6 +144,7 @@ export function RiskListPage() {
     }
 
     setRiskList({ status: "loading" });
+    setExportState({ status: "idle" });
     await loadRiskList(token, nextFilters, setRiskList);
   }
 
@@ -141,6 +157,37 @@ export function RiskListPage() {
     const resetFilters = { ...DEFAULT_FILTERS };
     setFilters(resetFilters);
     void applyFilters(resetFilters);
+  }
+
+  async function handleExport(format: "CSV" | "DOCX") {
+    if (!token) {
+      return;
+    }
+
+    setExportState({ status: "loading", format });
+    try {
+      const params = normalizeRiskListParams(filters);
+      const result =
+        format === "CSV"
+          ? await exportRiskRegisterCsv(token, params)
+          : await exportRiskRegisterDocx(token, params);
+      saveBlobAsFile(result.blob, result.filename);
+      setExportState({
+        status: "success",
+        message:
+          format === "CSV"
+            ? "Risk register CSV exported."
+            : "Risk register DOCX exported.",
+      });
+    } catch (error) {
+      setExportState({
+        status: "error",
+        message:
+          error instanceof ApiError
+            ? error.message
+            : "Risk Register Export failed. Please try again.",
+      });
+    }
   }
 
   return (
@@ -396,7 +443,46 @@ export function RiskListPage() {
           <button className="button secondary" type="button" onClick={handleClearFilters}>
             Clear Filters
           </button>
+          <div className="risk-export-actions">
+            <div className="risk-export-button-group">
+              <button
+                className="button secondary"
+                disabled={isExporting}
+                type="button"
+                onClick={() => void handleExport("CSV")}
+              >
+                Export CSV
+              </button>
+              <button
+                className="button secondary"
+                disabled={isExporting}
+                type="button"
+                onClick={() => void handleExport("DOCX")}
+              >
+                Export DOCX
+              </button>
+            </div>
+            <span className="risk-register-export-note">Controlled Export</span>
+          </div>
         </div>
+
+        {exportState.status === "loading" && (
+          <p className="risk-export-status" role="status">
+            Exporting risk register...
+          </p>
+        )}
+
+        {exportState.status === "success" && (
+          <p className="risk-export-status" role="status">
+            {exportState.message}
+          </p>
+        )}
+
+        {exportState.status === "error" && (
+          <p className="risk-export-status risk-export-status-error" role="alert">
+            {exportState.message}
+          </p>
+        )}
       </form>
 
       {riskList.status === "loading" && (

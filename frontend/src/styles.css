@@ -509,6 +509,41 @@ button:disabled {
   gap: 0.75rem;
 }
 
+.risk-export-actions {
+  align-items: center;
+  border-left: 1px solid #d9e2ec;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  padding-left: 0.75rem;
+}
+
+.risk-export-button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.risk-export-status {
+  background: #eaf2f8;
+  border-left: 4px solid #486581;
+  color: #334e68;
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+}
+
+.risk-export-status-error {
+  background: #fff5f5;
+  border-left-color: #c53030;
+  color: #742a2a;
+}
+
+.risk-register-export-note {
+  color: #627d98;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 .risk-table-wrapper {
   background: #fff;
   border: 1px solid #d9e2ec;
@@ -559,6 +594,11 @@ button:disabled {
   }
 
   .audit-export-actions {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .risk-export-actions {
     border-left: 0;
     padding-left: 0;
   }

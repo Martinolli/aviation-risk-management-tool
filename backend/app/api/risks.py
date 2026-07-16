@@ -1,6 +1,8 @@
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,11 @@ from app.services.risk_detail_service import (
     RiskDetailBusinessRuleError,
     get_risk_record_detail,
 )
+from app.services.risk_register_export_service import (
+    RiskRegisterExportBusinessRuleError,
+    export_risk_register_csv,
+    export_risk_register_docx,
+)
 from app.services.risk_service import (
     RiskRecordBusinessRuleError,
     RiskRecordNotFoundError,
@@ -32,12 +39,55 @@ from app.services.risk_service import (
 )
 
 router = APIRouter(prefix="/risks", tags=["risks"])
+RISK_REGISTER_EXPORT_OUTPUT_DIR = Path("generated_reports")
 
 
 def _commit_and_refresh(db: Session, risk_record: RiskRecord) -> RiskRecord:
     db.commit()
     db.refresh(risk_record)
     return risk_record
+
+
+def _build_risk_record_list_filters(
+    *,
+    include_archived: bool = False,
+    search: str | None = None,
+    risk_id: str | None = None,
+    domain: RiskDomain | None = None,
+    board_of_origin_id: uuid.UUID | None = None,
+    workflow_status: RiskWorkflowStatus | None = None,
+    lifecycle_status: RiskLifecycleStatus | None = None,
+    owner_user_id: uuid.UUID | None = None,
+    created_by_user_id: uuid.UUID | None = None,
+    latest_risk_level: str | None = None,
+    has_overdue_actions: bool | None = None,
+    has_due_or_overdue_monitoring: bool | None = None,
+    sort_by: str = "updated_at",
+    sort_direction: str = "desc",
+) -> RiskRecordListFilters:
+    try:
+        return RiskRecordListFilters(
+            include_archived=include_archived,
+            search=search,
+            risk_id=risk_id,
+            domain=domain,
+            board_of_origin_id=board_of_origin_id,
+            workflow_status=workflow_status,
+            lifecycle_status=lifecycle_status,
+            owner_user_id=owner_user_id,
+            created_by_user_id=created_by_user_id,
+            latest_risk_level=latest_risk_level,
+            has_overdue_actions=has_overdue_actions,
+            has_due_or_overdue_monitoring=has_due_or_overdue_monitoring,
+            sort_by=sort_by,
+            sort_direction=sort_direction,
+        )
+    except ValidationError as exc:
+        first_error = exc.errors()[0] if exc.errors() else {}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(first_error.get("msg", "Invalid risk list filters.")),
+        ) from exc
 
 
 @router.get("", response_model=list[RiskRecordRead])
@@ -59,40 +109,143 @@ def list_risk_records_endpoint(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_optional_current_user),
 ):
+    filters = _build_risk_record_list_filters(
+        include_archived=include_archived,
+        search=search,
+        risk_id=risk_id,
+        domain=domain,
+        board_of_origin_id=board_of_origin_id,
+        workflow_status=workflow_status,
+        lifecycle_status=lifecycle_status,
+        owner_user_id=owner_user_id,
+        created_by_user_id=created_by_user_id,
+        latest_risk_level=latest_risk_level,
+        has_overdue_actions=has_overdue_actions,
+        has_due_or_overdue_monitoring=has_due_or_overdue_monitoring,
+        sort_by=sort_by,
+        sort_direction=sort_direction,
+    )
     try:
-        filters = RiskRecordListFilters(
-            include_archived=include_archived,
-            search=search,
-            risk_id=risk_id,
-            domain=domain,
-            board_of_origin_id=board_of_origin_id,
-            workflow_status=workflow_status,
-            lifecycle_status=lifecycle_status,
-            owner_user_id=owner_user_id,
-            created_by_user_id=created_by_user_id,
-            latest_risk_level=latest_risk_level,
-            has_overdue_actions=has_overdue_actions,
-            has_due_or_overdue_monitoring=has_due_or_overdue_monitoring,
-            sort_by=sort_by,
-            sort_direction=sort_direction,
-        )
         return list_authorized_risk_records(
             db,
             requested_by_user_id=get_optional_current_user_id(current_user),
             include_archived=include_archived,
             filters=filters,
         )
-    except ValidationError as exc:
-        first_error = exc.errors()[0] if exc.errors() else {}
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(first_error.get("msg", "Invalid risk list filters.")),
-        ) from exc
     except RiskRecordBusinessRuleError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+
+
+@router.get("/export/csv")
+def export_risk_register_csv_endpoint(
+    include_archived: bool = False,
+    search: str | None = None,
+    risk_id: str | None = None,
+    domain: RiskDomain | None = None,
+    board_of_origin_id: uuid.UUID | None = None,
+    workflow_status: RiskWorkflowStatus | None = None,
+    lifecycle_status: RiskLifecycleStatus | None = None,
+    owner_user_id: uuid.UUID | None = None,
+    created_by_user_id: uuid.UUID | None = None,
+    latest_risk_level: str | None = None,
+    has_overdue_actions: bool | None = None,
+    has_due_or_overdue_monitoring: bool | None = None,
+    sort_by: str = "updated_at",
+    sort_direction: str = "desc",
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    filters = _build_risk_record_list_filters(
+        include_archived=include_archived,
+        search=search,
+        risk_id=risk_id,
+        domain=domain,
+        board_of_origin_id=board_of_origin_id,
+        workflow_status=workflow_status,
+        lifecycle_status=lifecycle_status,
+        owner_user_id=owner_user_id,
+        created_by_user_id=created_by_user_id,
+        latest_risk_level=latest_risk_level,
+        has_overdue_actions=has_overdue_actions,
+        has_due_or_overdue_monitoring=has_due_or_overdue_monitoring,
+        sort_by=sort_by,
+        sort_direction=sort_direction,
+    )
+    try:
+        file_path = export_risk_register_csv(
+            db,
+            requested_by_user_id=get_optional_current_user_id(current_user),
+            filters=filters,
+            output_dir=RISK_REGISTER_EXPORT_OUTPUT_DIR,
+        )
+    except (RiskRegisterExportBusinessRuleError, RiskRecordBusinessRuleError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return FileResponse(path=file_path, media_type="text/csv", filename=file_path.name)
+
+
+@router.get("/export/docx")
+def export_risk_register_docx_endpoint(
+    include_archived: bool = False,
+    search: str | None = None,
+    risk_id: str | None = None,
+    domain: RiskDomain | None = None,
+    board_of_origin_id: uuid.UUID | None = None,
+    workflow_status: RiskWorkflowStatus | None = None,
+    lifecycle_status: RiskLifecycleStatus | None = None,
+    owner_user_id: uuid.UUID | None = None,
+    created_by_user_id: uuid.UUID | None = None,
+    latest_risk_level: str | None = None,
+    has_overdue_actions: bool | None = None,
+    has_due_or_overdue_monitoring: bool | None = None,
+    sort_by: str = "updated_at",
+    sort_direction: str = "desc",
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    filters = _build_risk_record_list_filters(
+        include_archived=include_archived,
+        search=search,
+        risk_id=risk_id,
+        domain=domain,
+        board_of_origin_id=board_of_origin_id,
+        workflow_status=workflow_status,
+        lifecycle_status=lifecycle_status,
+        owner_user_id=owner_user_id,
+        created_by_user_id=created_by_user_id,
+        latest_risk_level=latest_risk_level,
+        has_overdue_actions=has_overdue_actions,
+        has_due_or_overdue_monitoring=has_due_or_overdue_monitoring,
+        sort_by=sort_by,
+        sort_direction=sort_direction,
+    )
+    try:
+        file_path = export_risk_register_docx(
+            db,
+            requested_by_user_id=get_optional_current_user_id(current_user),
+            filters=filters,
+            output_dir=RISK_REGISTER_EXPORT_OUTPUT_DIR,
+        )
+    except (RiskRegisterExportBusinessRuleError, RiskRecordBusinessRuleError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return FileResponse(
+        path=file_path,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "wordprocessingml.document"
+        ),
+        filename=file_path.name,
+    )
 
 
 @router.get("/{risk_record_id}/detail", response_model=RiskRecordDetailRead)
