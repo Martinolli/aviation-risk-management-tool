@@ -45,6 +45,7 @@ This guide prepares the Aviation Risk Management Tool for safer deployment readi
 - Generated reports path configured.
 - Backup procedure defined.
 - Data retention and archive policy reviewed before production/pilot use.
+- Permission matrix reviewed before pilot/production use.
 - Legal/investigation hold expectations defined.
 - HTTPS/TLS handled by reverse proxy or hosting layer.
 - Logs reviewed.
@@ -59,6 +60,10 @@ Backup and Restore procedure must be defined before production use. The backup s
 ## Data Retention and Archive Readiness
 
 Review the [Data Retention and Archive Policy](data-retention-and-archive-policy.md) before production or pilot use. Confirm Retention Period ownership, Archive Policy expectations, Legal / Investigation Hold handling, and No Hard Delete expectations for governed SMS records.
+
+## Permission Matrix Readiness
+
+Review the [Permission Matrix and Access Control Policy](permission-matrix.md) before pilot or production use. Confirm Authority Level, Board of Origin, Fixed Governance Committee, export authorization boundary, archive/restore authority, and admin governance expectations.
 
 ## Local Development Startup
 

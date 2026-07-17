@@ -75,6 +75,7 @@ export function AppLayout() {
                 <NavLink to="/reports">Reports</NavLink>
                 <NavLink to="/audit-trail">Audit Trail</NavLink>
                 <NavLink to="/data-retention-policy">Retention Policy</NavLink>
+                <NavLink to="/permission-matrix">Permission Matrix</NavLink>
                 <NavLink to="/admin/governance">Admin</NavLink>
                 <span className="nav-placeholder" title="Coming soon">
                   Committees <small>Coming soon</small>

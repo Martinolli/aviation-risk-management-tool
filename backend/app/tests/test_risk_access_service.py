@@ -2,11 +2,14 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401
+from app.core.database import get_db
+from app.main import app
 from app.models.base import Base
 from app.models.committee import Committee, CommitteeMember
 from app.models.enums import (
@@ -46,6 +49,17 @@ def db_session() -> Session:
         yield session
 
     Base.metadata.drop_all(engine)
+
+
+@pytest.fixture()
+def client(db_session: Session) -> TestClient:
+    def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
 
 
 def _create_user(db: Session, email: str) -> User:
@@ -285,6 +299,58 @@ def test_creator_and_owner_can_read_without_committee_membership(
     assert can_read_risk_record(db_session, risk_record=risk, user_id=owner.id)
 
 
+def test_risk_creator_can_read_own_risk(db_session: Session) -> None:
+    creator = _create_user(db_session, "creator.boundary@example.com")
+    risk = _create_risk(
+        db_session,
+        board_of_origin_id=None,
+        domain=RiskDomain.OTHER,
+        created_by_user_id=creator.id,
+    )
+
+    assert can_read_risk_record(db_session, risk_record=risk, user_id=creator.id)
+
+
+def test_risk_owner_can_read_owned_risk(db_session: Session) -> None:
+    owner = _create_user(db_session, "owner.boundary@example.com")
+    risk = _create_risk(
+        db_session,
+        board_of_origin_id=None,
+        domain=RiskDomain.OTHER,
+        owner_user_id=owner.id,
+    )
+
+    assert can_read_risk_record(db_session, risk_record=risk, user_id=owner.id)
+
+
+def test_board_of_origin_active_member_can_read_risk(db_session: Session) -> None:
+    member = _create_user(db_session, "board.boundary@example.com")
+    board = _create_committee(db_session, name="Board of Origin Boundary")
+    _add_membership(db_session, committee=board, user=member)
+    risk = _create_risk(
+        db_session,
+        board_of_origin_id=board.id,
+        domain=RiskDomain.QUALITY,
+    )
+
+    assert can_read_risk_record(db_session, risk_record=risk, user_id=member.id)
+
+
+def test_inactive_committee_member_cannot_read_by_board_membership(
+    db_session: Session,
+) -> None:
+    member = _create_user(db_session, "inactive.board.member@example.com")
+    board = _create_committee(db_session, name="Inactive Membership Boundary")
+    _add_membership(db_session, committee=board, user=member, is_active=False)
+    risk = _create_risk(
+        db_session,
+        board_of_origin_id=board.id,
+        domain=RiskDomain.QUALITY,
+    )
+
+    assert not can_read_risk_record(db_session, risk_record=risk, user_id=member.id)
+
+
 def test_assessor_action_owner_and_decision_maker_can_read_related_risk(
     db_session: Session,
 ) -> None:
@@ -414,6 +480,24 @@ def test_high_fixed_governance_member_can_read_risk(db_session: Session) -> None
     assert can_read_risk_record(db_session, risk_record=risk, user_id=member.id)
 
 
+def test_middle_fixed_governance_member_can_read_risk(db_session: Session) -> None:
+    member = _create_user(db_session, "middle.fixed.boundary@example.com")
+    middle_committee = _create_committee(
+        db_session,
+        name="Risk Management Committee Boundary",
+        authority_level=AuthorityLevel.MIDDLE,
+        is_fixed=True,
+    )
+    _add_membership(db_session, committee=middle_committee, user=member)
+    risk = _create_risk(
+        db_session,
+        board_of_origin_id=None,
+        domain=RiskDomain.OTHER,
+    )
+
+    assert can_read_risk_record(db_session, risk_record=risk, user_id=member.id)
+
+
 def test_non_fixed_middle_membership_does_not_grant_governance_access(
     db_session: Session,
 ) -> None:
@@ -458,3 +542,21 @@ def test_low_board_member_reads_only_board_of_origin_risks(
     assert not can_read_risk_record(
         db_session, risk_record=flight_test_risk, user_id=member.id
     )
+
+
+def test_unauthenticated_risk_list_endpoint_is_rejected(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    creator = _create_user(db_session, "unauthenticated.endpoint@example.com")
+    _create_risk(
+        db_session,
+        board_of_origin_id=None,
+        domain=RiskDomain.OTHER,
+        created_by_user_id=creator.id,
+    )
+    db_session.commit()
+
+    response = client.get("/risks")
+
+    assert response.status_code == 400

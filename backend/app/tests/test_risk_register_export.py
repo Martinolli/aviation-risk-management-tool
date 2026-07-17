@@ -16,7 +16,7 @@ import app.models  # noqa: F401
 from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
-from app.models.committee import Committee
+from app.models.committee import Committee, CommitteeMember
 from app.models.enums import (
     AuthorityLevel,
     CommitteeType,
@@ -100,6 +100,39 @@ def _create_board(db: Session, *, name: str = "Export Board") -> Committee:
     db.commit()
     db.refresh(board)
     return board
+
+
+def _create_fixed_governance_committee(
+    db: Session,
+    *,
+    authority_level: AuthorityLevel,
+) -> Committee:
+    committee = Committee(
+        name=f"{authority_level.value} Export Governance {uuid.uuid4()}",
+        authority_level=authority_level,
+        committee_type=(
+            CommitteeType.RISK_MANAGEMENT_COMMITTEE
+            if authority_level == AuthorityLevel.MIDDLE
+            else CommitteeType.EXECUTIVE_SAFETY_MANAGEMENT_COMMITTEE
+        ),
+        is_fixed=True,
+        is_active=True,
+    )
+    db.add(committee)
+    db.commit()
+    db.refresh(committee)
+    return committee
+
+
+def _add_membership(db: Session, *, committee: Committee, user: User) -> None:
+    db.add(
+        CommitteeMember(
+            committee_id=committee.id,
+            user_id=user.id,
+            is_active=True,
+        )
+    )
+    db.commit()
 
 
 def _create_risk(
@@ -259,6 +292,40 @@ def test_csv_contains_authorized_records_and_excludes_unauthorized(
 
     assert str(readable.id) in exported_ids
     assert str(hidden.id) not in exported_ids
+
+
+def test_fixed_middle_high_governance_users_export_oversight_records(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    middle_user = _create_user(db_session)
+    high_user = _create_user(db_session)
+    risk_owner = _create_user(db_session)
+    middle_committee = _create_fixed_governance_committee(
+        db_session,
+        authority_level=AuthorityLevel.MIDDLE,
+    )
+    high_committee = _create_fixed_governance_committee(
+        db_session,
+        authority_level=AuthorityLevel.HIGH,
+    )
+    _add_membership(db_session, committee=middle_committee, user=middle_user)
+    _add_membership(db_session, committee=high_committee, user=high_user)
+    oversight_risk = _create_risk(
+        db_session,
+        creator=risk_owner,
+        risk_id="RISK-GOVERNANCE-OVERSIGHT",
+    )
+
+    middle_response = client.get("/risks/export/csv", headers=_headers(middle_user))
+    high_response = client.get("/risks/export/csv", headers=_headers(high_user))
+
+    assert str(oversight_risk.id) in {
+        row["risk_record_id"] for row in _csv_rows(middle_response)
+    }
+    assert str(oversight_risk.id) in {
+        row["risk_record_id"] for row in _csv_rows(high_response)
+    }
 
 
 @pytest.mark.parametrize(

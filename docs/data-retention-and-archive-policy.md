@@ -59,6 +59,8 @@ This policy covers:
 6. Verify the audit log entry.
 7. Keep evidence and reports traceable.
 
+Archive and restore actions must follow the [Permission Matrix and Access Control Policy](permission-matrix.md).
+
 ## Restore Process
 
 1. Confirm the business reason.
@@ -66,6 +68,8 @@ This policy covers:
 3. Restore the archived record if supported.
 4. Record the restore reason.
 5. Verify the audit log entry.
+
+Restore authority must follow the [Permission Matrix and Access Control Policy](permission-matrix.md).
 
 ## Legal / Investigation Hold
 

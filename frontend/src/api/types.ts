@@ -586,6 +586,33 @@ export interface DataRetentionPolicyRead {
   requires_legal_or_investigation_hold_review: string[];
 }
 
+export interface PermissionMatrixRuleRead {
+  area: string;
+  capability: string;
+  allowed_roles_or_users: string[];
+  authority_level?: string | null;
+  access_basis: string;
+  restrictions: string;
+  audit_expected: boolean;
+  notes?: string | null;
+}
+
+export interface PermissionMatrixSectionRead {
+  section: string;
+  description: string;
+  rules: PermissionMatrixRuleRead[];
+}
+
+export interface PermissionMatrixRead {
+  policy_name: string;
+  policy_version: string;
+  effective_status: string;
+  generated_at: string;
+  summary: string;
+  principles: string[];
+  sections: PermissionMatrixSectionRead[];
+}
+
 export type RiskDecisionType =
   | "APPROVE"
   | "REJECT"

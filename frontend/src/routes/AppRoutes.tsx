@@ -16,6 +16,7 @@ import { MyActionsPage } from "../pages/MyActionsPage";
 import { MyMonitoringPage } from "../pages/MyMonitoringPage";
 import { NotificationsPage } from "../pages/NotificationsPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
+import { PermissionMatrixPage } from "../pages/PermissionMatrixPage";
 import { ReportsPage } from "../pages/ReportsPage";
 import { RiskCreatePage } from "../pages/RiskCreatePage";
 import { RiskAssessmentCreatePage } from "../pages/RiskAssessmentCreatePage";
@@ -69,6 +70,7 @@ export function AppRoutes() {
           path="/data-retention-policy"
           element={<DataRetentionPolicyPage />}
         />
+        <Route path="/permission-matrix" element={<PermissionMatrixPage />} />
         <Route path="/admin/governance" element={<AdminGovernancePage />} />
         <Route path="/risks/new" element={<RiskCreatePage />} />
         <Route

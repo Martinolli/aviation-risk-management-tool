@@ -11,6 +11,7 @@ The system manages a risk from the initial Problem Description through hazard id
 - [Workflow](docs/workflow.md)
 - [Data Model](docs/data_model.md)
 - [Data Retention and Archive Policy](docs/data-retention-and-archive-policy.md)
+- [Permission Matrix and Access Control Policy](docs/permission-matrix.md)
 - [Codex Task 001](docs/codex_tasks/task_001_project_documentation.md)
 
 ## Planned Technology Baseline
@@ -55,6 +56,10 @@ is ignored except for `.gitkeep`; do not commit backup outputs.
 ## Data Retention and Archive Policy
 
 See the [Data Retention and Archive Policy](docs/data-retention-and-archive-policy.md) for MVP Data Retention, Archive Policy, No Hard Delete, Audit Integrity, and Evidence Preservation guidance. Governed SMS records should be archived, not hard-deleted; audit integrity and evidence traceability must be preserved.
+
+## Permission Matrix and Access Control Policy
+
+See the [Permission Matrix and Access Control Policy](docs/permission-matrix.md) for MVP Access Control expectations across Authority Level, Board of Origin, Fixed Governance Committee oversight, exports, archive/restore, and admin governance.
 
 ## Authority Structure
 

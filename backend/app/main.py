@@ -17,6 +17,7 @@ from app.api.decision_queue import router as decision_queue_router
 from app.api.health import router as health_router
 from app.api.management_dashboard import router as management_dashboard_router
 from app.api.notifications import router as notification_router
+from app.api.permission_matrix import router as permission_matrix_router
 from app.api.risk_actions import router as risk_action_router
 from app.api.risk_assessments import router as risk_assessment_router
 from app.api.risk_decisions import router as risk_decision_router
@@ -92,6 +93,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(management_dashboard_router)
     app.include_router(notification_router)
+    app.include_router(permission_matrix_router)
     app.include_router(auth_router)
     app.include_router(admin_governance_router)
     app.include_router(audit_log_router)
