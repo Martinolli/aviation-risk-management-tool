@@ -105,6 +105,10 @@ Fixed MIDDLE/HIGH governance members may have broader oversight visibility accor
 
 Exports must never include records the requesting user cannot read. Risk register exports, audit exports, evidence packages, and generated reports must preserve the same authorization boundaries as UI access.
 
+## Operational Logs Access Rule
+
+Logs may contain operational metadata and should be accessible only to authorized IT/admin personnel. Safe Logging must avoid secrets, request bodies, JWT tokens, passwords, database URLs, and evidence contents. Logs support Operational Diagnostics and do not replace the Audit Trail.
+
 ## Archive and Restore Access Rule
 
 Archive/restore must be controlled, justified, and auditable. Governed SMS records should be archived instead of hard-deleted, and archive/restore actions must preserve audit integrity and evidence traceability.

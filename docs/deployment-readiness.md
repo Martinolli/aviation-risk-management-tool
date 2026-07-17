@@ -47,6 +47,9 @@ This guide prepares the Aviation Risk Management Tool for safer deployment readi
 - Data retention and archive policy reviewed before production/pilot use.
 - Permission matrix reviewed before pilot/production use.
 - Electronic approval concept reviewed before production use.
+- Production logging configured.
+- Request ID correlation enabled.
+- Logs reviewed for sensitive data exposure.
 - Legal/investigation hold expectations defined.
 - HTTPS/TLS handled by reverse proxy or hosting layer.
 - Logs reviewed.
@@ -69,6 +72,10 @@ Review the [Permission Matrix and Access Control Policy](permission-matrix.md) b
 ## Electronic Approval Readiness
 
 Review the [Electronic Approval / Signature Concept MVP](electronic-approval-concept.md) before production use. Confirm approval authority, Acknowledgement wording, Audit integrity expectations, and the limitation that this is Not a cryptographic digital signature.
+
+## Production Logging Readiness
+
+Review the [Production Logging and Error Monitoring Preparation](production-logging-and-monitoring.md) guide before production use. Confirm LOG_LEVEL, LOG_FORMAT, Request ID correlation, Safe Logging expectations, and Operational Diagnostics ownership.
 
 ## Local Development Startup
 

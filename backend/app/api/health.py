@@ -24,4 +24,9 @@ def readiness_check() -> dict[str, object]:
         "production_safety_enforced": (
             settings.is_production and settings.require_secure_production_settings
         ),
+        "logging_configured": True,
+        "log_level": settings.normalized_log_level,
+        "log_format": settings.log_format,
+        "request_logging_enabled": settings.enable_request_logging,
+        "request_id_header": settings.request_id_header,
     }

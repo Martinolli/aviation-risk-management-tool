@@ -36,8 +36,11 @@ from app.core.errors import (
     error_response,
     validation_error_details,
 )
+from app.core.logging_config import configure_logging
+from app.core.middleware import RequestLoggingMiddleware
 
 
+configure_logging(settings)
 logger = logging.getLogger(__name__)
 
 
@@ -70,7 +73,12 @@ def register_error_handlers(app: FastAPI) -> None:
     async def unhandled_exception_handler(
         request: Request, exc: Exception
     ) -> JSONResponse:
-        logger.exception("Unhandled API exception", exc_info=exc)
+        logger.exception(
+            "Unhandled API exception path=%s method=%s",
+            request.url.path,
+            request.method,
+            exc_info=exc,
+        )
         return JSONResponse(
             status_code=500,
             content=error_response(
@@ -81,6 +89,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
 
 def create_app() -> FastAPI:
+    configure_logging(settings)
     settings.validate_production_safety()
     app = FastAPI(title=settings.app_name)
     app.add_middleware(
@@ -89,6 +98,21 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+    app.add_middleware(RequestLoggingMiddleware)
+    logger.info(
+        "Application startup configuration app_name=%s environment=%s "
+        "log_level=%s log_format=%s request_logging_enabled=%s "
+        "cors_origins_count=%s evidence_storage_configured=%s "
+        "generated_reports_configured=%s",
+        settings.app_name,
+        getattr(settings, "environment", "unknown"),
+        getattr(settings, "normalized_log_level", "INFO"),
+        getattr(settings, "log_format", "plain"),
+        getattr(settings, "enable_request_logging", True),
+        len(settings.cors_origins_list),
+        bool(getattr(settings, "evidence_storage_dir", "").strip()),
+        bool(getattr(settings, "generated_reports_dir", "").strip()),
     )
     register_error_handlers(app)
     app.include_router(health_router)

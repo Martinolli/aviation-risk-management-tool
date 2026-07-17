@@ -88,6 +88,10 @@ The Restore Procedure warns before replacing local database data and overwriting
 - Limit access.
 - Follow company cybersecurity and data protection rules.
 
+## Operational Logs
+
+Logs are not backed up by the MVP backup scripts unless the company decides to include operational log archives separately. Operational log retention should be approved by company IT/security and aligned with the [Production Logging and Error Monitoring Preparation](production-logging-and-monitoring.md) guide.
+
 ## Audit Integrity Note
 
 Restore operations must be documented. Production restore should be approved and logged. Restored audit trail should not be manually edited. Preserving Audit integrity is required for SMS governance and operational traceability.

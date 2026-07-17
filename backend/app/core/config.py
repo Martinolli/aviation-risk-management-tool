@@ -8,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 DEVELOPMENT_JWT_SECRET = "dev-change-me-use-env-secret-in-production-32bytes"
 ALLOWED_ENVIRONMENTS = {"development", "test", "production"}
 LOCALHOST_CORS_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0"}
+ALLOWED_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+ALLOWED_LOG_FORMATS = {"plain", "json"}
 
 
 class Settings(BaseSettings):
@@ -32,6 +34,14 @@ class Settings(BaseSettings):
     generated_reports_dir: str = "backend/generated_reports"
     max_evidence_upload_mb: int = 25
     require_secure_production_settings: bool = True
+    log_level: str = "INFO"
+    log_format: str = "plain"
+    enable_request_logging: bool = True
+    log_request_headers: bool = False
+    log_response_status: bool = True
+    log_request_duration: bool = True
+    request_id_header: str = "X-Request-ID"
+    allow_debug_logging_in_production: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
@@ -43,6 +53,24 @@ class Settings(BaseSettings):
             allowed = ", ".join(sorted(ALLOWED_ENVIRONMENTS))
             raise ValueError(f"ENVIRONMENT must be one of: {allowed}.")
         return environment
+
+    @field_validator("log_level")
+    @classmethod
+    def _validate_log_level(cls, value: str) -> str:
+        log_level = value.strip().upper()
+        if log_level not in ALLOWED_LOG_LEVELS:
+            allowed = ", ".join(sorted(ALLOWED_LOG_LEVELS))
+            raise ValueError(f"LOG_LEVEL must be one of: {allowed}.")
+        return log_level
+
+    @field_validator("log_format")
+    @classmethod
+    def _validate_log_format(cls, value: str) -> str:
+        log_format = value.strip().lower()
+        if log_format not in ALLOWED_LOG_FORMATS:
+            allowed = ", ".join(sorted(ALLOWED_LOG_FORMATS))
+            raise ValueError(f"LOG_FORMAT must be one of: {allowed}.")
+        return log_format
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -69,6 +97,14 @@ class Settings(BaseSettings):
     def is_test(self) -> bool:
         return self.environment == "test"
 
+    @property
+    def normalized_log_level(self) -> str:
+        return self.log_level
+
+    @property
+    def is_json_logging(self) -> bool:
+        return self.log_format == "json"
+
     def validate_production_safety(self) -> None:
         if not self.is_production:
             return
@@ -88,6 +124,14 @@ class Settings(BaseSettings):
         if self.enable_x_user_id_auth_fallback:
             errors.append(
                 "Development Authentication Fallback must be disabled in production."
+            )
+        if (
+            self.normalized_log_level == "DEBUG"
+            and not self.allow_debug_logging_in_production
+        ):
+            errors.append(
+                "DEBUG logging must not be enabled in production unless "
+                "ALLOW_DEBUG_LOGGING_IN_PRODUCTION=true."
             )
 
         origins = self.cors_origins_list
