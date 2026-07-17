@@ -89,6 +89,18 @@ class AuditAction(StrEnum):
     RETURN_FOR_REVISION = "RETURN_FOR_REVISION"
     GENERATE_REPORT = "GENERATE_REPORT"
     LLM_ANALYSIS = "LLM_ANALYSIS"
+    ELECTRONIC_APPROVAL = "ELECTRONIC_APPROVAL"
+
+
+class ElectronicApprovalTargetType(StrEnum):
+    RISK_RECORD = "RISK_RECORD"
+    RISK_DECISION = "RISK_DECISION"
+    COMMITTEE_MEETING = "COMMITTEE_MEETING"
+    GENERATED_REPORT = "GENERATED_REPORT"
+
+
+class ElectronicApprovalStatus(StrEnum):
+    APPROVED = "APPROVED"
 
 
 class RiskAssessmentType(StrEnum):

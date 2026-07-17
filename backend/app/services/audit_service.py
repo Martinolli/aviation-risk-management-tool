@@ -209,3 +209,23 @@ def log_llm_analysis(
         changed_by_user_id=changed_by_user_id,
         reason=reason,
     )
+
+
+def log_electronic_approval(
+    db: Session,
+    *,
+    entity_type: str,
+    entity_id: uuid.UUID,
+    approved_by_user_id: uuid.UUID | None = None,
+    approval_metadata: Any = None,
+    reason: str | None = None,
+) -> AuditLog:
+    return _add_audit_log(
+        db,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        action=AuditAction.ELECTRONIC_APPROVAL,
+        new_value=approval_metadata,
+        changed_by_user_id=approved_by_user_id,
+        reason=reason,
+    )

@@ -656,6 +656,39 @@ export interface GenerateRiskDossierReportRequest {
   output_dir?: string | null;
 }
 
+export type ElectronicApprovalTargetType =
+  | "RISK_RECORD"
+  | "RISK_DECISION"
+  | "COMMITTEE_MEETING"
+  | "GENERATED_REPORT";
+
+export interface ElectronicApprovalCreateRequest {
+  target_type: ElectronicApprovalTargetType;
+  target_id: string;
+  approval_statement: string;
+  acknowledgement_text?: string | null;
+}
+
+export interface ElectronicApprovalRead {
+  id: string;
+  target_type: ElectronicApprovalTargetType;
+  target_id: string;
+  risk_record_id?: string | null;
+  risk_decision_id?: string | null;
+  committee_id?: string | null;
+  authority_level?: string | null;
+  approved_by_user_id: string;
+  approved_at: string;
+  approval_statement: string;
+  acknowledgement_text: string;
+  meaning_of_signature: string;
+  status: string;
+  approval_hash: string;
+  metadata_json?: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RiskAuditSummary {
   total_count?: number;
   create_count?: number;

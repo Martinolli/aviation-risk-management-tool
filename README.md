@@ -12,6 +12,7 @@ The system manages a risk from the initial Problem Description through hazard id
 - [Data Model](docs/data_model.md)
 - [Data Retention and Archive Policy](docs/data-retention-and-archive-policy.md)
 - [Permission Matrix and Access Control Policy](docs/permission-matrix.md)
+- [Electronic Approval / Signature Concept MVP](docs/electronic-approval-concept.md)
 - [Codex Task 001](docs/codex_tasks/task_001_project_documentation.md)
 
 ## Planned Technology Baseline

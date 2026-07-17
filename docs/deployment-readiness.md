@@ -46,6 +46,7 @@ This guide prepares the Aviation Risk Management Tool for safer deployment readi
 - Backup procedure defined.
 - Data retention and archive policy reviewed before production/pilot use.
 - Permission matrix reviewed before pilot/production use.
+- Electronic approval concept reviewed before production use.
 - Legal/investigation hold expectations defined.
 - HTTPS/TLS handled by reverse proxy or hosting layer.
 - Logs reviewed.
@@ -64,6 +65,10 @@ Review the [Data Retention and Archive Policy](data-retention-and-archive-policy
 ## Permission Matrix Readiness
 
 Review the [Permission Matrix and Access Control Policy](permission-matrix.md) before pilot or production use. Confirm Authority Level, Board of Origin, Fixed Governance Committee, export authorization boundary, archive/restore authority, and admin governance expectations.
+
+## Electronic Approval Readiness
+
+Review the [Electronic Approval / Signature Concept MVP](electronic-approval-concept.md) before production use. Confirm approval authority, Acknowledgement wording, Audit integrity expectations, and the limitation that this is Not a cryptographic digital signature.
 
 ## Local Development Startup
 

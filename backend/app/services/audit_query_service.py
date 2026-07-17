@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.audit import AuditLog
 from app.models.committee import Committee, CommitteeMember
+from app.models.electronic_approval import ElectronicApproval
 from app.models.enums import AuditAction
 from app.models.report import GeneratedReport
 from app.models.risk import RiskAction, RiskAssessment, RiskDecision, RiskRecord
@@ -137,6 +138,16 @@ def _can_read_audit_log(
                 risk_record_id=report.risk_record_id,
                 user_id=user_id,
             )
+        )
+
+    if audit_log.entity_type == "ElectronicApproval":
+        approval = db.get(ElectronicApproval, audit_log.entity_id)
+        if approval is None or approval.risk_record_id is None:
+            return is_active_fixed_governance_member(db, user_id=user_id)
+        return _can_read_risk_record_scope(
+            db,
+            risk_record_id=approval.risk_record_id,
+            user_id=user_id,
         )
 
     if audit_log.entity_type == "User" and audit_log.entity_id == user_id:

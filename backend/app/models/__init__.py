@@ -11,6 +11,8 @@ from app.models.enums import (
     CommitteeMeetingAttendanceStatus,
     CommitteeMeetingStatus,
     CommitteeType,
+    ElectronicApprovalStatus,
+    ElectronicApprovalTargetType,
     RiskActionStatus,
     RiskAssessmentType,
     RiskDecisionType,
@@ -20,6 +22,7 @@ from app.models.enums import (
     RiskMonitoringStatus,
     RiskWorkflowStatus,
 )
+from app.models.electronic_approval import ElectronicApproval
 from app.models.llm import LLMAnalysis
 from app.models.report import GeneratedReport
 from app.models.risk import (
@@ -51,6 +54,9 @@ __all__ = [
     "CommitteeMeetingStatus",
     "CommitteeMember",
     "CommitteeType",
+    "ElectronicApproval",
+    "ElectronicApprovalStatus",
+    "ElectronicApprovalTargetType",
     "GeneratedReport",
     "LLMAnalysis",
     "RiskAction",

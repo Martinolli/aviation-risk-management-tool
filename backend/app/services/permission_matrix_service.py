@@ -553,6 +553,52 @@ SECTIONS = [
         ],
     ),
     PermissionMatrixSection(
+        section="Electronic Approval",
+        description=(
+            "Electronic Approval records are controlled approval records for SMS "
+            "governance and Audit integrity, not cryptographic digital signatures."
+        ),
+        rules=[
+            _rule(
+                "Electronic Approval",
+                "Create Electronic Approval for Risk Record",
+                ["authenticated active users who can read the risk record"],
+                "LOW / MIDDLE / HIGH",
+                "Existing risk access service and Authority Level context",
+                (
+                    "This is a Controlled Approval Record, Not a cryptographic "
+                    "digital signature."
+                ),
+                True,
+            ),
+            _rule(
+                "Electronic Approval",
+                "Create Electronic Approval for Risk Decision",
+                [
+                    "decision maker",
+                    "active member of the decision committee",
+                    "fixed MIDDLE/HIGH governance member with readable parent risk access",
+                ],
+                "LOW / MIDDLE / HIGH",
+                "Decision committee membership, fixed governance oversight, and readable parent risk",
+                (
+                    "Approval must stay within existing Access Control and "
+                    "Authority Level boundaries."
+                ),
+                True,
+            ),
+            _rule(
+                "Electronic Approval",
+                "Read Electronic Approval",
+                ["users who can read the associated risk record or decision context"],
+                "LOW / MIDDLE / HIGH",
+                "Parent risk read authorization",
+                "Approval records must not expose unreadable governed records.",
+                False,
+            ),
+        ],
+    ),
+    PermissionMatrixSection(
         section="Backup and Restore",
         description="Operational backup and restore duties are outside app workflows.",
         rules=[

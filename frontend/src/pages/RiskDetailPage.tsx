@@ -5,6 +5,10 @@ import { listAuditLogs } from "../api/auditLogs";
 import { ApiError } from "../api/client";
 import { listCommittees } from "../api/committees";
 import {
+  createElectronicApproval,
+  listElectronicApprovals,
+} from "../api/electronicApprovals";
+import {
   downloadGeneratedReport,
   generateRiskDossierReport,
   generateRiskEvidencePackage,
@@ -28,6 +32,7 @@ import {
 import type {
   AuditLogRead,
   CommitteeRead,
+  ElectronicApprovalRead,
   GeneratedReportRead,
   RiskActionRead,
   RiskAssessmentRead,
@@ -76,6 +81,11 @@ type RiskAuditTrailState =
   | { status: "success"; auditLogs: AuditLogRead[] }
   | { status: "error"; message: string };
 
+type RiskElectronicApprovalsState =
+  | { status: "idle" | "loading" }
+  | { status: "success"; approvals: ElectronicApprovalRead[] }
+  | { status: "error"; message: string };
+
 interface RiskAuditTrailResult {
   auditLogs: AuditLogRead[];
   failedScopeCount: number;
@@ -114,6 +124,10 @@ export function RiskDetailPage() {
   const [riskAuditTrail, setRiskAuditTrail] = useState<RiskAuditTrailState>({
     status: "idle",
   });
+  const [riskElectronicApprovals, setRiskElectronicApprovals] =
+    useState<RiskElectronicApprovalsState>({
+      status: "idle",
+    });
   const [riskAuditWarning, setRiskAuditWarning] = useState<string | null>(null);
   const [riskCommittees, setRiskCommittees] = useState<RiskCommitteesState>({
     status: "loading",
@@ -167,6 +181,13 @@ export function RiskDetailPage() {
   const [closingMonitoringId, setClosingMonitoringId] = useState<string | null>(
     null,
   );
+  const [approvalStatement, setApprovalStatement] = useState("");
+  const [approvalAcknowledged, setApprovalAcknowledged] = useState(false);
+  const [approvalMessage, setApprovalMessage] = useState<string | null>(null);
+  const [approvalErrorMessage, setApprovalErrorMessage] = useState<string | null>(
+    null,
+  );
+  const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
 
   useEffect(() => {
     let isCurrent = true;
@@ -186,11 +207,14 @@ export function RiskDetailPage() {
           setRiskEvidence({ status: "loading" });
           setRiskMonitoring({ status: "loading" });
           setRiskAuditTrail({ status: "loading" });
+          setRiskElectronicApprovals({ status: "loading" });
           setRiskAuditWarning(null);
           setReportMessage(null);
           setReportErrorMessage(null);
           setEvidencePackageReport(null);
           setEvidencePackageError(null);
+          setApprovalMessage(null);
+          setApprovalErrorMessage(null);
         }
 
         const detail = await getRiskDetail(tokenToUse, idToLoad);
@@ -209,8 +233,29 @@ export function RiskDetailPage() {
             setRiskEvidence({ status: "idle" });
             setRiskMonitoring({ status: "idle" });
             setRiskAuditTrail({ status: "idle" });
+            setRiskElectronicApprovals({ status: "idle" });
           }
           return;
+        }
+
+        let approvals: ElectronicApprovalRead[] = [];
+        try {
+          approvals = await listElectronicApprovals(tokenToUse, {
+            riskRecordId: risk.id,
+          });
+          if (isCurrent) {
+            setRiskElectronicApprovals({ status: "success", approvals });
+          }
+        } catch (error) {
+          if (isCurrent) {
+            setRiskElectronicApprovals({
+              status: "error",
+              message:
+                error instanceof ApiError
+                  ? error.message
+                  : "Please try again shortly.",
+            });
+          }
         }
 
         try {
@@ -259,6 +304,7 @@ export function RiskDetailPage() {
             decisions: detail.decisions ?? [],
             monitoringReviews: detail.monitoring_reviews ?? [],
             reports,
+            approvals,
           });
           if (isCurrent) {
             setRiskAuditTrail({
@@ -299,6 +345,7 @@ export function RiskDetailPage() {
         setRiskEvidence({ status: "idle" });
         setRiskMonitoring({ status: "idle" });
         setRiskAuditTrail({ status: "idle" });
+        setRiskElectronicApprovals({ status: "idle" });
         setRiskAuditWarning(null);
       }
     }
@@ -751,6 +798,60 @@ export function RiskDetailPage() {
     }
   }
 
+  async function refreshElectronicApprovals(riskId: string) {
+    if (!token) {
+      return;
+    }
+    setRiskElectronicApprovals({ status: "loading" });
+    try {
+      const approvals = await listElectronicApprovals(token, {
+        riskRecordId: riskId,
+      });
+      setRiskElectronicApprovals({ status: "success", approvals });
+    } catch (error) {
+      setRiskElectronicApprovals({
+        status: "error",
+        message:
+          error instanceof ApiError ? error.message : "Please try again shortly.",
+      });
+    }
+  }
+
+  async function handleCreateElectronicApproval(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    if (!token) {
+      return;
+    }
+    if (!approvalAcknowledged) {
+      setApprovalErrorMessage("Acknowledgement is required.");
+      return;
+    }
+    setIsSubmittingApproval(true);
+    setApprovalMessage(null);
+    setApprovalErrorMessage(null);
+    try {
+      await createElectronicApproval(token, {
+        target_type: "RISK_RECORD",
+        target_id: loadedRiskId,
+        approval_statement: approvalStatement.trim(),
+      });
+      setApprovalStatement("");
+      setApprovalAcknowledged(false);
+      setApprovalMessage("Electronic Approval recorded.");
+      await refreshElectronicApprovals(loadedRiskId);
+    } catch (error) {
+      setApprovalErrorMessage(
+        error instanceof ApiError
+          ? error.message
+          : "Unable to record Electronic Approval.",
+      );
+    } finally {
+      setIsSubmittingApproval(false);
+    }
+  }
+
   return (
     <section className="risk-detail-page" aria-labelledby="risk-detail-heading">
       <Link className="back-link" to="/risks">
@@ -1093,6 +1194,85 @@ export function RiskDetailPage() {
         )}
       </DetailSection>
 
+      <DetailSection title="Electronic Approvals">
+        <section
+          className="electronic-approvals-section"
+          aria-labelledby="electronic-approval-heading"
+        >
+          <div>
+            <h3 id="electronic-approval-heading">Controlled Approval Record</h3>
+            <p className="approval-warning">
+              Electronic Approval supports SMS governance and Audit integrity.
+              It is Not a cryptographic digital signature.
+            </p>
+          </div>
+
+          <form className="approval-form" onSubmit={handleCreateElectronicApproval}>
+            <label htmlFor="approval-statement">Approval statement</label>
+            <textarea
+              id="approval-statement"
+              onChange={(event) => setApprovalStatement(event.target.value)}
+              required
+              rows={3}
+              value={approvalStatement}
+            />
+            <label className="approval-checkbox">
+              <input
+                checked={approvalAcknowledged}
+                onChange={(event) =>
+                  setApprovalAcknowledged(event.target.checked)
+                }
+                type="checkbox"
+              />
+              I acknowledge this is a controlled approval record for SMS
+              governance and audit traceability, not a cryptographic digital
+              signature.
+            </label>
+            <button
+              disabled={isSubmittingApproval || !approvalAcknowledged}
+              type="submit"
+            >
+              {isSubmittingApproval ? "Recording approval..." : "Approve Risk Record"}
+            </button>
+          </form>
+
+          {approvalMessage && (
+            <p className="workspace-success" role="status">
+              {approvalMessage}
+            </p>
+          )}
+          {approvalErrorMessage && (
+            <p className="approval-warning" role="alert">
+              {approvalErrorMessage}
+            </p>
+          )}
+
+          {riskElectronicApprovals.status === "loading" && (
+            <p aria-live="polite" className="workspace-status" role="status">
+              Loading Electronic Approvals...
+            </p>
+          )}
+          {riskElectronicApprovals.status === "error" && (
+            <div aria-live="polite" className="workspace-alert" role="alert">
+              <strong>Unable to load Electronic Approvals.</strong>
+              <span>{riskElectronicApprovals.message}</span>
+            </div>
+          )}
+          {riskElectronicApprovals.status === "success" &&
+            riskElectronicApprovals.approvals.length === 0 && (
+              <p className="detail-empty">
+                No Electronic Approvals recorded yet.
+              </p>
+            )}
+          {riskElectronicApprovals.status === "success" &&
+            riskElectronicApprovals.approvals.length > 0 && (
+              <ElectronicApprovalList
+                approvals={riskElectronicApprovals.approvals}
+              />
+            )}
+        </section>
+      </DetailSection>
+
       <DetailSection title="Monitoring / Review Cycle">
         <div className="monitoring-panel">
           <form className="monitoring-form" onSubmit={handleCreateMonitoring}>
@@ -1411,6 +1591,49 @@ export function RiskDetailPage() {
         )}
       </DetailSection>
     </section>
+  );
+}
+
+function ElectronicApprovalList({
+  approvals,
+}: {
+  approvals: ElectronicApprovalRead[];
+}) {
+  return (
+    <ul className="electronic-approval-list">
+      {approvals.map((approval) => (
+        <li className="electronic-approval-card" key={approval.id}>
+          <div>
+            <strong>{formatEnumLabel(approval.target_type)}</strong>
+            <span>{formatDateTime(approval.approved_at)}</span>
+          </div>
+          <dl>
+            <div>
+              <dt>Approved by</dt>
+              <dd>{approval.approved_by_user_id}</dd>
+            </div>
+            <div>
+              <dt>Authority Level</dt>
+              <dd>{approval.authority_level || "Not assigned"}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{approval.status}</dd>
+            </div>
+            <div>
+              <dt>Approval Hash</dt>
+              <dd className="approval-hash">
+                {approval.approval_hash.slice(0, 16)}
+              </dd>
+            </div>
+          </dl>
+          <p>{approval.approval_statement}</p>
+          <p className="approval-acknowledgement">
+            {approval.acknowledgement_text}
+          </p>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -1821,6 +2044,7 @@ async function loadRiskAuditTrail({
   decisions,
   monitoringReviews,
   reports,
+  approvals,
 }: {
   token: string;
   risk: RiskRecordRead;
@@ -1829,6 +2053,7 @@ async function loadRiskAuditTrail({
   decisions: RiskDecisionRead[];
   monitoringReviews: RiskMonitoringReviewRead[];
   reports: GeneratedReportRead[];
+  approvals: ElectronicApprovalRead[];
 }): Promise<RiskAuditTrailResult> {
   const requests = [
     listAuditLogs(token, {
@@ -1868,6 +2093,13 @@ async function loadRiskAuditTrail({
       listAuditLogs(token, {
         entityType: "GeneratedReport",
         entityId: report.id,
+        limit: 50,
+      }),
+    ),
+    ...approvals.map((approval) =>
+      listAuditLogs(token, {
+        entityType: "ElectronicApproval",
+        entityId: approval.id,
         limit: 50,
       }),
     ),

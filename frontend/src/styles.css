@@ -1215,6 +1215,137 @@ button:disabled {
   padding: 0.2rem 0.4rem;
 }
 
+.electronic-approvals-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.electronic-approvals-section h3 {
+  color: #102a43;
+  font-size: 1rem;
+  margin: 0 0 0.45rem;
+}
+
+.approval-form {
+  background: #f8fafc;
+  border: 1px solid #d9e2ec;
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.approval-form label {
+  color: #334e68;
+  font-weight: 700;
+}
+
+.approval-form textarea {
+  border: 1px solid #bcccdc;
+  border-radius: 0.35rem;
+  color: #102a43;
+  font: inherit;
+  min-height: 5rem;
+  padding: 0.7rem;
+  resize: vertical;
+  width: 100%;
+}
+
+.approval-form button {
+  justify-self: start;
+}
+
+.approval-checkbox {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.55rem;
+  line-height: 1.45;
+}
+
+.approval-checkbox input {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+}
+
+.approval-warning {
+  background: #fff8e1;
+  border-left: 4px solid #d97706;
+  color: #7c2d12;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+}
+
+.electronic-approval-list {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.electronic-approval-card {
+  border: 1px solid #d9e2ec;
+  border-left: 4px solid #315c7c;
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.electronic-approval-card > div:first-child {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.electronic-approval-card strong {
+  color: #102a43;
+}
+
+.electronic-approval-card span,
+.electronic-approval-card p {
+  color: #486581;
+  line-height: 1.5;
+}
+
+.electronic-approval-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.electronic-approval-card dl {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 0;
+}
+
+.electronic-approval-card dt {
+  color: #627d98;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.electronic-approval-card dd {
+  color: #334e68;
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.approval-hash {
+  font-family: Consolas, "Liberation Mono", monospace;
+}
+
+.approval-acknowledgement {
+  background: #f0f4f8;
+  border-radius: 0.35rem;
+  padding: 0.75rem;
+}
+
 .audit-trail-page {
   display: grid;
   gap: 1.25rem;

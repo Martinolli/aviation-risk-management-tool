@@ -80,6 +80,9 @@ This policy covers:
 | Data Retention / Archive / Restore | View Retention Policy | Authenticated active users | N/A | Authenticated active user | Policy visibility only; no governed record mutation. | No |
 | Data Retention / Archive / Restore | Archive Governed Record | Admin/governance authority only when implemented | LOW / MIDDLE / HIGH | Archive Policy and governance authority | No legal/investigation hold and no hard delete. | Yes |
 | Data Retention / Archive / Restore | Restore Governed Record | Admin/governance authority only | LOW / MIDDLE / HIGH | Archive Policy and governance authority | Restore must be justified and auditable. | Yes |
+| Electronic Approval | Create Electronic Approval for Risk Record | Authenticated active users who can read the risk record | LOW / MIDDLE / HIGH | Existing risk access service and Authority Level context | This is a Controlled Approval Record, Not a cryptographic digital signature. | Yes |
+| Electronic Approval | Create Electronic Approval for Risk Decision | Decision maker, active member of the decision committee, or fixed MIDDLE/HIGH governance member with readable parent risk access | LOW / MIDDLE / HIGH | Decision committee membership, fixed governance oversight, and readable parent risk | Approval must stay within existing Access Control and Authority Level boundaries. | Yes |
+| Electronic Approval | Read Electronic Approval | Users who can read the associated risk record or decision context | LOW / MIDDLE / HIGH | Parent risk read authorization | Approval records must not expose unreadable governed records. | No for ordinary read |
 | Backup and Restore | View Backup Procedure | Authenticated active users or documented-only readers | N/A | Documentation access | Procedure does not grant operational backup rights. | No |
 | Backup and Restore | Execute Backup Script | System operator / IT / authorized admin outside app | N/A | Company IT/security operating procedure | Backups contain sensitive SMS data. | Outside app, but should be controlled and documented |
 | Backup and Restore | Restore Backup | System operator / IT / authorized admin with approval | N/A | Company IT/security approval and restore procedure | Production restore requires approval and documented restore log. | Outside app plus governance record |
@@ -105,6 +108,10 @@ Exports must never include records the requesting user cannot read. Risk registe
 ## Archive and Restore Access Rule
 
 Archive/restore must be controlled, justified, and auditable. Governed SMS records should be archived instead of hard-deleted, and archive/restore actions must preserve audit integrity and evidence traceability.
+
+## Electronic Approval Rule
+
+Electronic Approval records may be created only by authenticated active users within existing Access Control and Authority Level boundaries. Risk record approvals require readable risk access. Risk decision approvals require readable parent risk access plus decision-maker, decision committee, or fixed MIDDLE/HIGH governance authority. The Electronic Approval / Signature Concept is a Controlled Approval Record for SMS governance and Audit integrity, Not a cryptographic digital signature.
 
 ## Known MVP Limitations
 
