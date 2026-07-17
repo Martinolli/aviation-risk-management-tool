@@ -7,6 +7,7 @@ import { AuditTrailPage } from "../pages/AuditTrailPage";
 import { CommitteeMeetingDetailPage } from "../pages/CommitteeMeetingDetailPage";
 import { CommitteeMeetingPacksPage } from "../pages/CommitteeMeetingPacksPage";
 import { CommitteeMeetingsPage } from "../pages/CommitteeMeetingsPage";
+import { DataRetentionPolicyPage } from "../pages/DataRetentionPolicyPage";
 import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { ManagementDashboardPage } from "../pages/ManagementDashboardPage";
@@ -64,6 +65,10 @@ export function AppRoutes() {
         />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/audit-trail" element={<AuditTrailPage />} />
+        <Route
+          path="/data-retention-policy"
+          element={<DataRetentionPolicyPage />}
+        />
         <Route path="/admin/governance" element={<AdminGovernancePage />} />
         <Route path="/risks/new" element={<RiskCreatePage />} />
         <Route

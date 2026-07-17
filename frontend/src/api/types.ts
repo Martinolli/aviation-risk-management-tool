@@ -564,6 +564,28 @@ export interface ManagementDashboardRead {
   committee_backlog_risks: ManagementDashboardRiskSummary[];
 }
 
+export interface DataRetentionPolicyItemRead {
+  record_type: string;
+  description: string;
+  default_retention_period: string;
+  archive_rule: string;
+  deletion_rule: string;
+  owner: string;
+  notes: string;
+}
+
+export interface DataRetentionPolicyRead {
+  policy_name: string;
+  policy_version: string;
+  effective_status: string;
+  generated_at: string;
+  summary: string;
+  principles: string[];
+  items: DataRetentionPolicyItemRead[];
+  no_hard_delete_record_types: string[];
+  requires_legal_or_investigation_hold_review: string[];
+}
+
 export type RiskDecisionType =
   | "APPROVE"
   | "REJECT"

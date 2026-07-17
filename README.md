@@ -10,6 +10,7 @@ The system manages a risk from the initial Problem Description through hazard id
 - [Architecture](docs/architecture.md)
 - [Workflow](docs/workflow.md)
 - [Data Model](docs/data_model.md)
+- [Data Retention and Archive Policy](docs/data-retention-and-archive-policy.md)
 - [Codex Task 001](docs/codex_tasks/task_001_project_documentation.md)
 
 ## Planned Technology Baseline
@@ -50,6 +51,10 @@ See the [Backup and Restore Procedure](docs/backup-and-restore.md) for local
 Database Backup, Evidence Backup, Generated Reports Backup, and Restore
 Procedure guidance. Helper scripts are under `scripts/`. The `backups/` folder
 is ignored except for `.gitkeep`; do not commit backup outputs.
+
+## Data Retention and Archive Policy
+
+See the [Data Retention and Archive Policy](docs/data-retention-and-archive-policy.md) for MVP Data Retention, Archive Policy, No Hard Delete, Audit Integrity, and Evidence Preservation guidance. Governed SMS records should be archived, not hard-deleted; audit integrity and evidence traceability must be preserved.
 
 ## Authority Structure
 

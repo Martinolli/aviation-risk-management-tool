@@ -44,6 +44,8 @@ This guide prepares the Aviation Risk Management Tool for safer deployment readi
 - Evidence storage path configured.
 - Generated reports path configured.
 - Backup procedure defined.
+- Data retention and archive policy reviewed before production/pilot use.
+- Legal/investigation hold expectations defined.
 - HTTPS/TLS handled by reverse proxy or hosting layer.
 - Logs reviewed.
 - Admin bootstrap password changed.
@@ -53,6 +55,10 @@ This guide prepares the Aviation Risk Management Tool for safer deployment readi
 ## Backup and Restore Readiness
 
 Backup and Restore procedure must be defined before production use. The backup scope must include the PostgreSQL database, evidence uploads, and generated reports. Restore must be tested in a non-production environment before relying on the procedure for SMS governance operations. See the [Backup and Restore Procedure](backup-and-restore.md).
+
+## Data Retention and Archive Readiness
+
+Review the [Data Retention and Archive Policy](data-retention-and-archive-policy.md) before production or pilot use. Confirm Retention Period ownership, Archive Policy expectations, Legal / Investigation Hold handling, and No Hard Delete expectations for governed SMS records.
 
 ## Local Development Startup
 

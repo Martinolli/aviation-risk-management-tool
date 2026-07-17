@@ -92,6 +92,10 @@ The Restore Procedure warns before replacing local database data and overwriting
 
 Restore operations must be documented. Production restore should be approved and logged. Restored audit trail should not be manually edited. Preserving Audit integrity is required for SMS governance and operational traceability.
 
+## Relationship to Data Retention
+
+Backups are not the same as official retention records. Backups should follow approved backup retention schedules owned by company IT/security, while governed SMS records follow the [Data Retention and Archive Policy](data-retention-and-archive-policy.md). Restored records must preserve audit integrity and evidence traceability.
+
 ## Known Limitations
 
 - Scripts are local MVP helpers.
