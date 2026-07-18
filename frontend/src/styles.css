@@ -21,6 +21,8 @@ a {
 }
 
 .app-shell {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
 }
 
@@ -133,8 +135,19 @@ a {
 }
 
 .main-content {
+  flex: 1;
   padding-bottom: 3rem;
   padding-top: 3rem;
+}
+
+.app-footer {
+  color: #627d98;
+  font-size: 0.78rem;
+  margin: 0 auto;
+  max-width: 1080px;
+  padding: 0 1.5rem 1.25rem;
+  text-align: right;
+  width: 100%;
 }
 
 .page-intro {

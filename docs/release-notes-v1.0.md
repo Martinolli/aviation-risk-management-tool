@@ -20,6 +20,8 @@ This release provides a structured SMS risk management workflow supporting risk 
 
 The Version 1.0 Package consolidates application status, governance documents, Validation Evidence placeholders, Known Limitations, Go / No-Go dependencies, open items, recommended next steps, and the proposed tagging plan for review.
 
+The release tag should be created only after final review of this package.
+
 ## 2. Release Classification
 
 - This is a Pilot Release Candidate.
@@ -128,6 +130,7 @@ The Version 1.0 Package consolidates application status, governance documents, V
 ### 3.10 Production Readiness Support
 
 - Environment hardening.
+- Version metadata exposed safely through readiness diagnostics.
 - Production safety validation.
 - Health/readiness endpoints.
 - Request ID logging.
@@ -149,6 +152,7 @@ The Version 1.0 Package consolidates application status, governance documents, V
 | UAT Pack created | Complete | [User Acceptance Test Pack](user-acceptance-test-pack.md) |
 | Pilot Deployment Checklist created | Complete | [Pilot Deployment Checklist](pilot-deployment-checklist.md) |
 | Operation Manual created | Complete | [Operation Manual / User Guide](operation-manual.md) |
+| Release version metadata | Complete | Backend readiness and frontend footer expose `v1.0.0-pilot` safely. |
 
 Latest backend pytest result: TBD
 Latest frontend build result: TBD

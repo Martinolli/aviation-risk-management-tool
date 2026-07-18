@@ -80,6 +80,8 @@ See the [Operation Manual / User Guide](docs/operation-manual.md) for normal ope
 
 See the [Release Notes v1.0](docs/release-notes-v1.0.md), [Version 1.0 Release Package Checklist](docs/release-package-checklist.md), and [release package checklist CSV](docs/templates/release-package-checklist.csv) for pilot release package review. `v1.0.0-pilot` is the proposed pilot release tag and should only be created after final review.
 
+Current pilot release candidate: `v1.0.0-pilot`.
+
 ## Backup and Restore
 
 See the [Backup and Restore Procedure](docs/backup-and-restore.md) for local

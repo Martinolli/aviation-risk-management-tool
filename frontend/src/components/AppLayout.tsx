@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { getMyNotifications } from "../api/notifications";
 import { useAuth } from "../auth/AuthContext";
+import { APP_RELEASE_STATUS, APP_VERSION } from "../version";
 
 export function AppLayout() {
   const { isAuthenticated, logout, token, user } = useAuth();
@@ -103,6 +104,9 @@ export function AppLayout() {
       <main className="main-content">
         <Outlet />
       </main>
+      <footer className="app-footer">
+        Version {APP_VERSION} &middot; {APP_RELEASE_STATUS}
+      </footer>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.core.config import settings
+from app.core.version import APP_RELEASE_NAME, APP_RELEASE_STATUS, APP_VERSION
 
 router = APIRouter()
 
@@ -15,6 +16,9 @@ def readiness_check() -> dict[str, object]:
     return {
         "status": "ready",
         "app_name": settings.app_name,
+        "app_version": APP_VERSION,
+        "release_name": APP_RELEASE_NAME,
+        "release_status": APP_RELEASE_STATUS,
         "environment": settings.environment,
         "database_configured": bool(settings.database_url.strip()),
         "cors_origins_count": len(settings.cors_origins_list),
