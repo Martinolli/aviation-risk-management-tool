@@ -104,6 +104,7 @@ This checklist covers:
 | DOC-005 | Documentation | Permission matrix available | Permission Matrix link or copy reference | Not Started |  |  |
 | DOC-006 | Documentation | UAT pack available | UAT Pack link or copy reference | Not Started |  |  |
 | DOC-007 | Documentation | Pilot deployment checklist approved | Approved Pilot Deployment Checklist | Not Started |  |  |
+| DOC-008 | Documentation | Operation Manual available and reviewed for pilot users | Operation Manual / User Guide review record | Not Started |  |  |
 
 Status values:
 
@@ -211,7 +212,9 @@ First week:
 - No SSO yet.
 - No automated retention scheduler yet.
 - No cloud backup automation yet.
-- No final operation manual yet.
+- Operation Manual remains draft until governance approval.
+
+Before pilot use, review the [Operation Manual / User Guide](operation-manual.md) with pilot users and record any accepted limitations.
 
 ## Pilot Sign-Off
 

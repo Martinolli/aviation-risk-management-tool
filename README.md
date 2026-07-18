@@ -16,6 +16,7 @@ The system manages a risk from the initial Problem Description through hazard id
 - [Production Logging and Error Monitoring Preparation](docs/production-logging-and-monitoring.md)
 - [User Acceptance Test Pack](docs/user-acceptance-test-pack.md)
 - [Pilot Deployment Checklist](docs/pilot-deployment-checklist.md)
+- [Operation Manual / User Guide](docs/operation-manual.md)
 - [Codex Task 001](docs/codex_tasks/task_001_project_documentation.md)
 
 ## Planned Technology Baseline
@@ -68,6 +69,10 @@ Pilot templates:
 - [Pilot deployment checklist CSV](docs/templates/pilot-deployment-checklist.csv)
 - [Pilot Go / No-Go decision CSV](docs/templates/pilot-go-no-go-decision.csv)
 - [Pilot rollback log CSV](docs/templates/pilot-rollback-log.csv)
+
+## Operation Manual / User Guide
+
+See the [Operation Manual / User Guide](docs/operation-manual.md) for normal operation, features, procedures, limitations, and governance references. The manual is draft until reviewed by SMS/Quality/IT/governance stakeholders.
 
 ## Backup and Restore
 

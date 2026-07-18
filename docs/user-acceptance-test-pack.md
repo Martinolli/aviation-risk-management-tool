@@ -8,6 +8,8 @@ The UAT Pack is designed to confirm workflow completeness, permission behavior, 
 
 Completion of UAT feeds into the [Pilot Deployment Checklist](pilot-deployment-checklist.md). Critical and major defects must be reviewed before Go / No-Go.
 
+UAT testers should use the [Operation Manual / User Guide](operation-manual.md) as the normal operation reference.
+
 ## Scope
 
 This UAT Pack covers:
