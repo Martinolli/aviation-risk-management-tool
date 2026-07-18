@@ -50,6 +50,9 @@ This guide prepares the Aviation Risk Management Tool for safer deployment readi
 - Production logging configured.
 - Request ID correlation enabled.
 - Logs reviewed for sensitive data exposure.
+- UAT Pack completed before pilot/production use.
+- Critical and major defects reviewed.
+- UAT sign-off recorded.
 - Legal/investigation hold expectations defined.
 - HTTPS/TLS handled by reverse proxy or hosting layer.
 - Logs reviewed.
@@ -76,6 +79,10 @@ Review the [Electronic Approval / Signature Concept MVP](electronic-approval-con
 ## Production Logging Readiness
 
 Review the [Production Logging and Error Monitoring Preparation](production-logging-and-monitoring.md) guide before production use. Confirm LOG_LEVEL, LOG_FORMAT, Request ID correlation, Safe Logging expectations, and Operational Diagnostics ownership.
+
+## User Acceptance Test Readiness
+
+Review and complete the [User Acceptance Test Pack](user-acceptance-test-pack.md) before pilot or production use. Critical and major defects must be reviewed, and UAT sign-off must be recorded before controlled operational release.
 
 ## Local Development Startup
 

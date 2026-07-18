@@ -14,6 +14,7 @@ The system manages a risk from the initial Problem Description through hazard id
 - [Permission Matrix and Access Control Policy](docs/permission-matrix.md)
 - [Electronic Approval / Signature Concept MVP](docs/electronic-approval-concept.md)
 - [Production Logging and Error Monitoring Preparation](docs/production-logging-and-monitoring.md)
+- [User Acceptance Test Pack](docs/user-acceptance-test-pack.md)
 - [Codex Task 001](docs/codex_tasks/task_001_project_documentation.md)
 
 ## Planned Technology Baseline
@@ -47,6 +48,15 @@ startup safety validation, and secrets are configured outside the repository.
 See the [Deployment Readiness Guide](docs/deployment-readiness.md) for
 Environment Hardening, CORS Allowed Origins, JWT Secret, Evidence Storage, and
 Generated Reports checklists.
+
+## User Acceptance Testing
+
+Complete the [User Acceptance Test Pack](docs/user-acceptance-test-pack.md) before pilot use. CI should be green before UAT begins, and a backup should be taken before UAT if persistent data is used.
+
+Tracking templates:
+
+- [UAT test matrix CSV](docs/templates/uat-test-matrix.csv)
+- [UAT defect log CSV](docs/templates/uat-defect-log.csv)
 
 ## Backup and Restore
 
