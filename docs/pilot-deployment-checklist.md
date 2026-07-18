@@ -105,6 +105,8 @@ This checklist covers:
 | DOC-006 | Documentation | UAT pack available | UAT Pack link or copy reference | Not Started |  |  |
 | DOC-007 | Documentation | Pilot deployment checklist approved | Approved Pilot Deployment Checklist | Not Started |  |  |
 | DOC-008 | Documentation | Operation Manual available and reviewed for pilot users | Operation Manual / User Guide review record | Not Started |  |  |
+| DOC-009 | Documentation | Release Notes v1.0 reviewed | Release Notes v1.0 review record | Not Started |  |  |
+| DOC-010 | Documentation | Release Package Checklist reviewed | Version 1.0 Release Package Checklist review record | Not Started |  |  |
 
 Status values:
 
@@ -215,6 +217,8 @@ First week:
 - Operation Manual remains draft until governance approval.
 
 Before pilot use, review the [Operation Manual / User Guide](operation-manual.md) with pilot users and record any accepted limitations.
+
+Review the [Release Notes v1.0](release-notes-v1.0.md) and [Version 1.0 Release Package Checklist](release-package-checklist.md) before final pilot Go / No-Go.
 
 ## Pilot Sign-Off
 

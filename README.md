@@ -17,6 +17,8 @@ The system manages a risk from the initial Problem Description through hazard id
 - [User Acceptance Test Pack](docs/user-acceptance-test-pack.md)
 - [Pilot Deployment Checklist](docs/pilot-deployment-checklist.md)
 - [Operation Manual / User Guide](docs/operation-manual.md)
+- [Release Notes v1.0](docs/release-notes-v1.0.md)
+- [Version 1.0 Release Package Checklist](docs/release-package-checklist.md)
 - [Codex Task 001](docs/codex_tasks/task_001_project_documentation.md)
 
 ## Planned Technology Baseline
@@ -73,6 +75,10 @@ Pilot templates:
 ## Operation Manual / User Guide
 
 See the [Operation Manual / User Guide](docs/operation-manual.md) for normal operation, features, procedures, limitations, and governance references. The manual is draft until reviewed by SMS/Quality/IT/governance stakeholders.
+
+## Release Package
+
+See the [Release Notes v1.0](docs/release-notes-v1.0.md), [Version 1.0 Release Package Checklist](docs/release-package-checklist.md), and [release package checklist CSV](docs/templates/release-package-checklist.csv) for pilot release package review. `v1.0.0-pilot` is the proposed pilot release tag and should only be created after final review.
 
 ## Backup and Restore
 

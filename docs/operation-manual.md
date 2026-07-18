@@ -648,6 +648,10 @@ Before pilot use, confirm the User Acceptance Test Pack is complete, the Pilot D
 
 Before broader production use, company SMS, Quality, IT/cybersecurity, legal, data protection, and airworthiness governance approval must be obtained according to company policy.
 
+### Release Package Reference
+
+Review [Release Notes v1.0](release-notes-v1.0.md) and the [Version 1.0 Release Package Checklist](release-package-checklist.md) before creating the proposed pilot release tag.
+
 ## 37. Annex A — Procedure Index
 
 See [operation-procedure-index.csv](templates/operation-procedure-index.csv) for a procedure tracking template covering Procedure 01 through Procedure 30.
@@ -687,3 +691,5 @@ See [operation-procedure-index.csv](templates/operation-procedure-index.csv) for
 - [Production Logging / Request ID](production-logging-and-monitoring.md)
 - [User Acceptance Test Pack](user-acceptance-test-pack.md)
 - [Pilot Deployment Checklist](pilot-deployment-checklist.md)
+- [Release Notes v1.0](release-notes-v1.0.md)
+- [Version 1.0 Release Package Checklist](release-package-checklist.md)
