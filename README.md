@@ -15,6 +15,7 @@ The system manages a risk from the initial Problem Description through hazard id
 - [Electronic Approval / Signature Concept MVP](docs/electronic-approval-concept.md)
 - [Production Logging and Error Monitoring Preparation](docs/production-logging-and-monitoring.md)
 - [User Acceptance Test Pack](docs/user-acceptance-test-pack.md)
+- [Pilot Deployment Checklist](docs/pilot-deployment-checklist.md)
 - [Codex Task 001](docs/codex_tasks/task_001_project_documentation.md)
 
 ## Planned Technology Baseline
@@ -57,6 +58,16 @@ Tracking templates:
 
 - [UAT test matrix CSV](docs/templates/uat-test-matrix.csv)
 - [UAT defect log CSV](docs/templates/uat-defect-log.csv)
+
+## Pilot Deployment
+
+Use the [Pilot Deployment Checklist](docs/pilot-deployment-checklist.md) for controlled pilot release readiness before limited operational use. This is not production deployment automation; it is a controlled checklist for pilot release readiness.
+
+Pilot templates:
+
+- [Pilot deployment checklist CSV](docs/templates/pilot-deployment-checklist.csv)
+- [Pilot Go / No-Go decision CSV](docs/templates/pilot-go-no-go-decision.csv)
+- [Pilot rollback log CSV](docs/templates/pilot-rollback-log.csv)
 
 ## Backup and Restore
 

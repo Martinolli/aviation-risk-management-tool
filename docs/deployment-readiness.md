@@ -84,6 +84,12 @@ Review the [Production Logging and Error Monitoring Preparation](production-logg
 
 Review and complete the [User Acceptance Test Pack](user-acceptance-test-pack.md) before pilot or production use. Critical and major defects must be reviewed, and UAT sign-off must be recorded before controlled operational release.
 
+## Pilot Deployment Readiness
+
+Review and complete the [Pilot Deployment Checklist](pilot-deployment-checklist.md) before pilot use. The Go / No-Go decision must be recorded, the Rollback Plan must be reviewed, and Post-Deployment Monitoring ownership must be assigned before controlled pilot release.
+
+Repository path: `docs/pilot-deployment-checklist.md`
+
 ## Local Development Startup
 
 ```powershell

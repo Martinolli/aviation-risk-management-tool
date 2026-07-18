@@ -6,6 +6,8 @@ This User Acceptance Test Pack validates application readiness for pilot/interna
 
 The UAT Pack is designed to confirm workflow completeness, permission behavior, SMS governance controls, Audit integrity, reporting readiness, and operational readiness documentation. It does not introduce new business workflows, automated browser tooling, production data, or external test tools.
 
+Completion of UAT feeds into the [Pilot Deployment Checklist](pilot-deployment-checklist.md). Critical and major defects must be reviewed before Go / No-Go.
+
 ## Scope
 
 This UAT Pack covers:

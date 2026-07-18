@@ -1,0 +1,10 @@
+Criterion,Go Condition,No-Go Condition,Status,Decision,Comments
+CI status,Backend CI and frontend CI and smoke checks are green,Any required CI or smoke check is failed or unresolved,Not Started,,
+UAT status,User Acceptance Test completed with sign-off and accepted limitations,UAT incomplete or sign-off missing,Not Started,,
+Security configuration,JWT Secret and CORS and authentication fallback and data handling are reviewed,Secret handling or security configuration is unsafe or unreviewed,Not Started,,
+Backup/restore readiness,Backup and restore procedure and verification evidence are complete,Backup missing or restore path unclear or verification not completed,Not Started,,
+User access readiness,Pilot users and admin access and Authority Level memberships and unauthorized checks are confirmed,User access is incomplete or excessive or not reviewed,Not Started,,
+SMS governance readiness,Risk matrix and committees and Board of Origin and approvals and Audit integrity expectations are reviewed,SMS governance process is unclear or unapproved,Not Started,,
+Logging/readiness diagnostics,Production logging and Request ID and health and readiness endpoints are verified,Diagnostics missing or unsafe or unreviewed,Not Started,,
+Open defects,Critical defects closed and major defects dispositioned,Open critical defects or unaccepted major defects remain,Not Started,,
+Pilot support availability,Support owner and escalation path are assigned for pilot period,No support owner or escalation path is available,Not Started,,
