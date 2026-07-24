@@ -20,6 +20,7 @@ Related Documents:
 - [User Acceptance Test Pack](user-acceptance-test-pack.md)
 - [Pilot Deployment Checklist](pilot-deployment-checklist.md)
 - [Pilot Execution Support Pack](pilot-execution-support-pack.md)
+- [Post-Pilot Feedback and Defect Register](post-pilot-feedback-and-defect-register.md)
 
 ## 1. Introduction
 
@@ -290,7 +291,13 @@ The Pilot Deployment Checklist records Go / No-Go, environment readiness, CI rea
 
 See [Pilot Deployment Checklist](pilot-deployment-checklist.md).
 
-## 32. Normal Operating Procedures
+## 32. Post-Pilot Feedback Process
+
+The post-pilot feedback process defines how Post-Pilot Feedback, Defect Register items, Observation Log entries, Enhancement Request items, Training Need findings, Governance Question items, Severity classification, Disposition decisions, Request ID references, SMS governance concerns, and Audit integrity observations are reviewed after Pilot Execution.
+
+See [Post-Pilot Feedback and Defect Register](post-pilot-feedback-and-defect-register.md).
+
+## 33. Normal Operating Procedures
 
 ### Procedure 01 — Login and Session Verification
 
@@ -562,7 +569,7 @@ Steps: Open Pilot Deployment Checklist, review required roles, complete checklis
 Expected Result: Pilot decision is recorded as Go, Go with limitations, No-Go, or rollback required.
 Records / Audit Evidence: Completed Pilot Deployment Checklist, Go / No-Go template, sign-off, and limitation record.
 
-## 33. Recommended SMS Operating Cycle
+## 34. Recommended SMS Operating Cycle
 
 Daily:
 
@@ -610,7 +617,7 @@ After committee meeting:
 - Generate reports/exports if required.
 - Record electronic approvals if required.
 
-## 34. Troubleshooting
+## 35. Troubleshooting
 
 | Issue | Symptom | Possible cause | User action | Admin / technical action |
 | --- | --- | --- | --- | --- |
@@ -630,7 +637,7 @@ After committee meeting:
 | Backup script fails | Backup command exits with error. | PostgreSQL credentials, path, missing tool, or permission issue. | Stop pilot readiness until backup is resolved. | Review backup script output, environment, storage path, and database connectivity. |
 | Restore script fails | Restore command exits with error or app does not start after restore. | Wrong backup, missing files, DB conflict, or permission issue. | Escalate to IT owner. | Review restore log, backup integrity, database state, evidence/report paths, and health endpoints. |
 
-## 35. Limitations
+## 36. Limitations
 
 - MVP / pilot release candidate.
 - Not a certified legal e-signature.
@@ -643,7 +650,7 @@ After committee meeting:
 - Manual UAT required before pilot use.
 - Operation Manual is draft for governance review.
 
-## 36. Release Readiness Notes
+## 37. Release Readiness Notes
 
 Before pilot use, confirm the User Acceptance Test Pack is complete, the Pilot Deployment Checklist has a recorded Go / No-Go decision, critical defects are closed, major defects are reviewed, backups are verified, permission boundaries are reviewed, and health/readiness diagnostics are available.
 
@@ -651,13 +658,13 @@ Before broader production use, company SMS, Quality, IT/cybersecurity, legal, da
 
 ### Release Package Reference
 
-Review [Release Notes v1.0](release-notes-v1.0.md), the [Version 1.0 Release Package Checklist](release-package-checklist.md), and the [Pilot Execution Support Pack](pilot-execution-support-pack.md) before creating the proposed pilot release tag or starting controlled pilot execution.
+Review [Release Notes v1.0](release-notes-v1.0.md), the [Version 1.0 Release Package Checklist](release-package-checklist.md), the [Pilot Execution Support Pack](pilot-execution-support-pack.md), and the [Post-Pilot Feedback and Defect Register](post-pilot-feedback-and-defect-register.md) before creating the proposed pilot release tag, starting controlled pilot execution, or converting pilot findings into follow-up tasks.
 
-## 37. Annex A — Procedure Index
+## 38. Annex A — Procedure Index
 
 See [operation-procedure-index.csv](templates/operation-procedure-index.csv) for a procedure tracking template covering Procedure 01 through Procedure 30.
 
-## 38. Annex B — Glossary
+## 39. Annex B — Glossary
 
 | Term | Definition |
 | --- | --- |
@@ -680,9 +687,11 @@ See [operation-procedure-index.csv](templates/operation-procedure-index.csv) for
 | Request ID | Identifier used to correlate requests with technical logs. |
 | UAT | User Acceptance Test. |
 | Pilot Deployment | Controlled limited-scope deployment before broader operational release. |
+| Post-Pilot Feedback | Controlled review of pilot findings after pilot execution. |
+| Disposition | Decision recorded against a defect, observation, feedback item, training action, governance action, or future task. |
 | No Hard Delete | Principle that governed SMS records are archived/inactivated rather than physically deleted. |
 
-## 39. Annex C — Related Documents
+## 40. Annex C — Related Documents
 
 - [Deployment Readiness Guide](deployment-readiness.md)
 - [Backup and Restore Procedure](backup-and-restore.md)
@@ -693,5 +702,6 @@ See [operation-procedure-index.csv](templates/operation-procedure-index.csv) for
 - [User Acceptance Test Pack](user-acceptance-test-pack.md)
 - [Pilot Deployment Checklist](pilot-deployment-checklist.md)
 - [Pilot Execution Support Pack](pilot-execution-support-pack.md)
+- [Post-Pilot Feedback and Defect Register](post-pilot-feedback-and-defect-register.md)
 - [Release Notes v1.0](release-notes-v1.0.md)
 - [Version 1.0 Release Package Checklist](release-package-checklist.md)

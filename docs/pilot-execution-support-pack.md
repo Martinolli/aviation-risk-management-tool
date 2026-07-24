@@ -222,6 +222,17 @@ Select one closeout recommendation:
 
 Record the rationale, unresolved issues, accepted limitations, and required governance approvals before changing pilot scope.
 
-## 15. SMS Governance Note
+## 15. Post-Pilot Feedback and Defect Register
+
+After Pilot Execution, pilot feedback should be consolidated using the post-pilot register. The Post-Pilot Feedback and Defect Register process controls how Pilot Feedback, defects, Observation Log entries, Enhancement Request items, Training Need findings, and Governance Question items are reviewed, prioritized, dispositioned, and converted into future work.
+
+Post-pilot support materials:
+
+- [Post-Pilot Feedback and Defect Register](post-pilot-feedback-and-defect-register.md)
+- [Post-Pilot Feedback Register](templates/post-pilot-feedback-register.csv)
+- [Post-Pilot Closeout Report Template](templates/post-pilot-closeout-report-template.md)
+- [Post-Pilot Task Backlog](templates/post-pilot-task-backlog.csv)
+
+## 16. SMS Governance Note
 
 The Pilot Execution Support Pack supports controlled pilot operation and feedback collection. It does not replace company SMS governance, Quality, IT/cybersecurity, legal, data protection, or airworthiness governance approval.

@@ -22,6 +22,8 @@ The Version 1.0 Package consolidates application status, governance documents, V
 
 Pilot execution support materials are included as post-release/pilot support documentation.
 
+Post-pilot feedback and defect register materials are available to control pilot findings and future releases.
+
 The release tag should be created only after final review of this package.
 
 ## 2. Release Classification
@@ -116,6 +118,7 @@ The release tag should be created only after final review of this package.
 - [UAT Pack](user-acceptance-test-pack.md).
 - [Pilot Deployment Checklist](pilot-deployment-checklist.md).
 - [Pilot Execution Support Pack](pilot-execution-support-pack.md).
+- [Post-Pilot Feedback and Defect Register](post-pilot-feedback-and-defect-register.md).
 - [Operation Manual](operation-manual.md).
 
 ### 3.9 Electronic Approval Concept
@@ -155,6 +158,7 @@ The release tag should be created only after final review of this package.
 | UAT Pack created | Complete | [User Acceptance Test Pack](user-acceptance-test-pack.md) |
 | Pilot Deployment Checklist created | Complete | [Pilot Deployment Checklist](pilot-deployment-checklist.md) |
 | Pilot execution support materials included | Complete | [Pilot Execution Support Pack](pilot-execution-support-pack.md) and pilot feedback, defect register, and daily log templates |
+| Post-pilot feedback materials included | Complete | [Post-Pilot Feedback and Defect Register](post-pilot-feedback-and-defect-register.md) and post-pilot register, closeout report, and backlog templates |
 | Operation Manual created | Complete | [Operation Manual / User Guide](operation-manual.md) |
 | Release version metadata | Complete | Backend readiness and frontend footer expose `v1.0.0-pilot` safely. |
 
@@ -184,6 +188,7 @@ GitHub Actions result: TBD
 - Task 095 Operation Manual / User Guide.
 - Task 096 Release Notes and Version 1.0 Package.
 - Task 098 Pilot execution support materials.
+- Task 099 Post-pilot feedback and defect register.
 
 ## 6. Known Limitations
 

@@ -17,6 +17,7 @@ The system manages a risk from the initial Problem Description through hazard id
 - [User Acceptance Test Pack](docs/user-acceptance-test-pack.md)
 - [Pilot Deployment Checklist](docs/pilot-deployment-checklist.md)
 - [Pilot Execution Support Pack](docs/pilot-execution-support-pack.md)
+- [Post-Pilot Feedback and Defect Register](docs/post-pilot-feedback-and-defect-register.md)
 - [Operation Manual / User Guide](docs/operation-manual.md)
 - [Release Notes v1.0](docs/release-notes-v1.0.md)
 - [Version 1.0 Release Package Checklist](docs/release-package-checklist.md)
@@ -82,6 +83,16 @@ Pilot execution templates:
 - [Pilot feedback form CSV](docs/templates/pilot-feedback-form.csv)
 - [Pilot defect register CSV](docs/templates/pilot-defect-register.csv)
 - [Pilot daily log CSV](docs/templates/pilot-daily-log.csv)
+
+## Post-Pilot Feedback and Defect Register
+
+Use the [Post-Pilot Feedback and Defect Register](docs/post-pilot-feedback-and-defect-register.md) to classify pilot findings, assign Severity and Disposition, preserve Request ID references, and convert defects, observations, Enhancement Request items, Training Need findings, and Governance Question items into future work.
+
+Post-pilot templates:
+
+- [Post-pilot feedback register CSV](docs/templates/post-pilot-feedback-register.csv)
+- [Post-pilot closeout report template](docs/templates/post-pilot-closeout-report-template.md)
+- [Post-pilot task backlog CSV](docs/templates/post-pilot-task-backlog.csv)
 
 ## Operation Manual / User Guide
 
