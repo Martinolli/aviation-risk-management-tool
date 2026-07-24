@@ -107,6 +107,10 @@ This checklist covers:
 | DOC-008 | Documentation | Operation Manual available and reviewed for pilot users | Operation Manual / User Guide review record | Not Started |  |  |
 | DOC-009 | Documentation | Release Notes v1.0 reviewed | Release Notes v1.0 review record | Not Started |  |  |
 | DOC-010 | Documentation | Release Package Checklist reviewed | Version 1.0 Release Package Checklist review record | Not Started |  |  |
+| DOC-011 | Documentation | Pilot Execution Support Pack available | Pilot Execution Support Pack link or controlled copy reference | Not Started |  |  |
+| DOC-012 | Documentation | Pilot Feedback Form available | Pilot Feedback Form template link or controlled copy reference | Not Started |  |  |
+| DOC-013 | Documentation | Pilot Defect Register available | Defect Register template link or controlled copy reference | Not Started |  |  |
+| DOC-014 | Documentation | Pilot Daily Log available | Daily log template link or controlled copy reference | Not Started |  |  |
 
 Status values:
 
@@ -136,6 +140,15 @@ Decision values for `docs/templates/pilot-go-no-go-decision.csv`:
 - Go with limitations
 - No-Go
 - Blocked
+
+## Pilot Execution Support
+
+Before starting Pilot Execution, make the following controlled pilot support materials available to the Pilot Coordinator, pilot users, support owners, and Quality / Audit Reviewer:
+
+- [Pilot Execution Support Pack](pilot-execution-support-pack.md)
+- [Pilot Feedback Form](templates/pilot-feedback-form.csv)
+- [Pilot Defect Register](templates/pilot-defect-register.csv)
+- [Pilot Daily Log](templates/pilot-daily-log.csv)
 
 ## Pilot Deployment Steps
 

@@ -19,6 +19,7 @@ Related Documents:
 - [Electronic Approval Concept](electronic-approval-concept.md)
 - [User Acceptance Test Pack](user-acceptance-test-pack.md)
 - [Pilot Deployment Checklist](pilot-deployment-checklist.md)
+- [Pilot Execution Support Pack](pilot-execution-support-pack.md)
 
 ## 1. Introduction
 
@@ -650,7 +651,7 @@ Before broader production use, company SMS, Quality, IT/cybersecurity, legal, da
 
 ### Release Package Reference
 
-Review [Release Notes v1.0](release-notes-v1.0.md) and the [Version 1.0 Release Package Checklist](release-package-checklist.md) before creating the proposed pilot release tag.
+Review [Release Notes v1.0](release-notes-v1.0.md), the [Version 1.0 Release Package Checklist](release-package-checklist.md), and the [Pilot Execution Support Pack](pilot-execution-support-pack.md) before creating the proposed pilot release tag or starting controlled pilot execution.
 
 ## 37. Annex A — Procedure Index
 
@@ -691,5 +692,6 @@ See [operation-procedure-index.csv](templates/operation-procedure-index.csv) for
 - [Production Logging / Request ID](production-logging-and-monitoring.md)
 - [User Acceptance Test Pack](user-acceptance-test-pack.md)
 - [Pilot Deployment Checklist](pilot-deployment-checklist.md)
+- [Pilot Execution Support Pack](pilot-execution-support-pack.md)
 - [Release Notes v1.0](release-notes-v1.0.md)
 - [Version 1.0 Release Package Checklist](release-package-checklist.md)

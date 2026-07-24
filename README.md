@@ -16,6 +16,7 @@ The system manages a risk from the initial Problem Description through hazard id
 - [Production Logging and Error Monitoring Preparation](docs/production-logging-and-monitoring.md)
 - [User Acceptance Test Pack](docs/user-acceptance-test-pack.md)
 - [Pilot Deployment Checklist](docs/pilot-deployment-checklist.md)
+- [Pilot Execution Support Pack](docs/pilot-execution-support-pack.md)
 - [Operation Manual / User Guide](docs/operation-manual.md)
 - [Release Notes v1.0](docs/release-notes-v1.0.md)
 - [Version 1.0 Release Package Checklist](docs/release-package-checklist.md)
@@ -71,6 +72,16 @@ Pilot templates:
 - [Pilot deployment checklist CSV](docs/templates/pilot-deployment-checklist.csv)
 - [Pilot Go / No-Go decision CSV](docs/templates/pilot-go-no-go-decision.csv)
 - [Pilot rollback log CSV](docs/templates/pilot-rollback-log.csv)
+
+## Pilot Execution Support
+
+Use the [Pilot Execution Support Pack](docs/pilot-execution-support-pack.md) to brief pilot users, schedule controlled pilot sessions, capture Pilot Feedback, maintain the Defect Register, review the daily log, and support Go / No-Go closeout decisions.
+
+Pilot execution templates:
+
+- [Pilot feedback form CSV](docs/templates/pilot-feedback-form.csv)
+- [Pilot defect register CSV](docs/templates/pilot-defect-register.csv)
+- [Pilot daily log CSV](docs/templates/pilot-daily-log.csv)
 
 ## Operation Manual / User Guide
 

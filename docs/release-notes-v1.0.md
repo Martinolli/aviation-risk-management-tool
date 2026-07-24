@@ -20,6 +20,8 @@ This release provides a structured SMS risk management workflow supporting risk 
 
 The Version 1.0 Package consolidates application status, governance documents, Validation Evidence placeholders, Known Limitations, Go / No-Go dependencies, open items, recommended next steps, and the proposed tagging plan for review.
 
+Pilot execution support materials are included as post-release/pilot support documentation.
+
 The release tag should be created only after final review of this package.
 
 ## 2. Release Classification
@@ -113,6 +115,7 @@ The release tag should be created only after final review of this package.
 - [Production Logging and Monitoring Guide](production-logging-and-monitoring.md).
 - [UAT Pack](user-acceptance-test-pack.md).
 - [Pilot Deployment Checklist](pilot-deployment-checklist.md).
+- [Pilot Execution Support Pack](pilot-execution-support-pack.md).
 - [Operation Manual](operation-manual.md).
 
 ### 3.9 Electronic Approval Concept
@@ -151,6 +154,7 @@ The release tag should be created only after final review of this package.
 | Frontend Vite preview smoke | TBD | GitHub Actions result: TBD |
 | UAT Pack created | Complete | [User Acceptance Test Pack](user-acceptance-test-pack.md) |
 | Pilot Deployment Checklist created | Complete | [Pilot Deployment Checklist](pilot-deployment-checklist.md) |
+| Pilot execution support materials included | Complete | [Pilot Execution Support Pack](pilot-execution-support-pack.md) and pilot feedback, defect register, and daily log templates |
 | Operation Manual created | Complete | [Operation Manual / User Guide](operation-manual.md) |
 | Release version metadata | Complete | Backend readiness and frontend footer expose `v1.0.0-pilot` safely. |
 
@@ -179,6 +183,7 @@ GitHub Actions result: TBD
 - Task 094 Pilot Deployment Checklist.
 - Task 095 Operation Manual / User Guide.
 - Task 096 Release Notes and Version 1.0 Package.
+- Task 098 Pilot execution support materials.
 
 ## 6. Known Limitations
 
